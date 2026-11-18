@@ -29,6 +29,11 @@ class EvidenceVaultTest extends TestCase
         $resp->assertSee('Exhibit Log');
         $resp->assertSee('/Evidence_Management/vault');
 
+        // When pending exhibit count is 0, sidebar badge number is not displayed
+        $this->assertEquals(0, Exhibit::countPendingQrOrClassification());
+        $resp->assertDontSee('sidebarExhibitLogBadge">0<', false);
+        $resp->assertSee('sidebarExhibitLogBadge" class="hidden', false);
+
         // Also check on Evidence Management dashboard
         $respDash = $this->actingAs($officer)->get('/Evidence_Management');
         $respDash->assertStatus(200);

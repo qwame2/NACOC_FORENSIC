@@ -1304,6 +1304,10 @@
           <span>Exhibit Vault</span>
           @if($vaultPendingBadge > 0)<span class="nb animate-pulse" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $vaultPendingBadge }}</span>@endif
         </a>
+        <a href="{{ url('/Evidence_Management/chain-of-custody', [], false) }}" class="nav-link">
+          <i data-lucide="link" style="width:15px;height:15px;"></i>
+          <span>Chain of Custody</span>
+        </a>
         @endif
         @php
           $shellUnitContext = $cfg['userUnit'] ?? request()->path();
@@ -1426,6 +1430,10 @@
           <i data-lucide="archive" style="width:16px;height:16px;"></i>
           <span>Exhibit Vault</span>
           @if($vaultPendingBadge > 0)<span class="nb animate-pulse" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $vaultPendingBadge }}</span>@endif
+        </a>
+        <a href="{{ url('/Evidence_Management/chain-of-custody', [], false) }}" class="mobile-nav-link">
+          <i data-lucide="link" style="width:16px;height:16px;"></i>
+          <span>Chain of Custody</span>
         </a>
         @endif
         <a @if($canShellGenerateReports) href="{{ $reportUrl }}" @endif

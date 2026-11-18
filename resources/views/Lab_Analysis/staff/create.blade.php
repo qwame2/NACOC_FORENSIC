@@ -1815,6 +1815,8 @@
                                 </div>
                             </div>
 
+                            @include('partials.incident_location_picker')
+
                             <!-- ROW: BRIEF FACTS/ CHARGE DESCRIPTION UNDERNEATH -->
                             <div class="mt-5">
                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -8949,6 +8951,8 @@
                 dependents: noSuspectMode ? 'N/A' : childrenText,
                 offense: noSuspectMode ? null : offense,
                 raid_location: raidLocation,
+                latitude: document.getElementById('incidentLatitude')?.value || null,
+                longitude: document.getElementById('incidentLongitude')?.value || null,
                 holding_facility: noSuspectMode ? null : facility,
                 exhibit_category: exhibitCat,
                 exhibits_summary: seizureSummary,
@@ -9071,6 +9075,8 @@
                         // Offence & Arrest Details
                         operation_code: noSuspectMode ? null : (document.getElementById('operationTypeSelect')?.value || ref),
                         raid_location: raidLocation,
+                        latitude: document.getElementById('incidentLatitude')?.value || null,
+                        longitude: document.getElementById('incidentLongitude')?.value || null,
                         offense_description: noSuspectMode ? null : offense,
                         arrest_date: noSuspectMode ? null : (document.getElementById('newArrestedDate')?.value || null),
                         arrest_time: noSuspectMode ? null : (document.getElementById('newArrestedTime')?.value || null),

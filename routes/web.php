@@ -19,6 +19,7 @@ use App\Http\Controllers\PersonnelRosterController;
 use App\Http\Controllers\FieldOfficersController;
 use App\Http\Controllers\NotificationsController;
 use App\Http\Controllers\UnitPermissionsController;
+use App\Http\Controllers\GeocodingController;
 use App\Models\User;
 use App\Models\ForensicCase;
 use App\Http\Middleware\EnsureHeadOfficer;
@@ -218,19 +219,27 @@ Route::middleware(['auth'])->group(function () {
     });
 
     Route::get('/Lab_Analysis/history', function (\Illuminate\Http\Request $request) {
-        return redirect()->to('/history?unit=Lab+Analysis&' . http_build_query($request->except('unit')));
+        $extra = http_build_query($request->except('unit'));
+        return redirect()->to('/history?unit=Lab+Analysis' . ($extra ? '&' . $extra : ''));
     });
 
     Route::get('/Evidence_Management/history', function (\Illuminate\Http\Request $request) {
-        return redirect()->to('/history?unit=Evidence+Management&' . http_build_query($request->except('unit')));
+        $extra = http_build_query($request->all());
+        return redirect()->to('/Evidence_Management/chain-of-custody' . ($extra ? '?' . $extra : ''));
     });
 
+    Route::get('/Evidence_Management/chain-of-custody', [EvidenceManagementController::class, 'chainOfCustody'])->name('evidence_management.chain_of_custody');
+
+    Route::get('/evidence-management/chain-of-custody', [EvidenceManagementController::class, 'chainOfCustody']);
+
     Route::get('/Digital_Forensics/history', function (\Illuminate\Http\Request $request) {
-        return redirect()->to('/history?unit=Digital+%26+Physical+Forensics&' . http_build_query($request->except('unit')));
+        $extra = http_build_query($request->except('unit'));
+        return redirect()->to('/history?unit=Digital+%26+Physical+Forensics' . ($extra ? '&' . $extra : ''));
     });
 
     Route::get('/Forensic_Head/history', function (\Illuminate\Http\Request $request) {
-        return redirect()->to('/history?unit=All+Units&' . http_build_query($request->except('unit')));
+        $extra = http_build_query($request->except('unit'));
+        return redirect()->to('/history?unit=All+Units' . ($extra ? '&' . $extra : ''));
     });
 
     $handleCasesLanding = function (\Illuminate\Http\Request $request) {
@@ -297,6 +306,8 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/api/cases', [CaseController::class, 'index']);
     Route::post('/api/cases/check-duplicate-suspect', [CaseController::class, 'checkDuplicateSuspect']);
     Route::post('/api/cases/check-duplicate-case', [CaseController::class, 'checkDuplicateCase']);
+    Route::get('/api/geocode', [GeocodingController::class, 'search'])->name('api.geocode');
+    Route::get('/api/geocode/reverse', [GeocodingController::class, 'reverse'])->name('api.geocode.reverse');
     Route::get('/cases/{id}/review', [CaseController::class, 'showReview'])->name('cases.review');
     Route::get('/Lab_Analysis/cases/{id}/review', [LabAnalysisCaseController::class, 'showReview'])->name('lab.cases.review');
     Route::get('/Digital_Forensics/cases/{id}/review', [DigitalForensicsCaseController::class, 'showReview'])->name('digital.cases.review');

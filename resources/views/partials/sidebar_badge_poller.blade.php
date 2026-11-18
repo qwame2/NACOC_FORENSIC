@@ -61,8 +61,10 @@
                                 badge.classList.remove('hidden');
                                 badge.style.display = 'inline-flex';
                             } else {
-                                badge.className = 'ml-auto bg-emerald-500/15 text-emerald-800 font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold';
-                                badge.title = '0 exhibit(s) pending QR code or classification';
+                                badge.className = 'hidden ml-auto font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold';
+                                badge.title = '';
+                                badge.classList.add('hidden');
+                                badge.style.display = 'none';
                             }
                         });
                     }

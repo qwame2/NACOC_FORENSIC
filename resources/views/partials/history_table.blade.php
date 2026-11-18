@@ -70,6 +70,18 @@
                                                 <span class="truncate">{{ $c->seizure_name_drug ?: ($c->seizure_name ?: ($c->exhibits_summary ?: 'Seized Commodity')) }}</span>
                                             </div>
                                             <div class="text-[10px] text-slate-500 font-mono-code mt-0.5">{{ $sSeizures }} Seizure Item(s) Logged</div>
+                                            @php
+                                                $cocTrail = $c->chain_of_custody ?? ($dData['seizures'][0]['chain_of_custody'] ?? null);
+                                                if (empty($cocTrail) && method_exists($c, 'exhibits') && $c->exhibits) {
+                                                    $cocTrail = $c->exhibits->firstWhere('chain_of_custody', '!=', null)?->chain_of_custody;
+                                                }
+                                            @endphp
+                                            @if(!empty($cocTrail))
+                                                <div class="text-[10px] text-teal-800 bg-teal-50 border border-teal-200 rounded px-1.5 py-0.5 mt-1 flex items-center gap-1 font-mono-code truncate" title="Chain of Custody: {{ $cocTrail }}">
+                                                    <svg class="w-3 h-3 text-teal-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+                                                    <span class="truncate font-semibold">{{ $cocTrail }}</span>
+                                                </div>
+                                            @endif
                                         </td>
 
                                         <!-- OFFICER -->

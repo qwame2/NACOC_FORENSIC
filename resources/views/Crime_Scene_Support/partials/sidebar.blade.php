@@ -196,10 +196,15 @@
                 @if($isEvidenceContext)
                 <!-- EXHIBIT LOGS (EVIDENCE MANAGEMENT UNIT ONLY) -->
                 @php
-                    $isVaultActive = request()->is('Evidence_Management/vault*') || 
+                    $isChainOfCustodyActive = request()->is('Evidence_Management/chain-of-custody*') || 
+                                              request()->is('evidence-management/chain-of-custody*') || 
+                                              request()->is('Evidence_Management/history*') || 
+                                              request()->is('evidence-management/history*') || 
+                                              (request()->is('history*') && (request()->query('unit') === 'Evidence Management' || str_contains(strtolower(request()->query('unit') ?? ''), 'evidence')));
+                    $isVaultActive = (request()->is('Evidence_Management/vault*') || 
                                      request()->is('evidence-management/vault*') || 
                                      request()->is('*exhibit-vault*') || 
-                                     request()->is('vault*');
+                                     request()->is('vault*')) && !$isChainOfCustodyActive;
                 @endphp
                 <a href="{{ url('/Evidence_Management/vault') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isVaultActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isVaultActive ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,9 +214,21 @@
                     @php
                         $vaultExhibitsBadge = \App\Models\Exhibit::countPendingQrOrClassification();
                     @endphp
-                    <span id="sidebarExhibitLogBadge" class="ml-auto {{ $vaultExhibitsBadge > 0 ? 'bg-red-600 text-white border border-red-400 animate-pulse shadow-xs' : ($isVaultActive ? 'bg-white/20 text-white' : 'bg-emerald-500/15 text-emerald-800') }} font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold" title="{{ $vaultExhibitsBadge }} exhibit(s) pending QR code or classification">
-                        {{ $vaultExhibitsBadge }}
-                    </span>
+                    @if($vaultExhibitsBadge > 0)
+                        <span id="sidebarExhibitLogBadge" class="ml-auto bg-red-600 text-white border border-red-400 animate-pulse shadow-xs font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold" title="{{ $vaultExhibitsBadge }} exhibit(s) pending QR code or classification">
+                            {{ $vaultExhibitsBadge }}
+                        </span>
+                    @else
+                        <span id="sidebarExhibitLogBadge" class="hidden ml-auto font-mono-code text-[10px] px-2 py-0.5 rounded-full font-bold" style="display: none !important;"></span>
+                    @endif
+                </a>
+
+                <!-- CHAIN OF CUSTODY (EVIDENCE MANAGEMENT UNIT ONLY) -->
+                <a href="{{ url('/Evidence_Management/chain-of-custody', [], false) }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isChainOfCustodyActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isChainOfCustodyActive ? 'text-white' : 'text-teal-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
+                    </svg>
+                    <span class="text-xs flex-1">Chain of Custody</span>
                 </a>
                 @endif
 

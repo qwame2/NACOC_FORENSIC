@@ -126,7 +126,7 @@
                 @include('partials.flash')
 
                 <!-- LIVE AJAX NOTIFICATION BANNER (FALLBACK IF FLASH TOAST NOT PRESENT) -->
-                <div id="permissionsFeedbackBanner" class="hidden rounded-2xl bg-white shadow-sm px-5 py-3.5 text-xs font-semibold flex items-center justify-between gap-3" role="status" aria-live="polite">
+                <div id="permissionsFeedbackBanner" class="hidden rounded-2xl bg-white border border-slate-200/90 shadow-sm px-5 py-3.5 text-xs font-semibold flex items-center justify-between gap-3 text-slate-800" role="status" aria-live="polite">
                     <div class="flex items-center gap-2.5">
                         <span id="permissionsFeedbackIcon" class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center shrink-0" aria-hidden="true">
                             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

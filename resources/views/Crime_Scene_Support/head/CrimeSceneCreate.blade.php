@@ -1253,6 +1253,8 @@
                                 </div>
                             </div>
 
+                            @include('partials.incident_location_picker')
+
                             <!-- ROW: BRIEF FACTS/ CHARGE DESCRIPTION UNDERNEATH -->
                             <div class="mt-5">
                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -4068,10 +4070,6 @@
                 }
                 if (/\.(jpg|jpeg|png|webp|gif|bmp)(\?.*)?$/i.test(s)) {
                     return s;
-                }
-                return null;
-            };
-
                         const lbl = lblEl?.value?.trim() || (pIdx === 0 ? 'Primary' : 'Alternate');
                         if (num) {
                             coSuspectPhones.push({
@@ -4968,6 +4966,8 @@
                 dependents: childrenText,
                 offense: offense,
                 raid_location: raidLocation,
+                latitude: document.getElementById('incidentLatitude')?.value || null,
+                longitude: document.getElementById('incidentLongitude')?.value || null,
                 holding_facility: facility,
                 exhibit_category: exhibitCat,
                 exhibits_summary: seizureSummary,
@@ -5057,6 +5057,8 @@
                     // Offence & Arrest Details
                     operation_code: noSuspectMode ? null : (document.getElementById('operationTypeSelect')?.value || ref),
                     raid_location: noSuspectMode ? (primarySeizure.seizure_location || 'Crime Scene') : raidLocation,
+                    latitude: document.getElementById('incidentLatitude')?.value || null,
+                    longitude: document.getElementById('incidentLongitude')?.value || null,
                     offense_description: noSuspectMode ? 'Seized exhibit logged without suspect.' : offense,
                     arrest_date: noSuspectMode ? (primarySeizure.seizure_date || null) : (document.getElementById('newArrestedDate')?.value || null),
                     arrest_time: noSuspectMode ? (primarySeizure.seizure_time || null) : (document.getElementById('newArrestedTime')?.value || null),

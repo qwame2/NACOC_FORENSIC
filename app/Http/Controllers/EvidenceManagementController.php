@@ -18,6 +18,173 @@ use Illuminate\Support\Str;
 class EvidenceManagementController extends Controller
 {
     /**
+     * Display the dedicated Chain of Custody master register and exhibit custody movements.
+     */
+    public function chainOfCustody(Request $request)
+    {
+        $this->syncMissingCaseExhibits();
+
+        $search = trim($request->input('search', ''));
+        $custodialStatus = trim($request->input('custodial_status', 'all'));
+        $category = trim($request->input('category', 'all'));
+        $fromDate = $request->input('from_date');
+        $toDate = $request->input('to_date');
+        $sort = trim($request->input('sort', 'newest'));
+        $perPage = (int) $request->input('per_page', 15);
+        if ($perPage < 5) $perPage = 15;
+        if ($perPage > 100) $perPage = 100;
+
+        $query = Exhibit::with([
+            'singleSuspectCase',
+            'multipleSuspectCase.suspects',
+            'suspect',
+            'labResult'
+        ]);
+
+        // Search across exhibit details, custody pathway, officer names, case info, and suspects
+        if ($search !== '') {
+            $query->where(function ($q) use ($search) {
+                $q->where('chain_of_custody', 'LIKE', "%{$search}%")
+                  ->orWhere('exhibit_number', 'LIKE', "%{$search}%")
+                  ->orWhere('property_id', 'LIKE', "%{$search}%")
+                  ->orWhere('lab_exhibit_no', 'LIKE', "%{$search}%")
+                  ->orWhere('commodity_name', 'LIKE', "%{$search}%")
+                  ->orWhere('contents', 'LIKE', "%{$search}%")
+                  ->orWhere('description_of_exhibits', 'LIKE', "%{$search}%")
+                  ->orWhere('seizure_officer', 'LIKE', "%{$search}%")
+                  ->orWhere('investigating_officer', 'LIKE', "%{$search}%")
+                  ->orWhere('source_requesting_unit', 'LIKE', "%{$search}%")
+                  ->orWhere('source_of_exhibits', 'LIKE', "%{$search}%")
+                  ->orWhere('seizure_location', 'LIKE', "%{$search}%")
+                  ->orWhereHas('singleSuspectCase', function ($sub) use ($search) {
+                      $sub->where('case_number', 'LIKE', "%{$search}%")
+                          ->orWhere('title', 'LIKE', "%{$search}%")
+                          ->orWhere('suspect_name', 'LIKE', "%{$search}%")
+                          ->orWhere('arresting_officer', 'LIKE', "%{$search}%");
+                  })
+                  ->orWhereHas('multipleSuspectCase', function ($sub) use ($search) {
+                      $sub->where('case_number', 'LIKE', "%{$search}%")
+                          ->orWhere('title', 'LIKE', "%{$search}%")
+                          ->orWhereHas('suspects', function ($susQuery) use ($search) {
+                              $susQuery->where('suspect_name', 'LIKE', "%{$search}%");
+                          });
+                  })
+                  ->orWhereHas('suspect', function ($sub) use ($search) {
+                      $sub->where('suspect_name', 'LIKE', "%{$search}%");
+                  });
+            });
+        }
+
+        // Custodial Status filter
+        if ($custodialStatus !== 'all' && $custodialStatus !== '') {
+            $query->where('custodial_status', $custodialStatus);
+        }
+
+        // Category filter
+        if ($category !== 'all' && $category !== '') {
+            $catLower = strtolower($category);
+            if (str_contains($catLower, 'drug') || str_contains($catLower, 'narcotic')) {
+                $query->where(function ($q) {
+                    $q->where('exhibit_category', 'LIKE', '%drug%')
+                      ->orWhere('exhibit_category', 'LIKE', '%narcotic%')
+                      ->orWhereNotNull('drug_classification');
+                });
+            } elseif (str_contains($catLower, 'weapon') || str_contains($catLower, 'firearm')) {
+                $query->where(function ($q) {
+                    $q->where('exhibit_category', 'LIKE', '%weapon%')
+                      ->orWhere('exhibit_category', 'LIKE', '%firearm%')
+                      ->orWhereNotNull('wpn_model')
+                      ->orWhereNotNull('wpn_serial_no');
+                });
+            } elseif (str_contains($catLower, 'vehic') || str_contains($catLower, 'car')) {
+                $query->where(function ($q) {
+                    $q->where('exhibit_category', 'LIKE', '%vehic%')
+                      ->orWhereNotNull('veh_make')
+                      ->orWhereNotNull('veh_reg_no');
+                });
+            } elseif (str_contains($catLower, 'devic') || str_contains($catLower, 'electron')) {
+                $query->where(function ($q) {
+                    $q->where('exhibit_category', 'LIKE', '%devic%')
+                      ->orWhere('exhibit_category', 'LIKE', '%electron%')
+                      ->orWhereNotNull('dev_model')
+                      ->orWhereNotNull('dev_imei1');
+                });
+            } elseif (str_contains($catLower, 'money') || str_contains($catLower, 'cash') || str_contains($catLower, 'curr')) {
+                $query->where(function ($q) {
+                    $q->where('exhibit_category', 'LIKE', '%money%')
+                      ->orWhere('exhibit_category', 'LIKE', '%cash%')
+                      ->orWhere('exhibit_category', 'LIKE', '%currency%')
+                      ->orWhere('commodity_name', 'LIKE', '%cash%')
+                      ->orWhere('commodity_name', 'LIKE', '%currency%');
+                });
+            } else {
+                $query->where('exhibit_category', $category);
+            }
+        }
+
+        // Date range filters
+        if (!empty($fromDate)) {
+            $query->whereDate('created_at', '>=', $fromDate);
+        }
+        if (!empty($toDate)) {
+            $query->whereDate('created_at', '<=', $toDate);
+        }
+
+        // Sort order
+        switch ($sort) {
+            case 'oldest':
+                $query->orderBy('created_at', 'asc')->orderBy('id', 'asc');
+                break;
+            case 'exhibit_no':
+                $query->orderBy('exhibit_number', 'asc');
+                break;
+            case 'status':
+                $query->orderBy('custodial_status', 'asc');
+                break;
+            case 'newest':
+            default:
+                $query->orderBy('created_at', 'desc')->orderBy('id', 'desc');
+                break;
+        }
+
+        $exhibits = $query->paginate($perPage)->withQueryString();
+
+        // High-level telemetry stats across all exhibits
+        $totalCustodyCount = Exhibit::count();
+        $inVaultCount = Exhibit::where(function ($q) {
+            $q->where('custodial_status', 'In Vault Custody')
+              ->orWhere('custodial_status', 'Seized')
+              ->orWhereNull('custodial_status');
+        })->count();
+        $transferredCount = Exhibit::whereIn('custodial_status', ['Transferred', 'Under Laboratory Analysis', 'Court Evidence'])->count();
+        $releasedCount = Exhibit::whereIn('custodial_status', ['Released', 'Scheduled for Destruction'])->count();
+        $withExplicitCocCount = Exhibit::whereNotNull('chain_of_custody')->where('chain_of_custody', '!=', '')->count();
+
+        if ($request->ajax() || $request->wantsJson() || $request->has('ajax') || $request->header('X-Requested-With') === 'XMLHttpRequest') {
+            return view('Evidence_Management.partials.chain_of_custody_table', compact(
+                'exhibits',
+                'search',
+                'custodialStatus',
+                'category',
+                'sort'
+            ));
+        }
+
+        return view('Evidence_Management.chain_of_custody', compact(
+            'exhibits',
+            'totalCustodyCount',
+            'inVaultCount',
+            'transferredCount',
+            'releasedCount',
+            'withExplicitCocCount',
+            'search',
+            'custodialStatus',
+            'category',
+            'sort'
+        ));
+    }
+
+    /**
      * Display the Central Exhibit Vault showing all exhibits and associated suspects.
      */
     public function vault(Request $request)
@@ -1002,10 +1169,34 @@ class EvidenceManagementController extends Controller
                                 'seizure_reason'           => $sz['seizure_reason'] ?? null,
                                 'source_of_exhibits'       => $sz['source_of_exhibits'] ?? null,
                                 'exhibit_remark'           => $sz['exhibit_remark'] ?? null,
-                                'chain_of_custody'         => $sz['chain_of_custody'] ?? null,
+                                'chain_of_custody'         => $sz['chain_of_custody'] ?? 'Incident Scene ➔ Central Evidence Vault',
                                 'lab_remark'               => $sz['lab_remark'] ?? $sc->confirmatory_remark,
                             ]);
                         }
+                    } else {
+                        // Fallback: create exhibit from case details so it is tracked in Chain of Custody
+                        $cat = $sc->exhibit_category ?? 'General';
+                        $name = $sc->commodity_name ?? ($sc->description_of_exhibits ?? ($sc->title ?? 'Case Exhibit'));
+                        Exhibit::create([
+                            'case_type'                => 'SINGLE',
+                            'single_suspect_case_id'   => $sc->id,
+                            'multiple_suspect_case_id' => $promotedMulti ? $promotedMulti->id : null,
+                            'suspect_id'               => null,
+                            'associated_person'        => $sc->suspect_name,
+                            'exhibit_number'           => 'EXH-' . str_pad($sc->id, 5, '0', STR_PAD_LEFT),
+                            'lab_exhibit_no'           => 'A',
+                            'property_id'              => 'PROP-' . date('Y') . '-' . str_pad($sc->id, 4, '0', STR_PAD_LEFT),
+                            'exhibit_category'         => $cat,
+                            'commodity_name'           => $name,
+                            'custodial_status'         => 'Seized',
+                            'chain_of_custody'         => 'Incident Scene ➔ Central Evidence Vault',
+                            'seizure_date'             => $sc->incident_date ?? date('Y-m-d'),
+                            'seizure_officer'          => $sc->arresting_officer ?? 'Investigating Officer',
+                            'investigating_officer'    => $sc->investigating_officer ?? null,
+                            'source_requesting_unit'   => 'Crime Scene Support',
+                            'source_of_exhibits'       => $sc->raid_location ?? 'Incident Location',
+                            'description_of_exhibits'  => $sc->description_of_exhibits ?? $name,
+                        ]);
                     }
                 }
             }
@@ -1068,13 +1259,42 @@ class EvidenceManagementController extends Controller
                                 'seizure_reason'           => $sz['seizure_reason'] ?? null,
                                 'source_of_exhibits'       => $sz['source_of_exhibits'] ?? null,
                                 'exhibit_remark'           => $sz['exhibit_remark'] ?? null,
-                                'chain_of_custody'         => $sz['chain_of_custody'] ?? null,
+                                'chain_of_custody'         => $sz['chain_of_custody'] ?? 'Incident Scene ➔ Central Evidence Vault',
                                 'lab_remark'               => $sz['lab_remark'] ?? $mc->confirmatory_remark,
                             ]);
                         }
+                    } else {
+                        $cat = $mc->exhibit_category ?? 'General';
+                        $name = $mc->commodity_name ?? ($mc->description_of_exhibits ?? ($mc->title ?? 'Case Exhibit'));
+                        $firstSus = $mc->suspects->first();
+                        Exhibit::create([
+                            'case_type'                => 'MULTIPLE',
+                            'single_suspect_case_id'   => null,
+                            'multiple_suspect_case_id' => $mc->id,
+                            'suspect_id'               => $firstSus ? $firstSus->id : null,
+                            'associated_person'        => $firstSus ? $firstSus->suspect_name : 'All Suspects',
+                            'exhibit_number'           => 'EXH-' . str_pad($mc->id, 5, '0', STR_PAD_LEFT),
+                            'lab_exhibit_no'           => 'A',
+                            'property_id'              => 'PROP-' . date('Y') . '-' . str_pad($mc->id, 4, '0', STR_PAD_LEFT),
+                            'exhibit_category'         => $cat,
+                            'commodity_name'           => $name,
+                            'custodial_status'         => 'Seized',
+                            'chain_of_custody'         => 'Incident Scene ➔ Central Evidence Vault',
+                            'seizure_date'             => $mc->incident_date ?? date('Y-m-d'),
+                            'seizure_officer'          => $mc->submitting_officer ?? 'Investigating Officer',
+                            'investigating_officer'    => $mc->investigating_officer ?? null,
+                            'source_requesting_unit'   => 'Crime Scene Support',
+                            'source_of_exhibits'       => $mc->raid_location ?? 'Incident Location',
+                            'description_of_exhibits'  => $mc->description_of_exhibits ?? $name,
+                        ]);
                     }
                 }
             }
+
+            Exhibit::whereNull('chain_of_custody')->orWhere('chain_of_custody', '')->each(function ($ex) {
+                $ex->chain_of_custody = $ex->resolved_chain_of_custody;
+                $ex->save();
+            });
         } catch (\Throwable $e) {
             Log::warning('Exhibit vault auto-sync note: ' . $e->getMessage());
         }

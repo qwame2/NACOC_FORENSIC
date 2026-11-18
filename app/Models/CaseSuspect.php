@@ -46,6 +46,8 @@ class CaseSuspect extends Model
         'dependents',
         'holding_facility',
         'raid_location',
+        'latitude',
+        'longitude',
         'offense_description',
         'arrest_date',
         'arrest_time',

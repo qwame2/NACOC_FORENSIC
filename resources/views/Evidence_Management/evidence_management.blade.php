@@ -23,7 +23,7 @@
             ['label' => 'Exhibit Vault',          'url' => url('/Evidence_Management/vault'),         'icon' => 'archive',        'active' => false, 'badge' => $vaultPendingBtnBadge],
             ['label' => 'Exhibit Lodgement (New)','url' => url('/Evidence_Management/create'),        'icon' => 'package-plus',   'active' => false],
             ['label' => 'Vault Case Directory',   'url' => url('/cases?from=Evidence+Management'),    'icon' => 'folder-search',  'active' => false],
-            ['label' => 'Chain of Custody Logs',  'url' => url('/history?unit=Evidence+Management'),  'icon' => 'history',        'active' => false],
+            ['label' => 'Chain of Custody',       'url' => url('/Evidence_Management/chain-of-custody'), 'icon' => 'history',        'active' => false],
             ['label' => 'Vault Audit Report',     'url' => url('/Evidence_Management/report'),        'icon' => 'file-text',      'active' => false],
         ],
     ];

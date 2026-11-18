@@ -46,22 +46,22 @@
              role="alert" 
              aria-live="assertive" 
              aria-atomic="true"
-             class="pointer-events-auto w-full rounded-2xl shadow-2xl border backdrop-blur-md overflow-hidden transition-all duration-300 transform translate-x-0 opacity-100 {{ $isError ? 'bg-slate-900/95 text-white border-rose-500/50 shadow-rose-950/30' : ($isWarning ? 'bg-slate-900/95 text-white border-amber-500/50 shadow-amber-950/30' : 'bg-slate-900/95 text-white border-emerald-500/40 shadow-emerald-950/30') }}"
+             class="pointer-events-auto w-full rounded-2xl shadow-xl border overflow-hidden transition-all duration-300 transform translate-x-0 opacity-100 {{ $isError ? 'bg-white text-slate-900 border-rose-200 shadow-rose-950/10' : ($isWarning ? 'bg-white text-slate-900 border-amber-200 shadow-amber-950/10' : 'bg-white text-slate-900 border-slate-200/90 shadow-slate-900/10') }}"
              style="pointer-events: auto; animation: flashSlideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;">
             
             <div class="p-4 flex items-start gap-3.5">
                 {{-- ICON --}}
                 <div class="shrink-0 mt-0.5">
                     @if ($isError)
-                        <div class="w-8 h-8 rounded-xl bg-rose-600/20 border border-rose-500/40 text-rose-400 flex items-center justify-center shadow-xs">
+                        <div class="w-8 h-8 rounded-xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shadow-xs">
                             <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                         </div>
                     @elseif ($isWarning)
-                        <div class="w-8 h-8 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 flex items-center justify-center shadow-xs">
+                        <div class="w-8 h-8 rounded-xl bg-amber-50 border border-amber-200 text-amber-600 flex items-center justify-center shadow-xs">
                             <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </div>
                     @else
-                        <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-xs">
+                        <div class="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center shadow-xs">
                             <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
                         </div>
                     @endif
@@ -69,24 +69,24 @@
 
                 {{-- CONTENT --}}
                 <div class="flex-1 min-w-0 pr-1">
-                    <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider {{ $isError ? 'text-rose-400' : ($isWarning ? 'text-amber-300' : 'text-emerald-400') }}">
+                    <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider {{ $isError ? 'text-rose-700' : ($isWarning ? 'text-amber-700' : 'text-emerald-700') }}">
                         <span>{{ $title }}</span>
                     </div>
 
                     @if ($statusMsg && !$isError)
-                        <div class="text-xs text-slate-200 font-sans mt-1 leading-snug font-medium">
+                        <div class="text-xs text-slate-700 font-sans mt-1 leading-snug font-medium">
                             {{ $statusMsg }}
                         </div>
                     @endif
 
                     @if (!empty($errorMsg))
-                        <div class="text-xs text-rose-100 font-sans mt-1 leading-snug font-medium">
+                        <div class="text-xs text-rose-800 font-sans mt-1 leading-snug font-medium">
                             {{ $errorMsg }}
                         </div>
                     @endif
 
                     @if (count($validationErrors) > 0)
-                        <ul class="text-xs text-rose-200/90 font-sans mt-1.5 space-y-1 font-medium list-disc list-inside">
+                        <ul class="text-xs text-rose-800 font-sans mt-1.5 space-y-1 font-medium list-disc list-inside">
                             @foreach ($validationErrors as $vErr)
                                 <li>{{ $vErr }}</li>
                             @endforeach
@@ -94,7 +94,7 @@
                     @endif
 
                     @if ($warningMsg)
-                        <div class="text-xs text-amber-200 font-sans mt-1 leading-snug font-medium">
+                        <div class="text-xs text-amber-800 font-sans mt-1 leading-snug font-medium">
                             {{ $warningMsg }}
                         </div>
                     @endif
@@ -103,14 +103,14 @@
                 {{-- DISMISS BUTTON --}}
                 <button type="button" 
                         onclick="dismissTopRightFlashToast()" 
-                        class="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 shrink-0 cursor-pointer"
+                        class="text-slate-400 hover:text-slate-700 transition-colors p-1 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer"
                         title="Dismiss notification">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
 
             {{-- PROGRESS TIMEOUT BAR --}}
-            <div class="w-full bg-slate-800/80 h-1 overflow-hidden">
+            <div class="w-full bg-slate-100 h-1 overflow-hidden">
                 <div id="flashProgressBar" class="h-full {{ $isError ? 'bg-rose-500' : ($isWarning ? 'bg-amber-400' : 'bg-emerald-500') }}" style="width: 100%; transition: width 6s linear;"></div>
             </div>
         </div>
@@ -183,17 +183,17 @@
 
             const toast = document.createElement('div');
             toast.id = toastId;
-            toast.className = `pointer-events-auto w-full rounded-2xl shadow-2xl border backdrop-blur-md overflow-hidden transition-all duration-300 transform translate-x-0 opacity-100 ${
-                isError ? 'bg-slate-900/95 text-white border-rose-500/50 shadow-rose-950/30' :
-                (isWarning ? 'bg-slate-900/95 text-white border-amber-500/50 shadow-amber-950/30' :
-                'bg-slate-900/95 text-white border-emerald-500/40 shadow-emerald-950/30')
+            toast.className = `pointer-events-auto w-full rounded-2xl shadow-xl border overflow-hidden transition-all duration-300 transform translate-x-0 opacity-100 ${
+                isError ? 'bg-white text-slate-900 border-rose-200 shadow-rose-950/10' :
+                (isWarning ? 'bg-white text-slate-900 border-amber-200 shadow-amber-950/10' :
+                'bg-white text-slate-900 border-slate-200/90 shadow-slate-900/10')
             }`;
             toast.style.cssText = 'pointer-events: auto; animation: flashSlideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;';
 
             toast.innerHTML = `
                 <div class="p-4 flex items-start gap-3.5">
                     <div class="shrink-0 mt-0.5">
-                        <div class="w-8 h-8 rounded-xl ${isError ? 'bg-rose-600/20 border border-rose-500/40 text-rose-400' : (isWarning ? 'bg-amber-500/20 border border-amber-500/40 text-amber-300' : 'bg-emerald-500/20 border border-emerald-500/40 text-emerald-400')} flex items-center justify-center shadow-xs">
+                        <div class="w-8 h-8 rounded-xl ${isError ? 'bg-rose-50 border border-rose-200 text-rose-600' : (isWarning ? 'bg-amber-50 border border-amber-200 text-amber-600' : 'bg-emerald-50 border border-emerald-200 text-emerald-600')} flex items-center justify-center shadow-xs">
                             ${isError 
                                 ? '<svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>'
                                 : (isWarning 
@@ -202,18 +202,18 @@
                         </div>
                     </div>
                     <div class="flex-1 min-w-0 pr-1">
-                        <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider ${isError ? 'text-rose-400' : (isWarning ? 'text-amber-300' : 'text-emerald-400')}">
+                        <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider ${isError ? 'text-rose-700' : (isWarning ? 'text-amber-700' : 'text-emerald-700')}">
                             <span>${finalTitle}</span>
                         </div>
-                        <div class="text-xs ${isError ? 'text-rose-100' : (isWarning ? 'text-amber-100' : 'text-slate-200')} font-sans mt-1 leading-snug font-medium">
+                        <div class="text-xs ${isError ? 'text-rose-800' : (isWarning ? 'text-amber-800' : 'text-slate-700')} font-sans mt-1 leading-snug font-medium">
                             ${message}
                         </div>
                     </div>
-                    <button type="button" onclick="dismissCustomFlashToast('${toastId}')" class="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 shrink-0 cursor-pointer" title="Dismiss">
+                    <button type="button" onclick="dismissCustomFlashToast('${toastId}')" class="text-slate-400 hover:text-slate-700 transition-colors p-1 rounded-lg hover:bg-slate-100 shrink-0 cursor-pointer" title="Dismiss">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                     </button>
                 </div>
-                <div class="w-full bg-slate-800/80 h-1 overflow-hidden">
+                <div class="w-full bg-slate-100 h-1 overflow-hidden">
                     <div id="bar_${toastId}" class="h-full ${isError ? 'bg-rose-500' : (isWarning ? 'bg-amber-400' : 'bg-emerald-500')}" style="width: 100%; transition: width 6s linear;"></div>
                 </div>
             `;

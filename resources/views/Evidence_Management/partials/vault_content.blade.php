@@ -89,10 +89,6 @@
                                                         • {{ $exhibit->exhibit_type }}
                                                     </span>
                                                 @endif
-                                                <span class="inline-flex items-center space-x-1 px-2 py-0.5 rounded-full text-[9px] font-mono-code font-bold uppercase bg-blue-50 text-blue-800 border border-blue-200 shadow-2xs" data-custodial-badge="{{ $exhibit->id }}" title="Live Dynamic Custodial Status">
-                                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                                                    <span class="custodial-status-text">{{ $exhibit->custodial_status ?: 'Seized' }}</span>
-                                                </span>
                                             </div>
 
                                             <div class="flex items-center space-x-1.5 shrink-0">
@@ -449,10 +445,6 @@
                                                         <div class="flex items-center space-x-1.5 flex-wrap gap-1">
                                                             <span class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase font-mono-code inline-block {{ $badgeClass }}">
                                                                 {{ $exhibit->exhibit_category ?: 'General' }}
-                                                            </span>
-                                                            <span class="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded-full text-[9px] font-mono-code font-bold uppercase bg-blue-50 text-blue-800 border border-blue-200" data-custodial-badge="{{ $exhibit->id }}" title="Live Custodial Status">
-                                                                <span class="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></span>
-                                                                <span class="custodial-status-text">{{ $exhibit->custodial_status ?: 'Seized' }}</span>
                                                             </span>
                                                         </div>
                                                         <div>

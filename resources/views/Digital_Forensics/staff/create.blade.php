@@ -1246,6 +1246,8 @@
                                 </div>
                             </div>
 
+                            @include('partials.incident_location_picker')
+
                             <!-- ROW: BRIEF FACTS/ CHARGE DESCRIPTION UNDERNEATH -->
                             <div class="mt-5">
                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -4590,8 +4592,6 @@
                 const wpnMarks = block.querySelector('#wpnMarks')?.value || '';
                 const wpnLocationFound = block.querySelector('#wpnLocationFound')?.value || '';
                 const wpnLoadedStatus = block.querySelector('#wpnLoadedStatus')?.value || '';
-                const wpnCondition = block.querySelector('#wpnCondition')?.value || '';
-
                 // Ammunition fields
                 const ammoCartridgeAppearance = block.querySelector('#ammoCartridgeAppearance')?.value || '';
                 const ammoProjectileType = block.querySelector('#ammoProjectileType')?.value || '';
@@ -4812,6 +4812,8 @@
                 dependents: childrenText,
                 offense: offense,
                 raid_location: raidLocation,
+                latitude: document.getElementById('incidentLatitude')?.value || null,
+                longitude: document.getElementById('incidentLongitude')?.value || null,
                 holding_facility: facility,
                 exhibit_category: exhibitCat,
                 exhibits_summary: seizureSummary,
@@ -4900,6 +4902,8 @@
                     // Offence & Arrest Details
                     operation_code: noSuspectMode ? null : (document.getElementById('operationTypeSelect')?.value || ref),
                     raid_location: raidLocation,
+                    latitude: document.getElementById('incidentLatitude')?.value || null,
+                    longitude: document.getElementById('incidentLongitude')?.value || null,
                     offense_description: noSuspectMode ? 'Seized exhibit logged without suspect.' : offense,
                     arrest_date: noSuspectMode ? null : (document.getElementById('newArrestedDate')?.value || null),
                     arrest_time: noSuspectMode ? null : (document.getElementById('newArrestedTime')?.value || null),

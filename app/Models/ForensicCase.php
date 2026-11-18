@@ -97,6 +97,8 @@ class ForensicCase extends Model
         $instance->operation_code_name = $record->operation_code_name ?? null;
         $instance->search_warrant_document = $record->search_warrant_document ?? null;
         $instance->raid_location = $record->raid_location ?? null;
+        $instance->latitude = $record->latitude ?? null;
+        $instance->longitude = $record->longitude ?? null;
         $instance->offense_description = $record->offense_description ?? null;
         $instance->description_of_exhibits = $record->description_of_exhibits ?? null;
         $casePriority = $record->priority;
@@ -1261,6 +1263,8 @@ class ForensicCase extends Model
                 'operation_code_name'  => $attributes['operation_code_name'] ?? null,
                 'search_warrant_document' => $attributes['search_warrant_document'] ?? null,
                 'raid_location'        => $attributes['raid_location'] ?? ($attributes['location'] ?? null),
+                'latitude'             => isset($attributes['latitude']) && is_numeric($attributes['latitude']) ? (float)$attributes['latitude'] : null,
+                'longitude'            => isset($attributes['longitude']) && is_numeric($attributes['longitude']) ? (float)$attributes['longitude'] : null,
                 'offense_description'  => $attributes['offense_description'] ?? ($attributes['description'] ?? null),
                 'description_of_exhibits' => $attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null),
                 'incident_date'        => $attributes['incident_date'] ?? now(),
@@ -1309,6 +1313,8 @@ class ForensicCase extends Model
                     'height_unit'              => $s['height_unit'] ?? null,
                     'holding_facility'         => $s['holding_facility'] ?? ($s['facility'] ?? ($attributes['holding_facility'] ?? null)),
                     'raid_location'            => $s['raid_location'] ?? ($s['location'] ?? ($attributes['raid_location'] ?? null)),
+                    'latitude'                 => isset($s['latitude']) && is_numeric($s['latitude']) ? (float)$s['latitude'] : (isset($attributes['latitude']) && is_numeric($attributes['latitude']) ? (float)$attributes['latitude'] : null),
+                    'longitude'                => isset($s['longitude']) && is_numeric($s['longitude']) ? (float)$s['longitude'] : (isset($attributes['longitude']) && is_numeric($attributes['longitude']) ? (float)$attributes['longitude'] : null),
                     'offense_description'      => $s['offense'] ?? ($s['offense_description'] ?? ($attributes['offense_description'] ?? null)),
                     'arrest_date'              => $s['date_of_arrest'] ?? ($s['arrest_date'] ?? ($attributes['arrest_date'] ?? null)),
                     'arrest_time'              => $s['time_of_arrest'] ?? ($s['arrest_time'] ?? ($attributes['arrest_time'] ?? null)),
@@ -1741,6 +1747,8 @@ class ForensicCase extends Model
             'operation_code_name'  => $attributes['operation_code_name'] ?? null,
             'search_warrant_document' => $attributes['search_warrant_document'] ?? null,
             'raid_location'        => $attributes['raid_location'] ?? ($attributes['location'] ?? null),
+            'latitude'             => isset($attributes['latitude']) && is_numeric($attributes['latitude']) ? (float)$attributes['latitude'] : null,
+            'longitude'            => isset($attributes['longitude']) && is_numeric($attributes['longitude']) ? (float)$attributes['longitude'] : null,
             'offense_description'  => $attributes['offense_description'] ?? ($attributes['description'] ?? null),
             'description_of_exhibits' => $attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null),
             'arrest_date'          => $attributes['arrest_date'] ?? null,
