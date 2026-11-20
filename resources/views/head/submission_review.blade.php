@@ -14,8 +14,8 @@
     };
 
     $statusLower = strtolower($submission->status ?? $case->status ?? 'pending');
-    $isPending = in_array($statusLower, ['pending', 'pending approval', 'submitted', 'rolled back', 'rollback requested']);
     $isRolledBack = in_array($statusLower, ['rolled back', 'rollback requested']);
+    $isPending = in_array($statusLower, ['pending', 'pending approval', 'submitted']);
 @endphp
 
 <!DOCTYPE html>
@@ -215,6 +215,7 @@
 </head>
 
 <body class="min-h-screen flex flex-col antialiased">
+    @include('partials.flash')
 
     <div class="flex h-screen overflow-hidden">
 
@@ -336,6 +337,30 @@
                                 <span>Approve &amp; Save Case</span>
                             </button>
                         </div>
+                        @elseif($isRolledBack)
+                        <div class="flex items-center gap-3 shrink-0 flex-wrap">
+                            <button type="button" disabled
+                                title="Case is currently rolled back to staff. Locked until staff completes corrections and resubmits."
+                                class="px-4 py-2.5 bg-slate-700/60 text-slate-400 text-xs font-extrabold rounded-xl shadow-none flex items-center gap-2 cursor-not-allowed border border-slate-600/60 opacity-60">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                <span>Case Rollback</span>
+                            </button>
+
+                            <button type="button" disabled
+                                title="Case is currently rolled back to staff. Locked until staff completes corrections and resubmits."
+                                class="px-5 py-2.5 bg-slate-700/60 text-slate-400 text-xs font-extrabold rounded-xl shadow-none flex items-center gap-2 cursor-not-allowed border border-slate-600/60 opacity-60">
+                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                </svg>
+                                <span>Approve &amp; Save Case</span>
+                            </button>
+
+                            <span class="text-amber-300 font-mono-code font-bold text-xs">
+                                Awaiting Staff Corrections
+                            </span>
+                        </div>
                         @else
                         <div class="flex items-center gap-3 shrink-0">
                             <span class="px-4 py-2 rounded-xl bg-gray-600 text-gray-200 text-xs font-mono-code border border-gray-500">
@@ -381,31 +406,31 @@
 
                 @if($isRolledBack && !empty($submission->rollback_corrections) && is_array($submission->rollback_corrections) && count($submission->rollback_corrections) > 0)
                 <!-- EXISTING ROLLBACK CORRECTIONS DISPLAY -->
-                <div class="p-5 rounded-2xl bg-amber-50 border-2 border-amber-300 shadow-sm space-y-3 mb-6">
+                <div class="p-5 rounded-2xl bg-green-100 shadow-sm space-y-3 mb-6 border-none">
                     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                         <div class="flex items-center gap-2.5">
-                            <div class="w-8 h-8 rounded-lg bg-amber-500 text-white flex items-center justify-center font-bold shrink-0">
+                            <div class="w-8 h-8 rounded-lg bg-green-700 text-white flex items-center justify-center font-bold shrink-0">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
                             </div>
                             <div>
-                                <h3 class="text-sm font-black text-amber-950">Active Case Rollback &mdash; Requested Corrections</h3>
-                                <p class="text-xs text-amber-800">Returned to {{ $submission->submitted_by_name ?? 'Staff Officer' }} on {{ optional($submission->rolled_back_at)->format('d M Y, H:i') }}</p>
+                                <h3 class="text-sm font-black text-green-950">Active Case Rollback &mdash; Requested Corrections</h3>
+                                <p class="text-xs text-green-800">Returned to {{ $submission->submitted_by_name ?? 'Staff Officer' }} on {{ optional($submission->rolled_back_at)->format('d M Y, H:i') }}</p>
                             </div>
                         </div>
-                        <span class="px-3 py-1 rounded-full bg-amber-200 text-amber-900 font-mono-code font-bold text-xs shrink-0 self-start sm:self-auto">
+                        <span class="px-3 py-1 rounded-full bg-green-200 text-green-950 font-mono-code font-bold text-xs shrink-0 self-start sm:self-auto border-none">
                             {{ count($submission->rollback_corrections) }} Section Correction{{ count($submission->rollback_corrections) === 1 ? '' : 's' }}
                         </span>
                     </div>
                     @if(!empty($submission->review_notes))
-                        <p class="text-xs font-semibold text-amber-900 bg-white/80 p-3 rounded-xl border border-amber-200">
+                        <p class="text-xs font-semibold text-green-950 bg-white/90 p-3 rounded-xl border-none">
                             <strong>Unit Head Remarks:</strong> {{ $submission->review_notes }}
                         </p>
                     @endif
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
                         @foreach($submission->rollback_corrections as $corr)
-                            <div class="p-2.5 rounded-xl bg-white border border-amber-200 text-xs">
-                                <div class="font-bold text-amber-900 font-mono-code text-[11px] flex items-center gap-1.5">
-                                    <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                            <div class="p-2.5 rounded-xl bg-white border-none shadow-2xs text-xs">
+                                <div class="font-bold text-green-950 font-mono-code text-[11px] flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-green-600"></span>
                                     {{ $corr['field'] ?? 'Field Correction' }}
                                 </div>
                                 <div class="text-slate-700 mt-1 font-sans text-xs">{{ $corr['note'] ?? '' }}</div>
@@ -615,6 +640,47 @@
                                 </button>
                             </div>
                         </div>
+                    @elseif($isRolledBack)
+                        <div class="space-y-3 pt-2">
+                            <div class="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 font-medium flex items-center justify-between flex-wrap gap-3 shadow-2xs">
+                                <div class="flex items-center gap-2.5">
+                                    <div class="w-7 h-7 rounded-lg bg-amber-200 text-amber-800 flex items-center justify-center shrink-0">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-amber-950">Awaiting Staff Corrections &amp; Resubmission</div>
+                                        <div class="text-[11px] text-amber-800 mt-0.5">This case docket was returned to <strong>{{ $submission->submitted_by_name ?? 'Staff Officer' }}</strong> on {{ optional($submission->rolled_back_at)->format('d M Y, H:i') }}. Case Rollback and Approval buttons are locked until the staff officer updates the docket and resubmits to your unit.</div>
+                                    </div>
+                                </div>
+                                <a href="{{ $reviewsIndexUrl }}" class="px-3.5 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 font-bold text-xs transition shadow-2xs shrink-0">
+                                    &larr; Return to Reviews
+                                </a>
+                            </div>
+
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
+                                <p class="text-xs text-slate-400 italic">
+                                    Docket actions disabled while case is in staff correction queue.
+                                </p>
+                                <div class="flex items-center gap-3 shrink-0">
+                                    <button type="button" disabled
+                                        title="Case is currently rolled back to staff. Locked until staff resubmits."
+                                        class="px-4 py-2.5 bg-slate-200 text-slate-400 font-extrabold text-xs rounded-xl cursor-not-allowed flex items-center gap-2 border border-slate-300 shadow-none">
+                                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                        </svg>
+                                        Case Rollback
+                                    </button>
+                                    <button type="button" disabled
+                                        title="Case is currently rolled back to staff. Locked until staff resubmits."
+                                        class="px-4 py-2.5 bg-slate-200 text-slate-400 font-extrabold text-xs rounded-xl cursor-not-allowed flex items-center gap-2 border border-slate-300 shadow-none">
+                                        <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                                        </svg>
+                                        Approve &amp; Save to Case Database
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     @else
                         <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-900 font-semibold flex items-center justify-between">
                             <span>This submission was finalized by <strong>{{ $submission->reviewed_by_name ?? 'Unit Head' }}</strong> on {{ $submission->reviewed_at ? $submission->reviewed_at->format('d M Y, H:i') : 'N/A' }}.</span>
@@ -652,7 +718,7 @@
                 This will create a new official case record (<strong class="font-mono-code text-blue-600">{{ $case->case_number }}</strong>) with all suspects and seized exhibits.
             </p>
 
-            <form method="POST" action="{{ url('/reviews-approvals/' . $submission->id . '/approve') }}" class="space-y-4">
+            <form method="POST" action="{{ url($reviewsIndexUrl . '/' . $submission->id . '/approve') }}" class="space-y-4">
                 @csrf
                 <div>
                     <label class="block text-xs font-bold text-slate-700 mb-1">Approval Notes / Remarks (Optional)</label>
@@ -687,7 +753,7 @@
                 </button>
             </div>
 
-            <form method="POST" action="{{ url('/reviews-approvals/' . $submission->id . '/rollback') }}" class="space-y-4 flex-1 flex flex-col min-h-0" id="rollbackSubmitForm">
+            <form method="POST" action="{{ url($reviewsIndexUrl . '/' . $submission->id . '/rollback') }}" class="space-y-4 flex-1 flex flex-col min-h-0" id="rollbackSubmitForm">
                 @csrf
                 <input type="hidden" name="corrections" id="rollbackCorrectionsInput" value="[]">
 
@@ -738,6 +804,14 @@
 
     <script>
         function openApproveModal() {
+            @if($isRolledBack)
+                if (typeof window.showFlashToast === 'function') {
+                    window.showFlashToast('This case is currently rolled back to staff for corrections. Approval is locked until staff resubmits.', 'warning', 'Case Locked');
+                } else {
+                    alert('This case is currently rolled back to staff for corrections. Approval is locked until staff resubmits.');
+                }
+                return;
+            @endif
             document.getElementById('approveModal')?.classList.remove('hidden');
         }
         function closeApproveModal() {
@@ -794,6 +868,14 @@
         }
 
         function startRollbackMode() {
+            @if($isRolledBack)
+                if (typeof window.showFlashToast === 'function') {
+                    window.showFlashToast('This case is already rolled back to staff. Actions are locked until the staff officer completes corrections and resubmits.', 'warning', 'Case Locked');
+                } else {
+                    alert('This case is already rolled back to staff. Actions are locked until the staff officer completes corrections and resubmits.');
+                }
+                return;
+            @endif
             isRollbackMode = true;
             const bar = document.getElementById('rollbackActiveBar');
             if (bar) {
@@ -905,7 +987,7 @@
             const fieldLabel = extractContainerLabel(container);
 
             const inlineBox = document.createElement('div');
-c            inlineBox.className = 'rollback-inline-box mt-3 pt-3 border-t-2 border-emerald-400 bg-emerald-50/95 rounded-xl p-3 shadow-inner space-y-2';
+            inlineBox.className = 'rollback-inline-box mt-3 pt-3 border-t-2 border-emerald-400 bg-emerald-50/95 rounded-xl p-3 shadow-inner space-y-2';
             inlineBox.innerHTML = `
                 <div class="flex items-center justify-between text-xs font-bold text-emerald-950">
                     <div class="flex items-center gap-1.5">
@@ -1023,7 +1105,7 @@ c            inlineBox.className = 'rollback-inline-box mt-3 pt-3 border-t-2 bor
             if (modal) modal.classList.add('hidden');
         }
 
-        // Attach click listeners to mugshot images for easy inspection
+        // Attach click listeners to mugshot images and AJAX submit for Rollback form
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('img[alt*="Mugshot"], img[alt*="Exhibit"]').forEach(img => {
                 img.style.cursor = 'zoom-in';
@@ -1031,6 +1113,67 @@ c            inlineBox.className = 'rollback-inline-box mt-3 pt-3 border-t-2 bor
                     openImageLightbox(this.src, this.alt || 'Biometric / Exhibit Photo');
                 });
             });
+
+            const rollbackForm = document.getElementById('rollbackSubmitForm');
+            if (rollbackForm) {
+                rollbackForm.addEventListener('submit', function(e) {
+                    e.preventDefault();
+                    const submitBtn = rollbackForm.querySelector('button[type="submit"]');
+                    const originalBtnHtml = submitBtn ? submitBtn.innerHTML : 'Confirm &amp; Send Rollback';
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = `
+                            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                            </svg>
+                            Sending Rollback...
+                        `;
+                    }
+
+                    const formData = new FormData(rollbackForm);
+                    fetch(rollbackForm.action, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Accept': 'application/json'
+                        }
+                    })
+                    .then(async (res) => {
+                        const data = await res.json().catch(() => null);
+                        if (!res.ok) {
+                            throw new Error(data?.message || 'Server error occurred during rollback submission (' + res.status + ')');
+                        }
+                        return data;
+                    })
+                    .then(data => {
+                        if (data && data.success) {
+                            closeRollbackSubmitModal();
+                            if (typeof window.showFlashToast === 'function') {
+                                window.showFlashToast(data.message || 'Case submission has been rolled back to staff officer for corrections.', 'success', 'Case Rollback Dispatched');
+                            }
+                            setTimeout(() => {
+                                window.location.href = data.redirect || '{{ $reviewsIndexUrl }}';
+                            }, 800);
+                        } else {
+                            throw new Error(data?.message || 'Rollback could not be processed.');
+                        }
+                    })
+                    .catch(err => {
+                        console.error('Rollback submission error:', err);
+                        if (typeof window.showFlashToast === 'function') {
+                            window.showFlashToast(err.message || 'Unable to complete rollback. Please try again.', 'error', 'Rollback Failed');
+                        } else {
+                            alert(err.message || 'Unable to complete rollback.');
+                        }
+                        if (submitBtn) {
+                            submitBtn.disabled = false;
+                            submitBtn.innerHTML = originalBtnHtml;
+                        }
+                    });
+                });
+            }
         });
     </script>
 

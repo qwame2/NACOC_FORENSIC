@@ -501,6 +501,18 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/reviews-approvals/{id}/decline', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'decline'])->name('reviews_approvals.decline');
     Route::post('/reviews-approvals/{id}/rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'rollback'])->name('reviews_approvals.rollback');
 
+    foreach ([
+        'Crime_Scene_Support' => 'crime_scene',
+        'Lab_Analysis' => 'lab',
+        'Evidence_Management' => 'evidence',
+        'Digital_Forensics' => 'digital',
+        'Forensic_Head' => 'forensic_head',
+    ] as $prefix => $namePrefix) {
+        Route::post("/{$prefix}/reviews-approvals/{id}/approve", [\App\Http\Controllers\StaffCaseSubmissionController::class, 'approve'])->name("{$namePrefix}.reviews_approvals.approve");
+        Route::post("/{$prefix}/reviews-approvals/{id}/decline", [\App\Http\Controllers\StaffCaseSubmissionController::class, 'decline'])->name("{$namePrefix}.reviews_approvals.decline");
+        Route::post("/{$prefix}/reviews-approvals/{id}/rollback", [\App\Http\Controllers\StaffCaseSubmissionController::class, 'rollback'])->name("{$namePrefix}.reviews_approvals.rollback");
+    }
+
     // UNIT HEAD STAFF AUDIT & ACTIVITY LOGS
     Route::get('/staff-audit-logs', [\App\Http\Controllers\StaffAuditController::class, 'index'])->name('staff_audit.index');
     Route::get('/Crime_Scene_Support/staff-audit-logs', [\App\Http\Controllers\StaffAuditController::class, 'index'])->name('crime_scene.staff_audit');
@@ -523,6 +535,16 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/staff/case-rollback', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackIndex'])->name('staff.rollback');
     Route::get('/staff/case-rollback/{id}', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackShow'])->name('staff.rollback.show');
     Route::post('/staff/case-rollback/{id}/resubmit', [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackResubmit'])->name('staff.rollback.resubmit');
+
+    foreach ([
+        'Crime_Scene_Support' => 'crime_scene',
+        'Lab_Analysis' => 'lab',
+        'Evidence_Management' => 'evidence',
+        'Digital_Forensics' => 'digital',
+        'Forensic_Head' => 'forensic_head',
+    ] as $prefix => $namePrefix) {
+        Route::post("/{$prefix}/staff/case-rollback/{id}/resubmit", [\App\Http\Controllers\StaffCaseSubmissionController::class, 'staffRollbackResubmit'])->name("{$namePrefix}.staff.rollback.resubmit");
+    }
 
     Route::get('/Crime_Scene_Support/staff', function () {
         return view('Crime_Scene_Support.staff.staff');

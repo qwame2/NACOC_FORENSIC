@@ -68,26 +68,8 @@
             color: #FFFFFF;
             border-color: #059669;
         }
-        @media print {
-            aside, header, #auditFiltersBar, #auditSummaryMetrics, .audit-actions-bar, .audit-pagination, button {
-                display: none !important;
-            }
-            body, main, #staffAuditTableContainer {
-                background: #FFFFFF !important;
-                padding: 0 !important;
-                margin: 0 !important;
-                overflow: visible !important;
-            }
-            table {
-                width: 100% !important;
-                border: 1px solid #CBD5E1 !important;
-            }
-            th, td {
-                border: 1px solid #E2E8F0 !important;
-                color: #000000 !important;
-            }
-        }
     </style>
+    @include('partials.staff_audit_print_styles')
 </head>
 <body class="min-h-screen bg-[#F6F7F9] text-slate-900 antialiased selection:bg-emerald-700 selection:text-white">
 
@@ -145,20 +127,6 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                         </svg>
                         Refresh
-                    </button>
-
-                    <button type="button" onclick="exportAuditCsv()" class="inline-flex items-center px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs rounded-xl shadow-2xs transition-colors cursor-pointer" title="Export CSV">
-                        <svg class="w-3.5 h-3.5 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
-                        </svg>
-                        Export CSV
-                    </button>
-
-                    <button type="button" onclick="window.print()" class="inline-flex items-center px-3 py-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer" title="Print Log">
-                        <svg class="w-3.5 h-3.5 mr-1.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-                        </svg>
-                        Print
                     </button>
                 </div>
             </header>

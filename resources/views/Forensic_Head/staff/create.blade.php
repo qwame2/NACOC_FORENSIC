@@ -1195,21 +1195,25 @@
                                 <span>3C. Offence Charges &amp; Custody Holding Facility</span>
                             </div>
 
-                            <!-- ROW: PLACE OF INCIDENT, DATE OF ARREST, TIME OF ARREST & HOLDING FACILITY -->
-                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                <!-- PLACE OF INCIDENT -->
-                                <div class="min-w-0">
-                                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                        Place of Incident <span class="text-red-600 font-bold">*</span>
-                                    </label>
-                                    <div class="relative flex items-center group">
+                            <!-- ROW 1: PLACE OF ARREST WITH GPS RADAR AT THE RIGHT SIDE OF THE INPUT BOX -->
+                            <div>
+                                <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                    PLACE OF ARREST <span class="text-red-600 font-bold">*</span>
+                                </label>
+                                <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-3">
+                                    <div class="relative flex items-center group flex-1 min-w-0">
                                         <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
                                         </span>
                                         <input type="text" id="newArrestedRaidLocation" placeholder="e.g. East Legon Sector 4, Accra" required class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                     </div>
-                                </div>
 
+                                    @include('partials.incident_location_picker')
+                                </div>
+                            </div>
+
+                            <!-- ROW 2: DATE OF ARREST, TIME OF ARREST & HOLDING FACILITY -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <!-- DATE OF ARREST -->
                                 <div class="min-w-0">
                                     <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -1249,8 +1253,6 @@
                                     </div>
                                 </div>
                             </div>
-
-                            @include('partials.incident_location_picker')
 
                             <!-- ROW: BRIEF FACTS/ CHARGE DESCRIPTION UNDERNEATH -->
                             <div class="mt-5">
@@ -3853,7 +3855,7 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
-                                Place of Incident <span class="text-red-600 font-bold">*</span>
+                                PLACE OF ARREST <span class="text-red-600 font-bold">*</span>
                             </label>
                             <div class="relative flex items-center group">
                                 <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors">

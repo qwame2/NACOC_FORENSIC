@@ -122,6 +122,20 @@ class CaseExhibitResolver
                 $item = (array) $item;
             }
 
+            // Ensure scalar hygiene on exhibits to prevent array injection into string fields
+            foreach (['wpn_condition', 'wpn_serial_no', 'wpn_calibre', 'wpn_loaded_status', 'wpn_marks', 'wpn_location_found', 'veh_condition', 'veh_reg_no', 'veh_vin', 'veh_fuel', 'veh_damage', 'veh_doc_ref', 'veh_owner_contact', 'veh_mods', 'veh_features', 'dev_serial_no', 'dev_imei1', 'dev_imei2', 'dev_storage', 'dev_colour', 'dev_marks', 'dev_mac_address'] as $sf) {
+                if (isset($item[$sf]) && !is_scalar($item[$sf])) {
+                    $item[$sf] = null;
+                }
+            }
+            if (isset($item['wpn']) && is_array($item['wpn'])) {
+                foreach (['condition', 'serial_no', 'calibre', 'loaded_status', 'marks', 'location_found'] as $subWpn) {
+                    if (isset($item['wpn'][$subWpn]) && !is_scalar($item['wpn'][$subWpn])) {
+                        $item['wpn'][$subWpn] = null;
+                    }
+                }
+            }
+
             $exNo = $item['exhibit_number'] ?? null;
             $dbId = $item['id'] ?? null;
             $cat = $item['category'] ?? ($item['exhibit_category'] ?? 'General Exhibit');

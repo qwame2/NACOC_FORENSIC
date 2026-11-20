@@ -303,12 +303,12 @@
 
         function applySitrepReportsButtonState(canReport) {
             applyPermissionButtonState({
-                selector: '[data-staff-sitrep-btn]',
+                selector: '[data-staff-sitrep-btn], [data-staff-investigation-stat-btn]',
                 urlAttr: 'data-sitrep-url',
                 allowed: canReport,
                 lockedMsg: 'Locked: Generate Reports & PDFs permission is disabled by your Head of Unit',
                 preventClickWhenLocked: true,
-                reloadPattern: /\/(staff\/report|lab_sitrep_pdf|report_pdf)(\b|\/|$)/i,
+                reloadPattern: /\/(staff\/report|lab_sitrep_pdf|report_pdf|forensic-status|forensic_status|dpf-report-pdf|dpf_pdf|multi_dpf_pdf)(\b|\/|$)/i,
             });
         }
 

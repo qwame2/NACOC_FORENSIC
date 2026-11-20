@@ -99,6 +99,33 @@
     $isStaffForensicStatusActive = request()->is('*/staff/forensic-status*') || request()->is('*/staff/forensic_status*');
     $isStaffProfileActive = request()->is('profile*') || request()->routeIs('profile*');
     $isStaffHomeActive = request()->is('*/staff/dashboard*') || request()->is('staff/dashboard*') || (!$isStaffCaseActive && !$isStaffRollbackActive && !$isStaffDrugScreeningActive && !$isStaffVaultActive && !$isStaffCreateActive && !$isStaffReportActive && !$isStaffForensicStatusActive && !$isStaffProfileActive && (request()->is('*/staff') || request()->is('staff')));
+
+    $staffRollbackCount = 0;
+    if ($authUser) {
+        $scopedUnitName = match($unitKey) {
+            'lab' => 'Lab Analysis',
+            'evidence' => 'Evidence Management',
+            'digital' => 'Digital Forensics',
+            'directorate' => 'Forensic Directorate',
+            default => 'Crime Scene Support',
+        };
+
+        try {
+            $rollbackQuery = \App\Models\StaffCaseSubmission::where('status', 'Rolled Back');
+            if (!$authUser->is_head) {
+                $rollbackQuery->where(function ($q) use ($authUser, $scopedUnitName) {
+                    $q->where('submitted_by', $authUser->id)
+                      ->orWhere('submitted_by_name', $authUser->fullname ?? ($authUser->name ?? ''))
+                      ->orWhere('unit_name', 'LIKE', '%' . $scopedUnitName . '%');
+                });
+            } else {
+                $rollbackQuery->where('unit_name', 'LIKE', '%' . $scopedUnitName . '%');
+            }
+            $staffRollbackCount = $rollbackQuery->count();
+        } catch (\Throwable $e) {
+            $staffRollbackCount = 0;
+        }
+    }
 @endphp
 
 <!-- MODERN EXECUTIVE GREY STAFF OFFICERS SIDEBAR -->
@@ -214,9 +241,33 @@
                 @endif
 
                 @if($unitKey === 'digital')
-                <a href="{{ url('/Digital_Forensics/staff/forensic-status') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffForensicStatusActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffForensicStatusActive ? 'text-white' : 'text-cyan-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
-                    <span>Investigation Stat &amp; Report</span>
+                @php
+                    $canStaffGenerateReports = !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('generate_reports', request()->path()) : true);
+                    $lockedReportsTooltip = 'Locked: Generate Reports & PDFs permission is disabled by your Head of Unit';
+                    $forensicStatusUrl = url('/Digital_Forensics/staff/forensic-status');
+                    $statusEnabledClasses = $isStaffForensicStatusActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs';
+                    $statusDisabledClasses = 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none';
+                @endphp
+                <a @if($canStaffGenerateReports) href="{{ $forensicStatusUrl }}" @endif
+                   data-staff-sitrep-btn="sidebar"
+                   data-staff-investigation-stat-btn="sidebar"
+                   data-sitrep-url="{{ $forensicStatusUrl }}"
+                   aria-disabled="{{ $canStaffGenerateReports ? 'false' : 'true' }}"
+                   @if(!$canStaffGenerateReports)
+                       tabindex="0"
+                       title="{{ $lockedReportsTooltip }}"
+                       data-locked-tooltip="{{ $lockedReportsTooltip }}"
+                       onclick="event.preventDefault(); event.stopPropagation(); return false;"
+                       style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
+                   @endif
+                   class="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ !$canStaffGenerateReports ? $statusDisabledClasses : $statusEnabledClasses }}"
+                   data-enabled-class="{{ $statusEnabledClasses }}"
+                   data-disabled-class="{{ $statusDisabledClasses }}">
+                    <span class="flex items-center min-w-0">
+                        <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ !$canStaffGenerateReports ? 'text-slate-400' : ($isStaffForensicStatusActive ? 'text-white' : 'text-cyan-600') }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                        <span class="truncate">Investigation Stat &amp; Report</span>
+                    </span>
+                    <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1.5 {{ $canStaffGenerateReports ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                 </a>
                 @endif
             </nav>
@@ -258,9 +309,16 @@
                         default => url('/Crime_Scene_Support/staff/case-rollback'),
                     };
                 @endphp
-                <a href="{{ $staffRollbackUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffRollbackActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffRollbackActive ? 'text-white' : 'text-rose-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
-                    <span>Case Rollback</span>
+                <a href="{{ $staffRollbackUrl }}" class="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ $isStaffRollbackActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
+                    <span class="flex items-center min-w-0">
+                        <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffRollbackActive ? 'text-white' : 'text-rose-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+                        <span>Case Rollback</span>
+                    </span>
+                    @if($staffRollbackCount > 0)
+                        <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black font-mono-code text-white bg-red-600 rounded-full animate-pulse shadow-xs shrink-0 ml-2" title="{{ $staffRollbackCount }} Case(s) awaiting corrections">
+                            {{ $staffRollbackCount }}
+                        </span>
+                    @endif
                 </a>
 
                 @if($unitKey !== 'digital')

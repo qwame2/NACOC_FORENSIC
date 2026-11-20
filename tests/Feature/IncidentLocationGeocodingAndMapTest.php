@@ -78,7 +78,7 @@ class IncidentLocationGeocodingAndMapTest extends TestCase
         $this->assertEqualsWithDelta(-0.1558, (float)$data['longitude'], 0.005);
     }
 
-    public function test_all_ten_create_pages_contain_incident_map_and_coordinate_inputs(): void
+    public function test_all_ten_create_pages_contain_incident_geocoding_and_coordinate_inputs(): void
     {
         $officer = User::factory()->create([
             'unit'    => 'Crime Scene Support',
@@ -103,12 +103,14 @@ class IncidentLocationGeocodingAndMapTest extends TestCase
             $rendered = view($viewName, $data)->render();
 
             $this->assertStringContainsString('id="newArrestedRaidLocation"', $rendered, "Raid location input missing in {$viewName}");
-            $this->assertStringContainsString('id="incidentLocationMap"', $rendered, "Incident map missing in {$viewName}");
+            $this->assertStringNotContainsString('id="incidentLocationMap"', $rendered, "Bulky incident map canvas should be safely removed in {$viewName}");
             $this->assertStringContainsString('id="incidentLatitude"', $rendered, "Latitude input missing in {$viewName}");
             $this->assertStringContainsString('id="incidentLongitude"', $rendered, "Longitude input missing in {$viewName}");
             $this->assertStringContainsString('id="incidentGpsBadge"', $rendered, "GPS badge missing in {$viewName}");
-            $this->assertStringContainsString('id="recenterIncidentMapBtn"', $rendered, "Recenter button missing in {$viewName}");
             $this->assertStringContainsString('id="clearIncidentPinBtn"', $rendered, "Clear pin button missing in {$viewName}");
+            $this->assertStringContainsString('PLACE OF ARREST', $rendered, "PLACE OF ARREST label missing in {$viewName}");
+            $this->assertStringNotContainsString('Place of Incident', $rendered, "Place of Incident should be renamed to PLACE OF ARREST in {$viewName}");
+            $this->assertStringContainsString('GPS Radar:', $rendered, "GPS Radar badge label missing in {$viewName}");
         }
     }
 
@@ -199,5 +201,139 @@ class IncidentLocationGeocodingAndMapTest extends TestCase
             $this->assertEqualsWithDelta(6.6885, (float)$sp->latitude, 0.0001);
             $this->assertEqualsWithDelta(-1.6244, (float)$sp->longitude, 0.0001);
         }
+    }
+
+    public function test_dashboard_displays_incident_hotspots_scoreboard_and_chart(): void
+    {
+        $officer = User::factory()->create([
+            'unit'     => 'Forensic Head',
+            'is_head'  => true,
+            'fullname' => 'Director General Forensic',
+        ]);
+        $this->actingAs($officer);
+
+        // Seed 2 cases in East Legon and 1 in Kejetia Kumasi
+        SingleSuspectCase::create([
+            'case_number'         => 'NCC-TEST-001',
+            'title'               => 'East Legon Seizure 1',
+            'unit_name'           => 'Crime Scene Support',
+            'user_id'             => $officer->id,
+            'suspect_name'        => 'Target Alpha',
+            'raid_location'       => 'East Legon Phase 1, Accra',
+            'latitude'            => 5.6358,
+            'longitude'           => -0.1558,
+            'priority'            => 'CRITICAL',
+            'status'              => 'Under Investigation',
+            'arrest_date'         => now()->format('Y-m-d'),
+            'arrest_time'         => '10:00',
+            'offense_description' => 'Test offense',
+        ]);
+
+        SingleSuspectCase::create([
+            'case_number'         => 'NCC-TEST-002',
+            'title'               => 'East Legon Seizure 2',
+            'unit_name'           => 'Digital Forensics',
+            'user_id'             => $officer->id,
+            'suspect_name'        => 'Target Beta',
+            'raid_location'       => 'East Legon Phase 2, Accra',
+            'latitude'            => 5.6372,
+            'longitude'           => -0.1542,
+            'priority'            => 'HIGH',
+            'status'              => 'Under Investigation',
+            'arrest_date'         => now()->format('Y-m-d'),
+            'arrest_time'         => '11:00',
+            'offense_description' => 'Test offense',
+        ]);
+
+        SingleSuspectCase::create([
+            'case_number'         => 'NCC-TEST-003',
+            'title'               => 'Kumasi Seizure',
+            'unit_name'           => 'Lab Analysis',
+            'user_id'             => $officer->id,
+            'suspect_name'        => 'Target Gamma',
+            'raid_location'       => 'Kejetia Market, Kumasi',
+            'latitude'            => 6.6975,
+            'longitude'           => -1.6225,
+            'priority'            => 'HIGH',
+            'status'              => 'Under Investigation',
+            'arrest_date'         => now()->format('Y-m-d'),
+            'arrest_time'         => '12:00',
+            'offense_description' => 'Test offense',
+        ]);
+
+        $response = $this->get('/Forensic_Head');
+        $response->assertStatus(200);
+
+        // Verify Scoreboard card and chart elements
+        $response->assertSee('Incident Hotspots Scoreboard');
+        $response->assertSee('incident-scoreboard-card');
+        $response->assertSee('incidentLocationScoreboardChart');
+        $response->assertDontSee('Case Concentration by Location');
+        $response->assertSee('Click location to pinpoint');
+        $response->assertSee('Click any location bar to pinpoint on map');
+
+        // Verify removed sections
+        $response->assertDontSee('Incident Leaderboard (Ranked)');
+        $response->assertDontSee('Locations with highest case density & concentration');
+        $response->assertDontSee('scoreboardHotspotsList');
+    }
+
+    public function test_realtime_api_returns_top_incident_locations_data(): void
+    {
+        $officer = User::factory()->create([
+            'unit'     => 'Forensic Head',
+            'is_head'  => true,
+            'fullname' => 'Director General Forensic',
+        ]);
+        $this->actingAs($officer);
+
+        SingleSuspectCase::create([
+            'case_number'         => 'NCC-TEST-RT-01',
+            'title'               => 'East Legon Raid 1',
+            'unit_name'           => 'Crime Scene Support',
+            'user_id'             => $officer->id,
+            'suspect_name'        => 'Target Alpha',
+            'raid_location'       => 'East Legon, Accra',
+            'latitude'            => 5.6358,
+            'longitude'           => -0.1558,
+            'priority'            => 'CRITICAL',
+            'status'              => 'Under Investigation',
+            'arrest_date'         => now()->format('Y-m-d'),
+            'arrest_time'         => '10:00',
+            'offense_description' => 'Test offense',
+        ]);
+
+        SingleSuspectCase::create([
+            'case_number'         => 'NCC-TEST-RT-02',
+            'title'               => 'East Legon Raid 2',
+            'unit_name'           => 'Digital Forensics',
+            'user_id'             => $officer->id,
+            'suspect_name'        => 'Target Beta',
+            'raid_location'       => 'East Legon Sector 4, Accra',
+            'latitude'            => 5.6360,
+            'longitude'           => -0.1550,
+            'priority'            => 'HIGH',
+            'status'              => 'Under Investigation',
+            'arrest_date'         => now()->format('Y-m-d'),
+            'arrest_time'         => '11:00',
+            'offense_description' => 'Test offense',
+        ]);
+
+        $response = $this->getJson('/api/dashboard/realtime');
+        $response->assertStatus(200);
+        $response->assertJson([
+            'success' => true,
+        ]);
+
+        $topLocations = $response->json('top_incident_locations');
+        $this->assertIsArray($topLocations);
+        $this->assertNotEmpty($topLocations);
+
+        $leader = $topLocations[0];
+        $this->assertEquals('East Legon, Accra', $leader['name']);
+        $this->assertEquals(1, $leader['rank']);
+        $this->assertEquals(2, $leader['cases_count']);
+        $this->assertEqualsWithDelta(5.6358, (float)$leader['latitude'], 0.05);
+        $this->assertEqualsWithDelta(-0.1558, (float)$leader['longitude'], 0.05);
     }
 }

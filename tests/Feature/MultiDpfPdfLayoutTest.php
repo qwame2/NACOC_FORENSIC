@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Models\DpfReport;
 use App\Models\ForensicCase;
+use App\Models\SingleSuspectCase;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -160,5 +162,55 @@ class MultiDpfPdfLayoutTest extends TestCase
         $this->assertStringContainsString('Head of Digital &amp; Physical Forensics Unit, NACOC', $multiContent);
         $this->assertStringContainsString('alt="Official Digital Signature - Ofori Graham"', $multiContent);
         $this->assertStringContainsString('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', $multiContent);
+    }
+
+    public function test_location_post_appears_in_full_without_truncate_on_dpf_report_pdf(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Digital & Physical Forensics',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $fullLocation = 'Kumasi Adum Commercial Area';
+
+        $case = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-LOC-TEST',
+            'title' => 'Location Full Display Test',
+            'suspect_name' => 'Kwabena Darko',
+            'location' => $fullLocation,
+            'unit_name' => 'Digital & Physical Forensics',
+            'status' => 'Approved',
+            'priority' => 'NORMAL',
+            'user_id' => $user->id,
+        ]);
+
+        DpfReport::create([
+            'case_number' => 'NCC-2026-LOC-TEST',
+            'dpf_code' => 'DF-STATUS-2026-LOC-01',
+            'single_suspect_case_id' => $case->id,
+            'user_id' => $user->id,
+            'location_post' => $fullLocation,
+            'investigation_date' => now()->toDateString(),
+            'court_order_granted' => 'NO',
+            'extraction_analysis_conducted' => 'NO',
+            'report_witness_statement_sent' => 'NO',
+            'intel_shared' => 'NO',
+        ]);
+
+        $response = $this->actingAs($user)->get('/Digital_Forensics/dpf-report-pdf/DF-STATUS-2026-LOC-01');
+        $response->assertStatus(200);
+
+        $content = $response->getContent();
+
+        // Location / Post header must be present
+        $this->assertStringContainsString('Location / Post', $content);
+
+        // The full location string must be rendered
+        $this->assertStringContainsString($fullLocation, $content);
+
+        // Must not contain truncate on Location / Post
+        $this->assertStringNotContainsString('Location / Post</p>' . "\n" . '                                <p class="mt-1 text-sm font-bold text-slate-900 truncate">', $content);
+        $this->assertStringContainsString('leading-snug break-words">' . $fullLocation . '</p>', $content);
     }
 }

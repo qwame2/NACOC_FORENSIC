@@ -2995,7 +2995,8 @@ class CaseDocketService
                 $wpnMarks   = $exhibit['wpn_marks'] ?? ($exhibit['wpn']['marks'] ?? null);
                 $wpnLocationFound = $exhibit['wpn_location_found'] ?? ($exhibit['wpn']['location_found'] ?? null);
                 $wpnLoadedStatus  = $exhibit['wpn_loaded_status'] ?? ($exhibit['wpn']['loaded_status'] ?? null);
-                $wpnCondition     = $exhibit['wpn_condition'] ?? ($exhibit['wpn']['condition'] ?? null);
+                $wpnConditionRaw = $exhibit['wpn_condition'] ?? ($exhibit['wpn']['condition'] ?? null);
+                $wpnCondition    = is_string($wpnConditionRaw) ? $wpnConditionRaw : null;
 
                 $devModel  = $exhibit['dev_model'] ?? ($exhibit['dev']['model'] ?? ($exhibit['device_model'] ?? ($exhibit['device_make_model'] ?? ($exhibit['model'] ?? null))));
                 $devSerial = $exhibit['dev_serial_no'] ?? ($exhibit['dev']['serial_no'] ?? ($exhibit['device_serial'] ?? ($exhibit['serial_no'] ?? ($exhibit['serial_number'] ?? null))));
@@ -3543,7 +3544,7 @@ class CaseDocketService
             'wpn_marks'                 => $szItem['wpn_marks'] ?? ($szItem['wpn']['marks'] ?? null),
             'wpn_location_found'        => $szItem['wpn_location_found'] ?? ($szItem['wpn']['location_found'] ?? null),
             'wpn_loaded_status'         => $szItem['wpn_loaded_status'] ?? ($szItem['wpn']['loaded_status'] ?? null),
-            'wpn_condition'             => $szItem['wpn_condition'] ?? ($szItem['wpn']['condition'] ?? null),
+            'wpn_condition'             => (isset($szItem['wpn_condition']) && is_string($szItem['wpn_condition'])) ? $szItem['wpn_condition'] : ((isset($szItem['wpn']['condition']) && is_string($szItem['wpn']['condition'])) ? $szItem['wpn']['condition'] : null),
             'dev_model'                 => $szItem['dev_model'] ?? ($szItem['dev']['model'] ?? ($szItem['device_model'] ?? ($szItem['device_make_model'] ?? ($szItem['model'] ?? null)))),
             'dev_serial_no'             => $szItem['dev_serial_no'] ?? ($szItem['dev']['serial_no'] ?? ($szItem['device_serial'] ?? ($szItem['serial_no'] ?? ($szItem['serial_number'] ?? null)))),
             'dev_imei1'                 => $szItem['dev_imei1'] ?? ($szItem['dev']['imei1'] ?? ($szItem['dev_imei_1'] ?? ($szItem['imei_1'] ?? ($szItem['imei1'] ?? null)))),

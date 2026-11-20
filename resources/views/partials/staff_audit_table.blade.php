@@ -1,139 +1,100 @@
+@include('partials.staff_audit_print_styles')
+@include('partials.staff_audit_print_header')
+
 <div class="overflow-x-auto">
     <table class="w-full text-left border-collapse">
         <thead>
             <tr class="border-b border-slate-200 bg-slate-50/75 text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
-                <th class="py-3.5 px-4">Timestamp</th>
-                <th class="py-3.5 px-4">Staff Officer</th>
-                <th class="py-3.5 px-4">Unit &amp; Role</th>
-                <th class="py-3.5 px-4">Action &amp; Method</th>
-                <th class="py-3.5 px-4 min-w-[240px]">Activity Description</th>
-                <th class="py-3.5 px-4">Route &amp; Status</th>
-                <th class="py-3.5 px-4 text-right">Details</th>
+                <th class="py-3.5 px-4 col-timestamp">Timestamp</th>
+                <th class="py-3.5 px-4 col-officer">Staff Officer</th>
+                <th class="py-3.5 px-4 min-w-[280px] col-description">Activity Description</th>
+                <th class="py-3.5 px-4 text-right audit-col-details no-print">Details</th>
             </tr>
         </thead>
         <tbody id="staffAuditTableBody" class="divide-y divide-slate-200/80 text-xs font-medium text-slate-800 bg-white">
             @forelse($logs as $log)
                 @php
                     $method = strtoupper((string) ($log->method ?? 'GET'));
-                    $methodBadge = match($method) {
-                        'POST'   => 'bg-emerald-50 text-emerald-700 border-emerald-200',
-                        'PUT', 'PATCH' => 'bg-blue-50 text-blue-700 border-blue-200',
-                        'DELETE' => 'bg-rose-50 text-rose-700 border-rose-200',
-                        default  => 'bg-slate-100 text-slate-700 border-slate-200',
-                    };
-
                     $actionStr = strtoupper((string) ($log->action ?? 'ACTION'));
-                    $actionBadge = match(true) {
-                        str_contains($actionStr, 'APPROVE') => 'bg-teal-50 text-teal-800 border-teal-200',
-                        str_contains($actionStr, 'DECLINE') || str_contains($actionStr, 'ROLLBACK') => 'bg-amber-50 text-amber-800 border-amber-200',
-                        str_contains($actionStr, 'DELETE') || str_contains($actionStr, 'REMOVE') => 'bg-rose-50 text-rose-800 border-rose-200',
-                        str_contains($actionStr, 'UPDATE') || str_contains($actionStr, 'EDIT') => 'bg-blue-50 text-blue-800 border-blue-200',
-                        str_contains($actionStr, 'CREATE') || str_contains($actionStr, 'STORE') || str_contains($actionStr, 'LODGE') => 'bg-emerald-50 text-emerald-800 border-emerald-200',
-                        default => 'bg-slate-100 text-slate-800 border-slate-200',
-                    };
-
                     $statusCode = (int) ($log->status_code ?? 200);
-                    $statusBadge = match(true) {
-                        $statusCode >= 200 && $statusCode < 300 => 'text-emerald-700 bg-emerald-50/70 border-emerald-200',
-                        $statusCode >= 300 && $statusCode < 400 => 'text-blue-700 bg-blue-50/70 border-blue-200',
-                        $statusCode >= 400 && $statusCode < 500 => 'text-amber-700 bg-amber-50/70 border-amber-200',
-                        default => 'text-rose-700 bg-rose-50/70 border-rose-200',
-                    };
 
                     $initials = collect(explode(' ', $log->staff_name ?? 'Staff'))
                         ->map(fn($w) => strtoupper(substr($w, 0, 1)))
                         ->take(2)
                         ->implode('');
 
-                    $payloadJson = !empty($log->payload) ? json_encode($log->payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : null;
+                    $payloadData = is_array($log->payload) ? $log->payload : (json_decode($log->payload ?? '[]', true) ?: []);
+                    $pCase = $payloadData['case_number'] ?? $payloadData['case_ref'] ?? $payloadData['case_id'] ?? null;
+                    $pSuspect = $payloadData['suspect_name'] ?? $payloadData['fullname'] ?? null;
+                    $pExhibit = $payloadData['exhibit_number'] ?? $payloadData['property_id'] ?? null;
+                    $pCategory = $payloadData['exhibit_category'] ?? $payloadData['category'] ?? null;
+                    $pTransfer = $payloadData['transfer_to'] ?? $payloadData['transfer_unit'] ?? $payloadData['custody_to'] ?? null;
+
+                    $payloadJson = !empty($payloadData) ? json_encode($payloadData, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) : null;
                 @endphp
                 <tr class="hover:bg-slate-50/80 transition-colors group">
-                    <!-- TIMESTAMP -->
-                    <td class="py-3 px-4 whitespace-nowrap">
+                    <!-- 1. TIMESTAMP -->
+                    <td class="py-3 px-4 whitespace-nowrap col-timestamp">
                         <div class="flex flex-col">
-                            <span class="font-bold text-slate-900 tnum">{{ $log->created_at ? $log->created_at->format('d M Y, H:i:s') : '—' }}</span>
-                            <span class="text-[10px] text-slate-600 font-mono-code">{{ $log->created_at ? $log->created_at->diffForHumans() : '' }}</span>
+                            <span class="font-extrabold text-slate-900 text-xs font-mono-code tnum">
+                                {{ $log->created_at ? $log->created_at->format('d M Y, H:i:s') : '—' }}
+                            </span>
+                            <span class="text-[10px] text-slate-500 font-mono-code no-print">
+                                {{ $log->created_at ? $log->created_at->diffForHumans() : '' }}
+                            </span>
                         </div>
                     </td>
 
-                    <!-- STAFF OFFICER -->
-                    <td class="py-3 px-4 whitespace-nowrap">
+                    <!-- 2. STAFF OFFICER -->
+                    <td class="py-3 px-4 col-officer">
                         <div class="flex items-center space-x-2.5">
-                            <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold flex items-center justify-center text-xs shrink-0 shadow-2xs border border-emerald-200">
+                            <div class="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold flex items-center justify-center text-xs shrink-0 shadow-2xs border border-emerald-200 no-print">
                                 {{ $initials ?: 'ST' }}
                             </div>
                             <div class="flex flex-col min-w-0">
                                 <span class="font-extrabold text-slate-900 text-xs truncate">{{ $log->staff_name ?: 'Unknown Staff' }}</span>
-                                <div class="flex items-center space-x-1.5 text-[10px] text-slate-600">
+                                <div class="flex items-center space-x-1.5 text-[10px] text-slate-600 mt-0.5">
                                     @if($log->service_id)
                                         <span class="font-mono-code font-bold text-slate-700 bg-slate-100 px-1 rounded">{{ $log->service_id }}</span>
                                     @endif
-                                    @if($log->staff_email)
-                                        <span class="truncate max-w-[140px] text-slate-600">{{ $log->staff_email }}</span>
+                                    @if($log->unit)
+                                        <span class="text-[10px] text-slate-500 truncate max-w-[150px]">&bull; {{ $log->unit }}</span>
                                     @endif
                                 </div>
                             </div>
                         </div>
                     </td>
 
-                    <!-- UNIT & ROLE -->
-                    <td class="py-3 px-4 whitespace-nowrap">
-                        <div class="flex flex-col">
-                            <span class="font-extrabold text-slate-800 text-[11px]">{{ $log->unit ?: 'Operational Unit' }}</span>
-                            <span class="text-[10px] text-slate-600 font-medium">{{ $log->role ?: 'Staff Officer' }}</span>
-                        </div>
-                    </td>
-
-                    <!-- ACTION & METHOD -->
-                    <td class="py-3 px-4 whitespace-nowrap">
-                        <div class="flex items-center space-x-1.5">
-                            <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono-code font-bold border {{ $methodBadge }}">
-                                {{ $method }}
-                            </span>
-                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border {{ $actionBadge }}">
-                                {{ $actionStr }}
-                            </span>
-                        </div>
-                    </td>
-
-                    <!-- ACTIVITY DESCRIPTION -->
-                    <td class="py-3 px-4 min-w-[280px]">
+                    <!-- 3. ACTIVITY DESCRIPTION -->
+                    <td class="py-3 px-4 col-description">
                         <div class="space-y-1.5">
-                            <p class="text-xs text-slate-900 leading-relaxed font-semibold max-w-lg">
+                            <p class="text-xs text-slate-900 leading-relaxed font-semibold audit-desc-text">
                                 {{ $log->description ?: 'Operational activity performed on page.' }}
                             </p>
-                            @php
-                                $payloadData = is_array($log->payload) ? $log->payload : (json_decode($log->payload ?? '[]', true) ?: []);
-                                $pCase = $payloadData['case_number'] ?? $payloadData['case_ref'] ?? $payloadData['case_id'] ?? null;
-                                $pSuspect = $payloadData['suspect_name'] ?? $payloadData['fullname'] ?? null;
-                                $pExhibit = $payloadData['exhibit_number'] ?? $payloadData['property_id'] ?? null;
-                                $pCategory = $payloadData['exhibit_category'] ?? $payloadData['category'] ?? null;
-                                $pTransfer = $payloadData['transfer_to'] ?? $payloadData['custody_to'] ?? null;
-                            @endphp
                             @if($pCase || $pSuspect || $pExhibit || $pCategory || $pTransfer)
                                 <div class="flex flex-wrap items-center gap-1.5 pt-0.5">
                                     @if($pCase)
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono-code font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                                        <span class="audit-context-tag inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono-code font-bold bg-slate-100 text-slate-700 border border-slate-200">
                                             Case: #{{ $pCase }}
                                         </span>
                                     @endif
                                     @if($pSuspect)
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                        <span class="audit-context-tag inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
                                             Suspect: {{ $pSuspect }}
                                         </span>
                                     @endif
                                     @if($pExhibit)
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono-code font-bold bg-teal-50 text-teal-800 border border-teal-200">
+                                        <span class="audit-context-tag inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono-code font-bold bg-teal-50 text-teal-800 border border-teal-200">
                                             Exhibit: {{ $pExhibit }}
                                         </span>
                                     @endif
                                     @if($pCategory)
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                        <span class="audit-context-tag inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
                                             Category: {{ $pCategory }}
                                         </span>
                                     @endif
                                     @if($pTransfer)
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
+                                        <span class="audit-context-tag inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200">
                                             Transfer To: {{ $pTransfer }}
                                         </span>
                                     @endif
@@ -142,25 +103,8 @@
                         </div>
                     </td>
 
-                    <!-- ROUTE & STATUS -->
-                    <td class="py-3 px-4 whitespace-nowrap">
-                        <div class="flex flex-col space-y-0.5">
-                            <div class="flex items-center space-x-1.5">
-                                <span class="px-1.5 py-0.5 rounded text-[10px] font-mono-code font-bold border {{ $statusBadge }}">
-                                    {{ $statusCode }}
-                                </span>
-                                <span class="font-mono-code text-[11px] text-slate-700 truncate max-w-[170px]" title="{{ $log->route }}">
-                                    /{{ ltrim((string) $log->route, '/') }}
-                                </span>
-                            </div>
-                            @if($log->ip_address)
-                                <span class="text-[10px] text-slate-600 font-mono-code pl-0.5">IP: {{ $log->ip_address }}</span>
-                            @endif
-                        </div>
-                    </td>
-
-                    <!-- DETAILS ACTION -->
-                    <td class="py-3 px-4 text-right whitespace-nowrap">
+                    <!-- 4. DETAILS (SCREEN ONLY) -->
+                    <td class="py-3 px-4 text-right whitespace-nowrap audit-col-details no-print">
                         <button type="button"
                                 onclick="openAuditModal({{ json_encode([
                                     'id'          => $log->id,
@@ -192,7 +136,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="7" class="py-12 px-4 text-center">
+                    <td colspan="4" class="py-12 px-4 text-center">
                         <div class="flex flex-col items-center justify-center space-y-2">
                             <div class="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -209,9 +153,11 @@
     </table>
 </div>
 
+@include('partials.staff_audit_print_footer')
+
 <!-- PAGINATION & METRICS FOOTER -->
 @if($logs->total() > 0)
-    <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600">
+    <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-600 no-print">
         <div class="flex items-center space-x-2">
             <span>Showing <strong class="text-slate-900 tnum font-extrabold">{{ $logs->firstItem() ?? 0 }}</strong> to <strong class="text-slate-900 tnum font-extrabold">{{ $logs->lastItem() ?? 0 }}</strong> of <strong class="text-slate-900 tnum font-extrabold">{{ number_format($logs->total()) }}</strong> audit records</span>
             @if($logs->lastPage() > 1)
@@ -281,4 +227,3 @@
         @endif
     </div>
 @endif
-

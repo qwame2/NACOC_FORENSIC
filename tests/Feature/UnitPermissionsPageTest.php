@@ -1319,4 +1319,84 @@ class UnitPermissionsPageTest extends TestCase
             ->assertDontSee('Log exhibits, update seized items, and assign QR custody tags')
             ->assertDontSee('Export preliminary, analytical, SITREP, and unit audit reports');
     }
+
+    #[Test]
+    public function digital_forensics_head_toggling_off_generate_reports_locks_investigation_stat_and_report_and_denies_access(): void
+    {
+        $dpfHead = User::factory()->head()->create([
+            'fullname' => 'Chief Cyber Head',
+            'unit' => 'Digital & Physical Forensics',
+            'is_approved' => true,
+        ]);
+
+        $dpfStaff = StaffAccount::create([
+            'fullname' => 'Kojo Cyber Officer',
+            'username' => 'kojo_cyber',
+            'service_id' => 'DPF-505',
+            'phone_number' => '0244111777',
+            'unit' => 'Digital & Physical Forensics',
+            'is_approved' => true,
+            'password' => bcrypt('password'),
+        ]);
+
+        // 1. Initially enabled staff can view unlocked Investigation Stat & Report button
+        $initPage = $this->actingAs($dpfStaff)->get('/Digital_Forensics/staff/case');
+        $initPage->assertOk()
+            ->assertSee('data-staff-sitrep-btn="header"', false)
+            ->assertSee('data-staff-sitrep-btn="sidebar"', false)
+            ->assertSee('Investigation Stat &amp; Report', false)
+            ->assertSee('href="' . url('/Digital_Forensics/staff/forensic-status') . '"', false);
+
+        // 2. Digital Forensics Head toggles OFF generate_reports in /Digital_Forensics/permissions
+        $this->actingAs($dpfHead)->postJson("/permissions/{$dpfStaff->id}/update", [
+            'permissions' => [
+                'create_cases' => true,
+                'edit_cases' => true,
+                'add_associate' => true,
+                'generate_reports' => false,
+            ],
+        ])->assertOk()->assertJsonPath('success', true);
+
+        // 3. Investigation Stat & Report is locked with tooltip and lock icon on staff case page and sidebar
+        $casePage = $this->actingAs($dpfStaff->fresh())->get('/Digital_Forensics/staff/case');
+        $casePage->assertOk()
+            ->assertSee('data-staff-sitrep-btn="header"', false)
+            ->assertSee('data-staff-sitrep-btn="sidebar"', false)
+            ->assertSee('data-staff-investigation-stat-btn="sidebar"', false)
+            ->assertSee('Investigation Stat &amp; Report', false)
+            ->assertSee('aria-disabled="true"', false)
+            ->assertSee('data-locked-tooltip="Locked: Generate Reports &amp; PDFs permission is disabled by your Head of Unit"', false)
+            ->assertSee('title="Locked: Generate Reports &amp; PDFs permission is disabled by your Head of Unit"', false)
+            ->assertDontSee('href="' . url('/Digital_Forensics/staff/forensic-status') . '"', false);
+
+        // 4. Live account-status watchdog reports can_generate_reports = false
+        $this->actingAs($dpfStaff->fresh())
+            ->getJson('/api/auth/account-status?path=/Digital_Forensics/staff/case')
+            ->assertOk()
+            ->assertJsonPath('can_generate_reports', false);
+
+        // 5. Direct access to forensic-status and PDF routes is denied and redirected
+        $this->actingAs($dpfStaff->fresh())
+            ->get('/Digital_Forensics/staff/forensic-status')
+            ->assertRedirect('/Digital_Forensics/staff/case');
+
+        $this->actingAs($dpfStaff->fresh())
+            ->get('/Digital_Forensics/dpf-report-pdf')
+            ->assertRedirect('/Digital_Forensics/staff/case');
+
+        // 6. Digital Forensics Head toggles ON generate_reports again
+        $this->actingAs($dpfHead)->postJson("/permissions/{$dpfStaff->id}/update", [
+            'permissions' => [
+                'create_cases' => true,
+                'edit_cases' => true,
+                'add_associate' => true,
+                'generate_reports' => true,
+            ],
+        ])->assertOk()->assertJsonPath('success', true);
+
+        // 7. Investigation Stat & Report is unlocked again
+        $unlockedPage = $this->actingAs($dpfStaff->fresh())->get('/Digital_Forensics/staff/case');
+        $unlockedPage->assertOk()
+            ->assertSee('href="' . url('/Digital_Forensics/staff/forensic-status') . '"', false);
+    }
 }

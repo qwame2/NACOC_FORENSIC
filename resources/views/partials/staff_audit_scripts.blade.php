@@ -33,32 +33,12 @@
                         </div>
                     </div>
                 </td>
-                <!-- UNIT & ROLE -->
-                <td class="py-3 px-4 whitespace-nowrap">
-                    <div class="h-3.5 bg-slate-200 rounded w-24 mb-1.5"></div>
-                    <div class="h-2.5 bg-slate-100 rounded w-16"></div>
-                </td>
-                <!-- ACTION & METHOD -->
-                <td class="py-3 px-4 whitespace-nowrap">
-                    <div class="flex items-center space-x-1.5">
-                        <div class="h-5 bg-slate-200 rounded w-10"></div>
-                        <div class="h-5 bg-slate-200 rounded w-16"></div>
-                    </div>
-                </td>
                 <!-- ACTIVITY DESCRIPTION -->
                 <td class="py-3 px-4 min-w-[280px]">
                     <div class="space-y-1.5 max-w-lg">
                         <div class="h-3.5 bg-slate-200 rounded ${descW}"></div>
                         <div class="h-2.5 bg-slate-100 rounded ${subW}"></div>
                     </div>
-                </td>
-                <!-- ROUTE & STATUS -->
-                <td class="py-3 px-4 whitespace-nowrap">
-                    <div class="flex items-center space-x-1.5 mb-1">
-                        <div class="h-4 bg-slate-200 rounded w-8"></div>
-                        <div class="h-3 bg-slate-100 rounded w-24"></div>
-                    </div>
-                    <div class="h-2.5 bg-slate-100 rounded w-20"></div>
                 </td>
                 <!-- DETAILS -->
                 <td class="py-3 px-4 text-right whitespace-nowrap">
@@ -385,6 +365,22 @@
         a.click();
         document.body.removeChild(a);
     }
+
+    /**
+     * Print Log Method (Safely pauses background polling during print dialog)
+     */
+    function printAuditLog() {
+        stopAuditPolling();
+        window.print();
+    }
+
+    window.addEventListener('beforeprint', function() {
+        stopAuditPolling();
+    });
+
+    window.addEventListener('afterprint', function() {
+        if (auditPollingActive) startAuditPolling();
+    });
 
     /**
      * Browser Popstate & Visibility Handling

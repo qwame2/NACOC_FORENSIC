@@ -118,7 +118,23 @@ class EnforceStaffAccountStatus
                     || $request->is('*/lab_sitrep_pdf*')
                     || $request->is('lab_sitrep_pdf*')
                     || $request->is('*/report_pdf*')
-                    || $request->is('*/report/pdf*'),
+                    || $request->is('*/report/pdf*')
+                    || $request->is('*/staff/forensic-status*')
+                    || $request->is('staff/forensic-status*')
+                    || $request->is('*/staff/forensic_status*')
+                    || $request->is('staff/forensic_status*')
+                    || $request->is('*/forensic-status*')
+                    || $request->is('forensic-status*')
+                    || $request->is('*/forensic_status*')
+                    || $request->is('forensic_status*')
+                    || $request->is('*/dpf-report-pdf*')
+                    || $request->is('dpf-report-pdf*')
+                    || $request->is('*/dpf_pdf*')
+                    || $request->is('dpf_pdf*')
+                    || $request->is('*/multi-dpf-report-pdf*')
+                    || $request->is('multi-dpf-report-pdf*')
+                    || $request->is('*/multi_dpf_pdf*')
+                    || $request->is('multi_dpf_pdf*'),
                 'permission' => 'generate_reports',
                 'context' => $unitOrPathContext,
                 'message' => 'Access Restricted: Your Head of Unit has disabled your Generate Reports & PDFs permission.',

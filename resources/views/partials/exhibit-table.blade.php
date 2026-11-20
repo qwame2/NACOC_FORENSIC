@@ -226,42 +226,60 @@
                                                         <span>{{ $szItem['contents'] }}</span>
                                                     </div>
                                                 @endif
-                                                @if(!empty($szItem['veh_reg_no']) || !empty($szItem['veh_vin']) || !empty($szItem['veh_condition']) || !empty($szItem['veh_fuel']) || !empty($szItem['veh_damage']) || !empty($szItem['veh_doc_ref']) || !empty($szItem['veh_owner_contact']) || !empty($szItem['veh_mods']) || !empty($szItem['veh_features']))
+                                                @php
+                                                    $catLowerT = strtolower(trim((string)($szItem['category'] ?? ($szItem['exhibit_category'] ?? ''))));
+                                                    $nameLowerT = strtolower(trim((string)($dispNameT ?? '')));
+                                                    $hasDevT = (!empty($szItem['dev_serial_no']) && is_string($szItem['dev_serial_no'])) || (!empty($szItem['dev_imei1']) && is_string($szItem['dev_imei1'])) || (!empty($szItem['dev_storage']) && is_string($szItem['dev_storage']));
+                                                    $hasVehT = (!empty($szItem['veh_reg_no']) && is_string($szItem['veh_reg_no'])) || (!empty($szItem['veh_vin']) && is_string($szItem['veh_vin'])) || (!empty($szItem['veh_condition']) && is_string($szItem['veh_condition']));
+                                                    $hasWpnT = (!empty($szItem['wpn_serial_no']) && is_string($szItem['wpn_serial_no'])) || (!empty($szItem['wpn_calibre']) && is_string($szItem['wpn_calibre'])) || (!empty($szItem['wpn_condition']) && is_string($szItem['wpn_condition']));
+
+                                                    $isDevT = str_contains($catLowerT, 'device') || str_contains($catLowerT, 'electronic') || str_contains($catLowerT, 'digital') || str_contains($nameLowerT, 'phone') || str_contains($nameLowerT, 'laptop') || str_contains($nameLowerT, 'iphone') || $hasDevT;
+                                                    $isVehT = str_contains($catLowerT, 'veh') || str_contains($catLowerT, 'car') || str_contains($catLowerT, 'auto') || $hasVehT;
+                                                    $isWpnT = str_contains($catLowerT, 'wpn') || str_contains($catLowerT, 'weapon') || str_contains($catLowerT, 'firearm') || $hasWpnT;
+                                                @endphp
+                                                @if($isVehT && ($hasVehT || !empty($szItem['veh_fuel']) || !empty($szItem['veh_damage'])))
                                                     <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
-                                                        @if(!empty($szItem['veh_reg_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">Reg: {{ $szItem['veh_reg_no'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_vin'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">VIN: {{ $szItem['veh_vin'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">{{ $szItem['veh_condition'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_doc_ref'])) <span class="bg-purple-100 text-purple-900 px-1.5 py-0.5 rounded">Doc: {{ $szItem['veh_doc_ref'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_owner_contact'])) <span class="bg-indigo-100 text-indigo-900 px-1.5 py-0.5 rounded">Contact: {{ $szItem['veh_owner_contact'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_fuel'])) <span class="bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded">Fuel: {{ $szItem['veh_fuel'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_damage'])) <span class="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded">Dmg: {{ \Illuminate\Support\Str::limit($szItem['veh_damage'], 35) }}</span> @endif
-                                                        @if(!empty($szItem['veh_mods'])) <span class="bg-amber-50 text-amber-900 px-1.5 py-0.5 rounded">Mods: {{ $szItem['veh_mods'] }}</span> @endif
-                                                        @if(!empty($szItem['veh_features'])) <span class="bg-cyan-50 text-cyan-900 px-1.5 py-0.5 rounded">Features: {{ $szItem['veh_features'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_reg_no']) && is_string($szItem['veh_reg_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">Reg: {{ $szItem['veh_reg_no'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_vin']) && is_string($szItem['veh_vin'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">VIN: {{ $szItem['veh_vin'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_condition']) && is_string($szItem['veh_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">{{ $szItem['veh_condition'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_doc_ref']) && is_string($szItem['veh_doc_ref'])) <span class="bg-purple-100 text-purple-900 px-1.5 py-0.5 rounded">Doc: {{ $szItem['veh_doc_ref'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_owner_contact']) && is_string($szItem['veh_owner_contact'])) <span class="bg-indigo-100 text-indigo-900 px-1.5 py-0.5 rounded">Contact: {{ $szItem['veh_owner_contact'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_fuel']) && is_string($szItem['veh_fuel'])) <span class="bg-emerald-100 text-emerald-900 px-1.5 py-0.5 rounded">Fuel: {{ $szItem['veh_fuel'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_damage']) && is_string($szItem['veh_damage'])) <span class="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded">Dmg: {{ \Illuminate\Support\Str::limit($szItem['veh_damage'], 35) }}</span> @endif
+                                                        @if(!empty($szItem['veh_mods']) && is_string($szItem['veh_mods'])) <span class="bg-amber-50 text-amber-900 px-1.5 py-0.5 rounded">Mods: {{ $szItem['veh_mods'] }}</span> @endif
+                                                        @if(!empty($szItem['veh_features']) && is_string($szItem['veh_features'])) <span class="bg-cyan-50 text-cyan-900 px-1.5 py-0.5 rounded">Features: {{ $szItem['veh_features'] }}</span> @endif
                                                     </div>
-                                                @elseif(!empty($szItem['wpn_serial_no']) || !empty($szItem['wpn_calibre']) || !empty($szItem['wpn_loaded_status']) || !empty($szItem['wpn_condition']) || !empty($szItem['wpn_marks']) || !empty($szItem['wpn_location_found']))
+                                                @elseif($isWpnT && ($hasWpnT || !empty($szItem['wpn_loaded_status'])))
                                                     <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
-                                                        @if(!empty($szItem['wpn_serial_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">SN: {{ $szItem['wpn_serial_no'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_calibre'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">Cal: {{ $szItem['wpn_calibre'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_loaded_status'])) <span class="bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">{{ $szItem['wpn_loaded_status'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">{{ $szItem['wpn_condition'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_marks'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">Marks: {{ $szItem['wpn_marks'] }}</span> @endif
-                                                        @if(!empty($szItem['wpn_location_found'])) <span class="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded">Loc: {{ $szItem['wpn_location_found'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_serial_no']) && is_string($szItem['wpn_serial_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">SN: {{ $szItem['wpn_serial_no'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_calibre']) && is_string($szItem['wpn_calibre'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">Cal: {{ $szItem['wpn_calibre'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_loaded_status']) && is_string($szItem['wpn_loaded_status'])) <span class="bg-red-100 text-red-900 px-1.5 py-0.5 rounded font-bold">{{ $szItem['wpn_loaded_status'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_condition']) && is_string($szItem['wpn_condition'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">{{ $szItem['wpn_condition'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_marks']) && is_string($szItem['wpn_marks'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">Marks: {{ $szItem['wpn_marks'] }}</span> @endif
+                                                        @if(!empty($szItem['wpn_location_found']) && is_string($szItem['wpn_location_found'])) <span class="bg-amber-50 text-amber-800 px-1.5 py-0.5 rounded">Loc: {{ $szItem['wpn_location_found'] }}</span> @endif
                                                     </div>
-                                                @elseif(!empty($szItem['dev_serial_no']) || !empty($szItem['dev_imei1']) || !empty($szItem['dev_storage']))
+                                                @elseif($isDevT && $hasDevT)
                                                     <div class="mt-1 flex flex-wrap gap-1 text-[10px] font-mono-code text-slate-600 font-normal">
-                                                        @if(!empty($szItem['dev_serial_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">SN: {{ $szItem['dev_serial_no'] }}</span> @endif
-                                                        @if(!empty($szItem['dev_imei1'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">IMEI: {{ $szItem['dev_imei1'] }}</span> @endif
-                                                        @if(!empty($szItem['dev_storage'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">{{ $szItem['dev_storage'] }}</span> @endif
+                                                        @if(!empty($szItem['dev_serial_no']) && is_string($szItem['dev_serial_no'])) <span class="bg-amber-100 text-amber-900 px-1.5 py-0.5 rounded font-bold">SN: {{ $szItem['dev_serial_no'] }}</span> @endif
+                                                        @if(!empty($szItem['dev_imei1']) && is_string($szItem['dev_imei1'])) <span class="bg-blue-100 text-blue-900 px-1.5 py-0.5 rounded font-bold">IMEI: {{ $szItem['dev_imei1'] }}</span> @endif
+                                                        @if(!empty($szItem['dev_storage']) && is_string($szItem['dev_storage'])) <span class="bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded font-bold">{{ $szItem['dev_storage'] }}</span> @endif
                                                     </div>
-                                                @elseif(!empty($szItem['other_exhibit_description']) || !empty($szItem['other_description']))
+                                                @elseif(!empty($szItem['other_exhibit_description']) && is_string($szItem['other_exhibit_description']))
                                                     <div class="mt-1 text-[11px] text-slate-600 font-normal italic">
-                                                        {{ \Illuminate\Support\Str::limit($szItem['other_exhibit_description'] ?? $szItem['other_description'], 60) }}
+                                                        {{ \Illuminate\Support\Str::limit($szItem['other_exhibit_description'], 60) }}
+                                                    </div>
+                                                @elseif(!empty($szItem['other_description']) && is_string($szItem['other_description']))
+                                                    <div class="mt-1 text-[11px] text-slate-600 font-normal italic">
+                                                        {{ \Illuminate\Support\Str::limit($szItem['other_description'], 60) }}
                                                     </div>
                                                 @endif
-                                                @if(!empty($szItem['exhibit_remark']) || !empty($szItem['remark']))
+                                                @php
+                                                    $remT = $szItem['exhibit_remark'] ?? ($szItem['remark'] ?? null);
+                                                @endphp
+                                                @if(!empty($remT) && is_string($remT))
                                                     <div class="mt-1 text-[11px] text-slate-600 font-medium italic flex items-start gap-1">
                                                         <span class="text-[9px] font-mono-code font-bold text-slate-500 bg-slate-100 px-1 py-0.2 rounded border border-slate-200 uppercase not-italic">Remark:</span>
-                                                        <span>{{ $szItem['exhibit_remark'] ?? $szItem['remark'] }}</span>
+                                                        <span>{{ $remT }}</span>
                                                     </div>
                                                 @endif
                                             </td>

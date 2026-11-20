@@ -356,4 +356,97 @@ class StaffAuditTableTest extends TestCase
         $ajaxPage3->assertSee('Showing <strong class="text-slate-900 tnum font-extrabold">21</strong> to <strong class="text-slate-900 tnum font-extrabold">25</strong> of <strong class="text-slate-900 tnum font-extrabold">25</strong>', false);
         $ajaxPage3->assertSee('Page 3 of 3', false);
     }
+
+    public function test_staff_audit_print_layout_includes_nacoc_logo_header_footer_and_readable_context(): void
+    {
+        $headOfficer = User::factory()->create([
+            'fullname'    => 'Director General Kwame Asante',
+            'service_id'  => 'HQ-0001',
+            'unit'        => 'Forensic Directorate',
+            'is_head'     => true,
+            'is_approved' => true,
+        ]);
+
+        StaffAudit::create([
+            'staff_name'  => 'Detective Serwaa Mensah',
+            'service_id'  => 'DF-1092',
+            'unit'        => 'Digital Forensics',
+            'role'        => 'Staff Officer',
+            'action'      => 'DEVICE_EXTRACTION',
+            'description' => 'Completed physical image acquisition of suspect mobile device.',
+            'route'       => 'Digital_Forensics/staff/case',
+            'method'      => 'POST',
+            'status_code' => 200,
+            'payload'     => [
+                'case_number'    => 'CR-ACC-2026-8801',
+                'suspect_name'   => 'Kofi Boateng',
+                'exhibit_number' => 'EXH-MOB-091',
+                'transfer_unit'  => 'Lab Analysis',
+            ],
+        ]);
+
+        $routesToTest = [
+            '/Digital_Forensics/staff-audit-logs',
+            '/Crime_Scene_Support/staff-audit-logs',
+            '/Evidence_Management/staff-audit-logs',
+            '/Lab_Analysis/staff-audit-logs',
+            '/Forensic_Head/staff-audit-logs',
+        ];
+
+        foreach ($routesToTest as $route) {
+            $response = $this->actingAs($headOfficer)->get($route);
+            $response->assertStatus(200);
+
+            // Export CSV and Print buttons are removed
+            $response->assertDontSee('Export CSV', false);
+            $response->assertDontSee('title="Print Log"', false);
+
+            // Official NACOC executive cover page elements
+            $response->assertSee('cover-page', false);
+            $response->assertSee('STAFF AUDIT DOSSIER &bull; COVER PAGE', false);
+            $response->assertSee('REPUBLIC OF GHANA', false);
+            $response->assertSee('NARCOTICS CONTROL COMMISSION', false);
+            $response->assertSee('FORENSIC SERVICES DIRECTORATE', false);
+            $response->assertSee('STAFF AUDIT &amp; ACTIVITY REGISTER', false);
+            $response->assertSee('Total Logged Records', false);
+            $response->assertSee('Monitored Staff', false);
+            $response->assertSee('Mutations / Writes', false);
+            $response->assertSee('RESTRICTED', false);
+            $response->assertSee('alt="NACOC Logo"', false);
+            $response->assertSee('alt="NACOC Watermark"', false);
+            $response->assertSee('CONFIDENTIAL &amp; PROPRIETARY LAW ENFORCEMENT RECORD', false);
+            $response->assertSee('COMPILING UNIT:', false);
+            $response->assertSee('OVERSIGHT AUTHORITY:', false);
+
+            // Continuation header for body pages
+            $response->assertSee('print-continuation-header', false);
+
+            // Official NACOC print-only footer elements
+            $response->assertSee('print-footer-container', false);
+            $response->assertSee('NARCOTICS CONTROL COMMISSION ACT, 2020 (ACT 1019)', false);
+            $response->assertSee('IMMUTABLE SYSTEM AUDIT TRAIL', false);
+            $response->assertSee('Official Document Seal', false);
+
+            // Body table must strictly have Timestamp, Staff Officer, and Activity Description
+            $response->assertSee('col-timestamp">Timestamp</th>', false);
+            $response->assertSee('col-officer">Staff Officer</th>', false);
+            $response->assertSee('col-description">Activity Description</th>', false);
+            $response->assertDontSee('col-unit">Unit &amp; Role</th>', false);
+            $response->assertDontSee('col-action">Action &amp; Method</th>', false);
+            $response->assertDontSee('col-route">Route &amp; Status</th>', false);
+
+            // Print layout rules
+            $response->assertSee('@page {', false);
+            $response->assertSee('size: A4 portrait;', false);
+            $response->assertSee('-webkit-print-color-adjust: exact', false);
+        }
+
+        // Test that context tags are present and readable for the logged case
+        $dfResponse = $this->actingAs($headOfficer)->get('/Digital_Forensics/staff-audit-logs');
+        $dfResponse->assertSee('audit-context-tag', false);
+        $dfResponse->assertSee('Case: #CR-ACC-2026-8801', false);
+        $dfResponse->assertSee('Suspect: Kofi Boateng', false);
+        $dfResponse->assertSee('Exhibit: EXH-MOB-091', false);
+        $dfResponse->assertSee('Transfer To: Lab Analysis', false);
+    }
 }

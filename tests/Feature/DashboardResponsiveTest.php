@@ -21,19 +21,29 @@ class DashboardResponsiveTest extends TestCase
         $response = $this->actingAs($user)->get('/Forensic_Head');
         $response->assertOk();
 
-        // Mobile navigation button and drawer panel
-        $response->assertSee('mobileMenuBtn', false);
+        // Mobile navigation button is removed from dashboard
+        $response->assertDontSee('mobileMenuBtn', false);
         $response->assertSee('mobileNavPanel', false);
         $response->assertSee('toggleMobileNav', false);
 
-        // Whole screen and responsive css rules
+        // Whole screen and responsive css rules (100% fit-screen, no page scroll)
         $response->assertSee('max-height: 100vh', false);
         $response->assertSee('overflow: hidden', false);
         $response->assertSee('min-height: 100dvh', false);
+        $response->assertSee('height: 100vh', false);
 
         // Responsive map and radial layout rules
         $response->assertSee('stats-split-grid', false);
         $response->assertSee('radial-layout', false);
+
+        // Responsive multi-device breakpoints
+        $response->assertSee('@media (max-width: 1023px)', false);
+        $response->assertSee('@media (max-width: 768px)', false);
+        $response->assertSee('@media (max-width: 480px)', false);
+
+        // Scrollbars removed completely from dashboard
+        $response->assertSee('scrollbar-width: none !important', false);
+        $response->assertDontSee('scrollbar-gutter: stable;', false);
     }
 }
 

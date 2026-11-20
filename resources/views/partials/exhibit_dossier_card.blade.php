@@ -305,8 +305,8 @@
 
                 @if ($isVehEx)
                     @php
-                        $vMake = !empty($pEx['veh_make']) ? $pEx['veh_make'] : null;
-                        $vModel = !empty($pEx['veh_model']) ? $pEx['veh_model'] : null;
+                        $vMake = !empty($pEx['veh_make']) && is_string($pEx['veh_make']) ? $pEx['veh_make'] : null;
+                        $vModel = !empty($pEx['veh_model']) && is_string($pEx['veh_model']) ? $pEx['veh_model'] : null;
                         $vMakeModelFull = implode(' ', array_filter([$vMake, $vModel]));
                         if (empty($vMakeModelFull)) {
                             $vMakeModelFull =
@@ -314,46 +314,69 @@
                                 ($pEx['seizure_name'] ??
                                     ($pEx['commodity_name'] ?? ($pEx['name'] ?? 'N/A')));
                         }
+                        $vMakeModelFull = is_string($vMakeModelFull) ? $vMakeModelFull : 'N/A';
 
                         $vRegNo =
                             $pEx['veh_reg_no'] ??
                             ($pEx['vehicle_registration'] ??
                                 ($pEx['registration_number'] ?? 'N/A'));
+                        $vRegNo = is_string($vRegNo) ? $vRegNo : 'N/A';
                         $vVin =
                             $pEx['veh_vin'] ??
                             ($pEx['vehicle_chassis_vin'] ??
                                 ($pEx['chassis_number'] ?? 'N/A'));
+                        $vVin = is_string($vVin) ? $vVin : 'N/A';
                         $vType =
                             $pEx['veh_type'] ?? ($pEx['vehicle_type'] ?? 'Vehicle Exhibit');
+                        $vType = is_string($vType) ? $vType : 'Vehicle Exhibit';
                         $vColor =
                             $pEx['veh_colour'] ?? ($pEx['vehicle_color_type'] ?? 'N/A');
+                        $vColor = is_string($vColor) ? $vColor : 'N/A';
                         $vYear = $pEx['veh_year'] ?? ($pEx['vehicle_year'] ?? 'N/A');
+                        $vYear = is_string($vYear) ? $vYear : 'N/A';
                         $vEngine =
                             $pEx['veh_engine_no'] ?? ($pEx['engine_number'] ?? 'N/A');
+                        $vEngine = is_string($vEngine) ? $vEngine : 'N/A';
                         $vCountry =
                             $pEx['veh_country_reg'] ??
                             ($pEx['country_of_registration'] ?? 'N/A');
+                        $vCountry = is_string($vCountry) ? $vCountry : 'N/A';
                         $vOwner =
                             $pEx['veh_owner'] ??
                             ($pEx['vehicle_owner'] ??
                                 ($headingName ?? ($case->suspect_name ?? 'Primary Suspect')));
+                        $vOwner = is_string($vOwner) ? $vOwner : 'Primary Suspect';
                         $vOwnerContact = $pEx['veh_owner_contact'] ?? ($pEx['vehicle_owner_contact'] ?? null);
+                        $vOwnerContact = is_string($vOwnerContact) ? $vOwnerContact : null;
                         $vDriver = $pEx['veh_driver'] ?? ($pEx['vehicle_driver'] ?? 'N/A');
+                        $vDriver = is_string($vDriver) ? $vDriver : 'N/A';
                         $vDocsAvailable = $pEx['veh_docs_available'] ?? ($pEx['vehicle_docs_available'] ?? null);
+                        $vDocsAvailable = is_string($vDocsAvailable) ? $vDocsAvailable : null;
                         $vDocRef = $pEx['veh_doc_ref'] ?? ($pEx['vehicle_doc_ref'] ?? null);
+                        $vDocRef = is_string($vDocRef) ? $vDocRef : null;
                         $vCondition = $pEx['veh_condition'] ?? ($pEx['vehicle_condition'] ?? null);
+                        $vCondition = is_string($vCondition) ? $vCondition : null;
                         $vFuel = $pEx['veh_fuel'] ?? ($pEx['vehicle_fuel'] ?? null);
+                        $vFuel = is_string($vFuel) ? $vFuel : null;
                         $vKeysRecv = $pEx['veh_keys_recv'] ?? ($pEx['vehicle_keys_recv'] ?? null);
+                        $vKeysRecv = is_string($vKeysRecv) ? $vKeysRecv : null;
                         $vKeyCount = $pEx['veh_key_count'] ?? ($pEx['vehicle_key_count'] ?? null);
+                        $vKeyCount = is_string($vKeyCount) ? $vKeyCount : null;
                         $vDamage = $pEx['veh_damage'] ?? ($pEx['vehicle_damage'] ?? null);
+                        $vDamage = is_string($vDamage) ? $vDamage : null;
                         $vMods = $pEx['veh_mods'] ?? ($pEx['vehicle_mods'] ?? null);
+                        $vMods = is_string($vMods) ? $vMods : null;
                         $vFeatures = $pEx['veh_features'] ?? ($pEx['vehicle_features'] ?? null);
+                        $vFeatures = is_string($vFeatures) ? $vFeatures : null;
                         $vLoc = $pEx['seizure_location'] ?? ($pEx['location'] ?? 'N/A');
+                        $vLoc = is_string($vLoc) ? $vLoc : 'N/A';
                         $vOfficer = $pEx['seizure_officer'] ?? ($pEx['officer'] ?? 'N/A');
-                        $vDate = !empty($pEx['seizure_date']) ? $pEx['seizure_date'] : null;
-                        $vTime = !empty($pEx['seizure_time']) ? "@ {$pEx['seizure_time']}" : '';
+                        $vOfficer = is_string($vOfficer) ? $vOfficer : 'N/A';
+                        $vDate = !empty($pEx['seizure_date']) && is_string($pEx['seizure_date']) ? $pEx['seizure_date'] : null;
+                        $vTime = !empty($pEx['seizure_time']) && is_string($pEx['seizure_time']) ? "@ {$pEx['seizure_time']}" : '';
                         $vDateTime = !empty($vDate) ? "{$vDate} {$vTime}" : 'N/A';
                         $vReason = $pEx['seizure_reason'] ?? 'N/A';
+                        $vReason = is_string($vReason) ? $vReason : 'N/A';
                         $vPhotos = $extractAllPhotosHelper($pEx);
                     @endphp
                     <div
@@ -685,7 +708,7 @@
                         if (!isset($resolveDevField) || !is_callable($resolveDevField)) {
                             $resolveDevField = function(...$vals) {
                                 foreach ($vals as $v) {
-                                    if ($v !== null && trim((string)$v) !== '') return trim((string)$v);
+                                    if ($v !== null && !is_array($v) && !is_object($v) && trim((string)$v) !== '') return trim((string)$v);
                                 }
                                 return 'N/A';
                             };
@@ -829,14 +852,23 @@
                 @if ($isWeaponEx)
                     @php
                         $wModel = $pEx['weapon_model'] ?? ($pEx['wpn_model'] ?? ($pEx['weapon_type'] ?? ($pEx['seizure_name_weapon'] ?? ($pEx['seizure_name'] ?? 'Firearm / Weapon Exhibit'))));
+                        $wModel = is_string($wModel) ? $wModel : 'Firearm / Weapon Exhibit';
                         $wSerial = $pEx['weapon_serial_number'] ?? ($pEx['weapon_serial'] ?? ($pEx['wpn_serial_no'] ?? null));
+                        $wSerial = is_string($wSerial) ? $wSerial : null;
                         $wCalibre = $pEx['weapon_calibre'] ?? ($pEx['wpn_calibre'] ?? null);
+                        $wCalibre = is_string($wCalibre) ? $wCalibre : null;
                         $wColour = $pEx['weapon_color'] ?? ($pEx['weapon_colour'] ?? ($pEx['wpn_colour'] ?? null));
+                        $wColour = is_string($wColour) ? $wColour : null;
                         $wSize = $pEx['weapon_size_length'] ?? ($pEx['weapon_size'] ?? ($pEx['wpn_size'] ?? null));
+                        $wSize = is_string($wSize) ? $wSize : null;
                         $wLoaded = $pEx['weapon_loaded_status'] ?? ($pEx['wpn_loaded_status'] ?? null);
+                        $wLoaded = is_string($wLoaded) ? $wLoaded : null;
                         $wCondition = $pEx['weapon_condition_at_recovery'] ?? ($pEx['weapon_condition'] ?? ($pEx['wpn_condition'] ?? null));
+                        $wCondition = is_string($wCondition) ? $wCondition : null;
                         $wLoc = $pEx['weapon_location_found'] ?? ($pEx['wpn_location_found'] ?? null);
+                        $wLoc = is_string($wLoc) ? $wLoc : null;
                         $wMarks = $pEx['weapon_distinguishing_marks'] ?? ($pEx['wpn_marks'] ?? null);
+                        $wMarks = is_string($wMarks) ? $wMarks : null;
                         $wPhotos = $extractAllPhotosHelper($pEx);
                     @endphp
                     <div

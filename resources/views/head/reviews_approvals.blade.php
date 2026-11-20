@@ -135,6 +135,7 @@
     </style>
 </head>
 <body class="min-h-screen bg-[#F6F7F9] text-slate-900 antialiased selection:bg-emerald-700 selection:text-white">
+    @include('partials.flash')
 
     <div class="flex h-screen overflow-hidden">
         @include('Crime_Scene_Support.partials.sidebar')

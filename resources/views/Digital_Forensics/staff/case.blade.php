@@ -135,15 +135,32 @@
                                 <span class="text-xs font-bold text-slate-600 font-mono-code">STAFF CASE DIRECTORY</span>
                             </div>
                             <h1 class="text-2xl font-black text-slate-900 tracking-tight">Active Incident &amp; Case Registry</h1>
-                            <p class="text-xs text-slate-500 mt-1">Analyst: <strong class="text-slate-800">{{ $staffName }}</strong> <span class="text-slate-300 mx-1">|</span> Unit Lead: <strong>{{ $headName }}</strong></p>
+                            <p class="text-xs text-slate-500 mt-1">Analyst: <strong class="text-slate-800">{{ $staffName }}</strong> <span class="text-slate-300 mx-1">|</span> Unit Head: <strong>{{ $headName }}</strong></p>
                         </div>
 
+                        @php
+                            $canStaffGenerateReports = !auth()->user() || auth()->user()->is_head || (method_exists(auth()->user(), 'hasPermission') ? auth()->user()->hasPermission('generate_reports', request()->path()) : true);
+                            $lockedReportsTooltip = 'Locked: Generate Reports & PDFs permission is disabled by your Head of Unit';
+                            $forensicStatusUrl = url('/Digital_Forensics/staff/forensic-status');
+                        @endphp
                         <div class="flex items-center gap-2">
-                            <a href="{{ url('/Digital_Forensics/staff') }}" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-2xs">
-                                Staff Workstation
-                            </a>
-                            <a href="{{ url('/Digital_Forensics/staff/forensic-status') }}" class="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 text-xs font-bold rounded-xl transition-colors shadow-2xs">
-                                Investigation Stats
+                            <a @if($canStaffGenerateReports) href="{{ $forensicStatusUrl }}" @endif
+                               data-staff-sitrep-btn="header"
+                               data-staff-investigation-stat-btn="header"
+                               data-sitrep-url="{{ $forensicStatusUrl }}"
+                               aria-disabled="{{ $canStaffGenerateReports ? 'false' : 'true' }}"
+                               @if(!$canStaffGenerateReports)
+                                   tabindex="0"
+                                   title="{{ $lockedReportsTooltip }}"
+                                   data-locked-tooltip="{{ $lockedReportsTooltip }}"
+                                   onclick="event.preventDefault(); event.stopPropagation(); return false;"
+                                   style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
+                               @endif
+                               class="inline-flex items-center gap-1.5 px-3.5 py-2 border text-xs font-bold rounded-xl transition-all shadow-2xs {{ !$canStaffGenerateReports ? 'bg-slate-200/80 text-slate-400 border-slate-300/70 select-none' : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200' }}"
+                               data-enabled-class="bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200"
+                               data-disabled-class="bg-slate-200/80 text-slate-400 border-slate-300/70 select-none">
+                                <span>Investigation Stats</span>
+                                <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 {{ $canStaffGenerateReports ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                             </a>
                         </div>
                     </div>

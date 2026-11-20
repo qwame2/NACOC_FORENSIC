@@ -80,6 +80,7 @@
         $avgTurnaroundUnit = $rDays === 1 ? 'day' : 'days';
     }
     $mapConfig = $mapConfig ?? app(\App\Services\CaseAnalyticsService::class)->buildLeafletMapPayload($cases);
+    $topIncidentLocations = $topIncidentLocations ?? app(\App\Services\CaseAnalyticsService::class)->buildTopIncidentLocations($cases);
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -166,75 +167,145 @@
     .tnum { font-variant-numeric: tabular-nums; }
 
     /* ============ APP SHELL ============ */
+    /* ============ HIDE ALL SCROLLBARS FROM DASHBOARD ============ */
+    html, body, .app, .map-hero, .map-side-rail, * {
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar,
+    .app::-webkit-scrollbar,
+    .map-hero::-webkit-scrollbar,
+    .map-side-rail::-webkit-scrollbar,
+    *::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+
     html, body {
       height: 100%;
+      height: 100vh;
+      height: 100dvh;
+      max-height: 100vh;
+      max-height: 100dvh;
       margin: 0;
       padding: 0;
+      overflow: hidden !important;
     }
     .app {
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
+      height: 100%;
+      height: 100vh;
+      height: 100dvh;
+      max-height: 100vh;
+      max-height: 100dvh;
       min-height: 100dvh;
       width: 100%;
+      max-width: 100%;
       background: var(--paper);
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
     }
 
-    /* Desktop (>= 1024px): Fit the whole screen seamlessly as a unified command center */
+    /* Top Navigation Bars (Fixed Heights) */
+    .topbar {
+      flex-shrink: 0;
+      height: 50px;
+      box-sizing: border-box;
+    }
+    .topbar-inner {
+      height: 100%;
+      box-sizing: border-box;
+      padding: 6px 18px;
+    }
+    .unit-strip {
+      flex-shrink: 0;
+      height: 34px;
+      box-sizing: border-box;
+      padding: 4px 18px;
+    }
+
+    /* Desktop (>= 1024px): 100% Fit Screen Command View - Zero Page Scroll */
     @media (min-width: 1024px) {
       body {
-        overflow: hidden;
+        overflow: hidden !important;
       }
       .app {
         height: 100vh;
         height: 100dvh;
         max-height: 100vh;
         max-height: 100dvh;
-        overflow: hidden;
-      }
-      .topbar {
-        flex-shrink: 0;
-      }
-      .unit-strip {
-        flex-shrink: 0;
+        overflow: hidden !important;
       }
       .map-hero {
         flex: 1 1 0;
         min-height: 0;
-        height: 100%;
-        padding: 12px 18px;
+        height: calc(100vh - 84px);
+        height: calc(100dvh - 84px);
+        max-height: calc(100vh - 84px);
+        max-height: calc(100dvh - 84px);
+        width: 100%;
+        padding: 8px 16px 6px;
+        margin: 0 !important;
         display: grid;
-        grid-template-columns: minmax(0, 1.7fr) minmax(350px, 1fr);
-        gap: 14px;
+        grid-template-columns: minmax(0, 1.55fr) minmax(360px, 430px);
+        gap: 12px;
         align-items: stretch;
-        overflow: hidden;
+        overflow: hidden !important;
+        box-sizing: border-box;
       }
       .map-shell {
+        position: relative;
+        width: 100%;
         height: 100%;
         min-height: 0;
+        max-height: 100%;
+        background: var(--navy-950);
+        border-radius: var(--r-xl);
+        overflow: hidden !important;
+        box-shadow: var(--e-hero);
+        isolation: isolate;
       }
       .map-side-rail {
         height: 100%;
         min-height: 0;
+        max-height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        min-width: 0;
         overflow-y: auto;
         overflow-x: hidden;
-        padding-right: 4px;
-        scrollbar-width: thin;
-        scrollbar-color: #cbd5e1 transparent;
+        scrollbar-width: none !important;
+        -ms-overflow-style: none !important;
+        padding: 0;
+        margin: 0;
       }
       .map-side-rail::-webkit-scrollbar {
-        width: 6px;
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
       }
-      .map-side-rail::-webkit-scrollbar-track {
-        background: transparent;
+      .map-side-rail .card {
+        min-width: 0;
+        flex: 1 1 auto;
+        min-height: 220px;
+        display: flex;
+        flex-direction: column;
       }
-      .map-side-rail::-webkit-scrollbar-thumb {
-        background-color: #cbd5e1;
-        border-radius: 999px;
+      .map-side-rail .card-head {
+        padding: 12px 18px 10px !important;
+        flex-shrink: 0;
+      }
+      .map-side-rail .card-head h2 {
+        font-size: 14.5px !important;
       }
     }
 
-    /* Tablet and Mobile (< 1024px): Responsive fluid stacked view */
+    /* Tablet (768px - 1023px): Fluid Stacked Layout */
     @media (max-width: 1023px) {
       body {
         overflow-x: hidden;
@@ -245,34 +316,108 @@
         min-height: 100vh;
         min-height: 100dvh;
         overflow: visible;
+        padding-bottom: 12px;
+        margin-bottom: 8px;
       }
       .map-hero {
         height: auto;
         display: flex;
         flex-direction: column;
-        padding: 12px 14px 20px;
+        padding: 14px 18px 12px;
+        margin-bottom: 5px;
         gap: 16px;
         overflow: visible;
       }
       .map-shell {
         width: 100%;
-        height: 52vh;
+        height: clamp(380px, 50vh, 520px);
         min-height: 380px;
-        max-height: 580px;
+        max-height: 540px;
+        border-radius: var(--r-xl);
       }
       .map-side-rail {
         width: 100%;
         height: auto;
         overflow: visible;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        padding-bottom: 0;
+        margin-bottom: 0;
       }
     }
 
-    /* Small phones (<= 640px) */
-    @media (max-width: 640px) {
+    /* Mobile Phones (480px - 767px) */
+    @media (max-width: 768px) {
+      .topbar-inner { padding: 8px 14px; gap: 8px; }
+      .unit-strip { padding: 6px 14px; gap: 8px; }
+      .map-hero {
+        padding: 12px 14px 10px;
+        margin-bottom: 6px;
+        gap: 14px;
+      }
       .map-shell {
-        min-height: 340px;
-        height: 48vh;
-        border-radius: var(--r-xl);
+        height: clamp(320px, 44vh, 420px);
+        min-height: 320px;
+        border-radius: var(--r-lg);
+      }
+      .card-head {
+        padding: 12px 14px 8px !important;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .bar-chart-wrap {
+        height: 165px;
+        padding: 8px 12px 12px;
+      }
+      .scoreboard-chart-wrap {
+        height: 175px;
+      }
+      .scoreboard-card-content {
+        padding: 10px 14px 14px;
+      }
+    }
+
+    /* Small Phones (<= 480px) */
+    @media (max-width: 480px) {
+      .app {
+        padding-bottom: 8px;
+        margin-bottom: 6px;
+      }
+      .map-hero {
+        padding: 8px 8px 8px;
+        margin-bottom: 6px;
+        gap: 12px;
+      }
+      .map-shell {
+        height: 290px;
+        min-height: 280px;
+        border-radius: var(--r-md);
+      }
+      .card {
+        border-radius: var(--r-md);
+      }
+      .card-head h2 {
+        font-size: 14px;
+      }
+      .count-chip {
+        font-size: 10px;
+        padding: 2px 7px;
+      }
+      .radial-card-body {
+        padding: 12px 14px 16px;
+      }
+      .radial-layout {
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+      }
+      .radial-svg-wrap {
+        width: 140px;
+        height: 140px;
+      }
+      .radial-legend {
+        width: 100%;
       }
     }
 
@@ -493,38 +638,6 @@
     .unit-strip .u-title { font-weight: 600; color: var(--ink-800); font-size: 11.5px; }
     .unit-strip .u-sync { color: var(--ink-500); font-weight: 500; font-size: 10.5px; }
 
-    /* ============ MAP HERO ============ */
-    .map-hero {
-      width: 100%;
-      padding: 16px 24px 0;
-      display: grid;
-      grid-template-columns: minmax(0, 1.75fr) minmax(350px, 1fr);
-      gap: 16px;
-      align-items: stretch;
-    }
-    @media (max-width: 1100px) { .map-hero { grid-template-columns: 1fr; } }
-    @media (max-width: 768px) { .map-hero { padding: 12px 14px 0; } }
-
-    .map-shell {
-      position: relative;
-      width: 100%;
-      height: 100%;
-      min-height: 540px;
-      background: var(--navy-950);
-      border-radius: var(--r-2xl);
-      overflow: hidden;
-      box-shadow: var(--e-hero);
-      isolation: isolate;
-    }
-    @media (max-width: 640px) { .map-shell { min-height: 440px; border-radius: var(--r-xl); } }
-
-    .map-side-rail {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-      min-width: 0;
-    }
-
     .stats-split-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -552,29 +665,86 @@
     .bar-chart-wrap {
       position: relative;
       width: 100%;
-      height: 175px;
+      height: 190px;
+      min-height: 180px;
       padding: 10px 18px 14px;
+      box-sizing: border-box;
+      flex: 1;
+    }
+
+    /* Incident Hotspots Scoreboard & Chart Styles */
+    .incident-scoreboard-card {
+      overflow: hidden;
+    }
+    .scoreboard-trophy-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 9999px;
+      background: #fef3c7;
+      border: 1px solid #fde68a;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .scoreboard-card-content {
+      padding: 12px 18px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      flex: 1;
+    }
+    .scoreboard-section-subhead {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--ink-500);
+      margin-bottom: 4px;
+    }
+    .scoreboard-section-subhead .subhead-meta {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: none;
+      color: var(--ink-500);
+    }
+    .scoreboard-chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 195px;
+      min-height: 185px;
+      cursor: pointer;
+      box-sizing: border-box;
+      flex: 1;
+    }
+    .scoreboard-chart-wrap canvas {
+      cursor: pointer;
     }
 
     .radial-card-body {
-      padding: 16px 20px 18px;
+      padding: 14px 20px 18px;
       display: flex;
       flex-direction: column;
       gap: 10px;
+      flex: 1;
+      min-height: 220px;
     }
     .radial-hero-num {
-      font-size: 28px;
+      font-size: 26px;
       font-weight: 700;
       letter-spacing: -.03em;
       color: var(--ink-900);
-      line-height: 1.05;
+      line-height: 1;
       font-variant-numeric: tabular-nums;
       display: flex;
       align-items: baseline;
       gap: 6px;
     }
     .radial-hero-num span.sub {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       color: var(--ink-500);
       letter-spacing: 0;
@@ -585,16 +755,17 @@
       justify-content: space-between;
       gap: 16px;
       padding-top: 4px;
+      flex: 1;
     }
     @media (max-width: 580px) {
       .radial-layout {
         flex-direction: column;
         align-items: center;
-        gap: 16px;
+        gap: 12px;
       }
       .radial-svg-wrap {
-        width: 160px;
-        height: 160px;
+        width: 110px;
+        height: 110px;
       }
       .radial-legend {
         width: 100%;
@@ -603,13 +774,13 @@
     }
     .radial-svg-wrap {
       position: relative;
-      width: 172px;
-      height: 172px;
+      width: 140px;
+      height: 140px;
       flex-shrink: 0;
     }
     .radial-svg-wrap svg {
-      width: 172px;
-      height: 172px;
+      width: 100%;
+      height: 100%;
       transform: rotate(-90deg);
       display: block;
     }
@@ -622,10 +793,10 @@
       justify-content: center;
       text-align: center;
       pointer-events: none;
-      padding: 0 26px;
+      padding: 0 8px;
     }
     .radial-center .rc-val {
-      font-size: 24px;
+      font-size: 22px;
       font-weight: 700;
       color: var(--ink-900);
       letter-spacing: -.03em;
@@ -633,41 +804,50 @@
       font-variant-numeric: tabular-nums;
     }
     .radial-center .rc-lbl {
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 600;
       color: var(--ink-700);
-      margin-top: 4px;
+      margin-top: 3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 110px;
     }
     .radial-center .rc-sub {
-      font-size: 10px;
+      font-size: 9.5px;
       font-weight: 500;
       color: var(--ink-400);
       margin-top: 2px;
-      line-height: 1.25;
+      line-height: 1.1;
+      white-space: nowrap;
     }
     .radial-legend {
       flex: 1;
       min-width: 155px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 5px 12px;
     }
     .radial-leg-item {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
-      font-size: 11px;
+      gap: 6px;
+      font-size: 10.5px;
     }
     .radial-leg-name {
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
       color: var(--ink-600);
       font-weight: 500;
+      font-size: 10px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
     .radial-leg-bar {
-      width: 3px;
+      width: 3.5px;
       height: 12px;
       border-radius: 99px;
       flex-shrink: 0;
@@ -676,7 +856,7 @@
       font-family: 'JetBrains Mono', monospace;
       font-weight: 700;
       color: var(--ink-900);
-      font-size: 12px;
+      font-size: 11px;
     }
 
     .map-canvas {
@@ -1408,10 +1588,6 @@
           <i data-lucide="log-out" style="width:15px;height:15px;"></i>
         </button>
       </form>
-
-      <button type="button" class="icon-btn mobile-menu-toggle" id="mobileMenuBtn" aria-label="Toggle navigation menu" onclick="toggleMobileNav()">
-        <i data-lucide="menu" id="mobileMenuIcon" style="width:17px;height:17px;"></i>
-      </button>
     </div>
 
     <!-- MOBILE NAVIGATION PANEL (< 1024px) -->
@@ -1510,7 +1686,7 @@
           </span>
           <div>
             <div class="ttl">{{ $locationNoun === 'Cases' ? 'Cases' : $locationNoun . ' · Geospatial' }}</div>
-            <div class="ttl-sub">Tracking {{ $totalCasesCount }} registered dockets across Ghana</div>
+            <div class="ttl-sub">Tracking {{ $totalCasesCount }} registered cases across Ghana</div>
           </div>
           <span class="count-pill" id="mappedCaseCountPill">{{ $totalCasesCount }}</span>
         </div>
@@ -1573,151 +1749,166 @@
 
     </div>
 
-    <!-- Right side of the map: Registered Dockets Bar Chart + Forensic Stats + Key Metrics -->
+    <!-- Right side of the map: Registered Cases Bar Chart + Forensic Stats + Key Metrics -->
     <div class="map-side-rail">
-      <!-- Bar Chart CardView: Registered Dockets -->
-      <div class="card" aria-label="Registered dockets bar chart">
+      <!-- Bar Chart CardView: Registered Cases -->
+      <div class="card" aria-label="Registered cases bar chart">
         <div class="card-head" style="padding:14px 18px 12px;">
           <div>
-            <h2>Registered Dockets</h2>
-            <div class="hint">Monthly docket intake &amp; exhibits overview</div>
+            <h2>Registered Cases</h2>
+            <div class="hint">Monthly case intake &amp; exhibits overview</div>
           </div>
           <div style="display:flex;align-items:center;gap:8px;">
-            <span class="count-chip" id="docketsBarBadge">{{ $totalCasesCount }} dockets</span>
+            <span class="count-chip" id="docketsBarBadge">{{ $totalCasesCount }} cases</span>
           </div>
         </div>
         <div class="bar-chart-wrap">
-          <canvas id="registeredDocketsBarChart" aria-label="Registered dockets bar chart"></canvas>
+          <canvas id="registeredDocketsBarChart" aria-label="Registered cases bar chart"></canvas>
         </div>
       </div>
 
-      <!-- Severity & Unit Side-by-Side CardViews -->
-      <div class="stats-split-grid">
-        <!-- Severity CardView -->
-        <aside class="card" aria-label="Severity statistics">
-          <div class="card-head" style="padding:14px 18px 10px;">
-            <h2>Severity</h2>
-            <span class="mono" style="font-size:11px;font-weight:600;color:var(--ink-500);" id="severityScopeCount">0 dockets</span>
+      <!-- CardView: Incident Hotspots Scoreboard & Chart -->
+      <div class="card incident-scoreboard-card" aria-label="Incident hotspots scoreboard">
+        <div class="card-head" style="padding:14px 18px 12px;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="scoreboard-trophy-icon">
+              <i data-lucide="award" style="width:17px;height:17px;color:#d97706;"></i>
+            </div>
+            <div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <h2 style="font-size:15px;font-weight:700;letter-spacing:-0.01em;">Incident Hotspots Scoreboard</h2>
+              </div>
+            </div>
           </div>
-          <div class="stats-body">
-            <div class="stats-lollipop-chart" id="forensicSeverityLollipop" role="img" aria-label="Severity lollipop chart"></div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span class="count-chip scoreboard-badge" id="hotspotsCountBadge">
+              {{ count($topIncidentLocations) }} {{ count($topIncidentLocations) === 1 ? 'hotspot' : 'hotspots' }}
+            </span>
           </div>
-        </aside>
+        </div>
 
-        <!-- Unit CardView -->
-        <aside class="card" aria-label="Unit statistics">
-          <div class="card-head" style="padding:14px 18px 10px;">
-            <h2>Unit</h2>
-            <span class="mono" style="font-size:11px;font-weight:600;color:var(--ink-500);" id="unitScopeCount">0 dockets</span>
+        <div class="scoreboard-card-content">
+          <!-- Chart Form: Horizontal Bar Comparison of Top Locations -->
+          <div class="scoreboard-chart-section">
+            <div class="scoreboard-section-subhead" style="justify-content:flex-end;">
+              <span class="subhead-meta" id="scoreboardChartLeaderLabel">Click location to pinpoint</span>
+            </div>
+            <div class="scoreboard-chart-wrap" title="Click any location bar to pinpoint on map">
+              <canvas id="incidentLocationScoreboardChart" aria-label="Location case volume comparison chart"></canvas>
+            </div>
           </div>
-          <div class="stats-body">
-            <div class="stats-lollipop-chart" id="forensicUnitLollipop" role="img" aria-label="Unit lollipop chart"></div>
-          </div>
-        </aside>
+        </div>
       </div>
 
-      <!-- Key Metrics Concentric Radial CardView -->
+      <!-- CardView: Key Metrics -->
       <div class="card" aria-label="Key forensic metrics">
-        <div class="card-head" style="padding:14px 20px 6px;border-bottom:0;">
+        <div class="card-head" style="padding:14px 20px 10px;border-bottom:1px solid var(--hairline, #e2e8f0);">
           <div style="display:flex;align-items:center;gap:8px;">
             <i data-lucide="pie-chart" style="width:16px;height:16px;color:#3b82f6;"></i>
-            <h2 style="font-size:15px;font-weight:600;">Key Metrics</h2>
+            <h2 style="font-size:15px;font-weight:700;letter-spacing:-0.01em;">Key Metrics</h2>
           </div>
-          <a href="{{ $casesUrl }}" class="icon-btn" style="width:30px;height:30px;border-radius:999px;" title="Open Full Directory" aria-label="Open Full Directory">
+          <a href="{{ $casesUrl }}" class="icon-btn" style="width:28px;height:28px;border-radius:999px;" title="Open Full Directory" aria-label="Open Full Directory">
             <i data-lucide="more-horizontal" style="width:15px;height:15px;"></i>
           </a>
         </div>
-        <div class="radial-card-body">
-          <div class="radial-hero-num">
-            <span id="kpiTotalCasesValue">{{ $totalCasesCount }}</span>
-            <span class="sub">Dockets</span>
+        <div class="radial-card-body" style="padding:14px 20px 18px;">
+          <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:4px;">
+            <div class="scoreboard-section-subhead" style="margin-bottom:0;">
+              <span>Case Lifecycle</span>
+              <span class="subhead-meta">Official Case Status</span>
+            </div>
+            <div class="radial-hero-num" style="font-size:22px;line-height:1;">
+              <span id="kpiTotalCasesValue">{{ $totalCasesCount }}</span>
+              <span class="sub" style="font-size:12px;">Cases</span>
+            </div>
           </div>
           <div class="radial-layout">
-            @php
-              $officialStatuses = [
-                  ['key' => 'under_investigation', 'label' => 'Under Investigation',        'color' => '#3b82f6'],
-                  ['key' => 'on_remand',           'label' => 'On Remand',                  'color' => '#6366f1'],
-                  ['key' => 'on_bail',             'label' => 'On Bail',                    'color' => '#0ea5e9'],
-                  ['key' => 'in_court',            'label' => 'In Court',                   'color' => '#f59e0b'],
-                  ['key' => 'verdict_imprisoned',  'label' => 'Verdict Passed - Imprisoned','color' => '#dc2626'],
-                  ['key' => 'verdict_acquitted',   'label' => 'Verdict Passed - Acquitted', 'color' => '#10b981'],
-                  ['key' => 'case_dismissed',      'label' => 'Case Dismissed',             'color' => '#64748b'],
-                  ['key' => 'case_closed',         'label' => 'Case Closed',                'color' => '#0f766e'],
-              ];
-              $officialCounts = array_fill_keys(array_column($officialStatuses, 'key'), 0);
+              @php
+                $officialStatuses = [
+                    ['key' => 'under_investigation', 'label' => 'Under Investigation',        'color' => '#3b82f6'],
+                    ['key' => 'on_remand',           'label' => 'On Remand',                  'color' => '#6366f1'],
+                    ['key' => 'on_bail',             'label' => 'On Bail',                    'color' => '#0ea5e9'],
+                    ['key' => 'in_court',            'label' => 'In Court',                   'color' => '#f59e0b'],
+                    ['key' => 'verdict_imprisoned',  'label' => 'Verdict Passed - Imprisoned','color' => '#dc2626'],
+                    ['key' => 'verdict_acquitted',   'label' => 'Verdict Passed - Acquitted', 'color' => '#10b981'],
+                    ['key' => 'case_dismissed',      'label' => 'Case Dismissed',             'color' => '#64748b'],
+                    ['key' => 'case_closed',         'label' => 'Case Closed',                'color' => '#0f766e'],
+                ];
+                $officialCounts = array_fill_keys(array_column($officialStatuses, 'key'), 0);
 
-              foreach ($cases as $cItem) {
-                  $stRaw = strtolower(trim((string) ($cItem->case_status ?? ($cItem->status ?? 'Under Investigation'))));
-                  if (str_contains($stRaw, 'remand')) {
-                      $officialCounts['on_remand']++;
-                  } elseif (str_contains($stRaw, 'bail')) {
-                      $officialCounts['on_bail']++;
-                  } elseif (str_contains($stRaw, 'court')) {
-                      $officialCounts['in_court']++;
-                  } elseif (str_contains($stRaw, 'imprisoned')) {
-                      $officialCounts['verdict_imprisoned']++;
-                  } elseif (str_contains($stRaw, 'acquitted')) {
-                      $officialCounts['verdict_acquitted']++;
-                  } elseif (str_contains($stRaw, 'dismissed')) {
-                      $officialCounts['case_dismissed']++;
-                  } elseif (str_contains($stRaw, 'closed')) {
-                      $officialCounts['case_closed']++;
-                  } else {
-                      $officialCounts['under_investigation']++;
-                  }
-              }
+                foreach ($cases as $cItem) {
+                    $stRaw = strtolower(trim((string) ($cItem->case_status ?? ($cItem->status ?? 'Under Investigation'))));
+                    if (str_contains($stRaw, 'remand')) {
+                        $officialCounts['on_remand']++;
+                    } elseif (str_contains($stRaw, 'bail')) {
+                        $officialCounts['on_bail']++;
+                    } elseif (str_contains($stRaw, 'court')) {
+                        $officialCounts['in_court']++;
+                    } elseif (str_contains($stRaw, 'imprisoned')) {
+                        $officialCounts['verdict_imprisoned']++;
+                    } elseif (str_contains($stRaw, 'acquitted')) {
+                        $officialCounts['verdict_acquitted']++;
+                    } elseif (str_contains($stRaw, 'dismissed')) {
+                        $officialCounts['case_dismissed']++;
+                    } elseif (str_contains($stRaw, 'closed')) {
+                        $officialCounts['case_closed']++;
+                    } else {
+                        $officialCounts['under_investigation']++;
+                    }
+                }
 
-              $rankedStatuses = [];
-              foreach ($officialStatuses as $stDef) {
-                  $rankedStatuses[] = [
-                      'key'   => $stDef['key'],
-                      'label' => $stDef['label'],
-                      'color' => $stDef['color'],
-                      'count' => $officialCounts[$stDef['key']],
-                  ];
-              }
-              usort($rankedStatuses, fn ($a, $b) => $b['count'] <=> $a['count']);
+                $rankedStatuses = [];
+                foreach ($officialStatuses as $stDef) {
+                    $rankedStatuses[] = [
+                        'key'   => $stDef['key'],
+                        'label' => $stDef['label'],
+                        'color' => $stDef['color'],
+                        'count' => $officialCounts[$stDef['key']],
+                    ];
+                }
+                usort($rankedStatuses, fn ($a, $b) => $b['count'] <=> $a['count']);
 
-              $st1 = $rankedStatuses[0];
-              $st2 = $rankedStatuses[1];
-              $st3 = $rankedStatuses[2];
+                $st1 = $rankedStatuses[0];
+                $st2 = $rankedStatuses[1];
+                $st3 = $rankedStatuses[2];
 
-              $ringDenom = max(1, $totalCasesCount);
-              $r1 = 76; $c1 = 2 * M_PI * $r1; $p1 = $st1['count'] > 0 ? min(1, max(0.06, $st1['count'] / $ringDenom)) : 0;
-              $r2 = 64; $c2 = 2 * M_PI * $r2; $p2 = $st2['count'] > 0 ? min(1, max(0.06, $st2['count'] / $ringDenom)) : 0;
-              $r3 = 52; $c3 = 2 * M_PI * $r3; $p3 = $st3['count'] > 0 ? min(1, max(0.06, $st3['count'] / $ringDenom)) : 0;
-              $topPct = $totalCasesCount > 0 ? (int) round(($st1['count'] / $totalCasesCount) * 100) : 0;
-            @endphp
-            <div class="radial-svg-wrap">
-              <svg viewBox="0 0 172 172" aria-label="Key metrics case status radial chart">
-                <!-- Dashed circular tracks -->
-                <circle cx="86" cy="86" r="{{ $r1 }}" fill="none" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="3 4" />
-                <circle cx="86" cy="86" r="{{ $r2 }}" fill="none" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="3 4" />
-                <circle cx="86" cy="86" r="{{ $r3 }}" fill="none" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="3 4" />
-                <!-- Active rounded-cap concentric rings -->
-                <circle id="ringStatus1" cx="86" cy="86" r="{{ $r1 }}" fill="none" stroke="{{ $st1['color'] }}" stroke-width="7.5" stroke-linecap="round"
-                        stroke-dasharray="{{ number_format($c1, 2, '.', '') }}"
-                        stroke-dashoffset="{{ number_format($c1 * (1 - $p1), 2, '.', '') }}" />
-                <circle id="ringStatus2" cx="86" cy="86" r="{{ $r2 }}" fill="none" stroke="{{ $st2['color'] }}" stroke-width="7.5" stroke-linecap="round"
-                        stroke-dasharray="{{ number_format($c2, 2, '.', '') }}"
-                        stroke-dashoffset="{{ number_format($c2 * (1 - $p2), 2, '.', '') }}" />
-                <circle id="ringStatus3" cx="86" cy="86" r="{{ $r3 }}" fill="none" stroke="{{ $st3['color'] }}" stroke-width="7.5" stroke-linecap="round"
-                        stroke-dasharray="{{ number_format($c3, 2, '.', '') }}"
-                        stroke-dashoffset="{{ number_format($c3 * (1 - $p3), 2, '.', '') }}" />
-              </svg>
-              <div class="radial-center">
-                <div class="rc-val"><span id="kpiTopStatusPct">{{ $topPct }}</span>%</div>
-                <div class="rc-lbl" id="kpiTopStatusLabel">{{ $totalCasesCount > 0 ? $st1['label'] : 'No cases' }}</div>
-                <div class="rc-sub"><span id="kpiTopStatusCount">{{ $st1['count'] }}</span> of {{ $totalCasesCount }} dockets</div>
-              </div>
-            </div>
-            <div class="radial-legend">
-              @foreach($officialStatuses as $stDef)
-                <div class="radial-leg-item">
-                  <span class="radial-leg-name"><i class="radial-leg-bar" style="background:{{ $stDef['color'] }};"></i>{{ $stDef['label'] }}</span>
-                  <span class="radial-leg-val" id="kpiSt_{{ $stDef['key'] }}">{{ $officialCounts[$stDef['key']] }}</span>
+                $ringDenom = max(1, $totalCasesCount);
+                $r1 = 76; $c1 = 2 * M_PI * $r1; $p1 = $st1['count'] > 0 ? min(1, max(0.06, $st1['count'] / $ringDenom)) : 0;
+                $r2 = 64; $c2 = 2 * M_PI * $r2; $p2 = $st2['count'] > 0 ? min(1, max(0.06, $st2['count'] / $ringDenom)) : 0;
+                $r3 = 52; $c3 = 2 * M_PI * $r3; $p3 = $st3['count'] > 0 ? min(1, max(0.06, $st3['count'] / $ringDenom)) : 0;
+                $topPct = $totalCasesCount > 0 ? (int) round(($st1['count'] / $totalCasesCount) * 100) : 0;
+              @endphp
+              <div class="radial-svg-wrap">
+                <svg viewBox="0 0 172 172" aria-label="Key metrics case status radial chart">
+                  <!-- Dashed circular tracks -->
+                  <circle cx="86" cy="86" r="{{ $r1 }}" fill="none" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="3 4" />
+                  <circle cx="86" cy="86" r="{{ $r2 }}" fill="none" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="3 4" />
+                  <circle cx="86" cy="86" r="{{ $r3 }}" fill="none" stroke="#cbd5e1" stroke-width="1.25" stroke-dasharray="3 4" />
+                  <!-- Active rounded-cap concentric rings -->
+                  <circle id="ringStatus1" cx="86" cy="86" r="{{ $r1 }}" fill="none" stroke="{{ $st1['color'] }}" stroke-width="7.5" stroke-linecap="round"
+                          stroke-dasharray="{{ number_format($c1, 2, '.', '') }}"
+                          stroke-dashoffset="{{ number_format($c1 * (1 - $p1), 2, '.', '') }}" />
+                  <circle id="ringStatus2" cx="86" cy="86" r="{{ $r2 }}" fill="none" stroke="{{ $st2['color'] }}" stroke-width="7.5" stroke-linecap="round"
+                          stroke-dasharray="{{ number_format($c2, 2, '.', '') }}"
+                          stroke-dashoffset="{{ number_format($c2 * (1 - $p2), 2, '.', '') }}" />
+                  <circle id="ringStatus3" cx="86" cy="86" r="{{ $r3 }}" fill="none" stroke="{{ $st3['color'] }}" stroke-width="7.5" stroke-linecap="round"
+                          stroke-dasharray="{{ number_format($c3, 2, '.', '') }}"
+                          stroke-dashoffset="{{ number_format($c3 * (1 - $p3), 2, '.', '') }}" />
+                </svg>
+                <div class="radial-center">
+                  <div class="rc-val"><span id="kpiTopStatusPct">{{ $topPct }}</span>%</div>
+                  <div class="rc-lbl" id="kpiTopStatusLabel">{{ $totalCasesCount > 0 ? $st1['label'] : 'No cases' }}</div>
+                  <div class="rc-sub"><span id="kpiTopStatusCount">{{ $st1['count'] }}</span> of {{ $totalCasesCount }} cases</div>
                 </div>
-              @endforeach
+              </div>
+              <div class="radial-legend">
+                @foreach($officialStatuses as $stDef)
+                  <div class="radial-leg-item">
+                    <span class="radial-leg-name"><i class="radial-leg-bar" style="background:{{ $stDef['color'] }};"></i>{{ $stDef['label'] }}</span>
+                    <span class="radial-leg-val" id="kpiSt_{{ $stDef['key'] }}">{{ $officialCounts[$stDef['key']] }}</span>
+                  </div>
+                @endforeach
+              </div>
             </div>
           </div>
         </div>
@@ -1894,7 +2085,7 @@
       const barBadge = document.getElementById('docketsBarBadge');
       if (barBadge) {
         const totalD = Number(m.total_cases ?? 0);
-        barBadge.textContent = totalD + (totalD === 1 ? ' docket' : ' dockets');
+        barBadge.textContent = totalD + (totalD === 1 ? ' case' : ' cases');
       }
 
       const barCanvas = document.getElementById('registeredDocketsBarChart');
@@ -1977,7 +2168,7 @@
               labels: labels,
               datasets: [
                 {
-                  label: 'Dockets',
+                  label: 'Cases',
                   data: docketSeries,
                   backgroundColor: (ctx) => makeBarGrad(ctx.chart, '#38bdf8', '#4f46e5'),
                   hoverBackgroundColor: (ctx) => makeBarGrad(ctx.chart, '#0ea5e9', '#4338ca'),
@@ -2057,6 +2248,307 @@
       }
     }
 
+    function extractLocationShortName(raw, reg) {
+      const lower = String(raw || '').toLowerCase();
+      if (lower.includes('east legon')) return 'East Legon, Accra';
+      if (lower.includes('airport') && lower.includes('accra')) return 'Airport Area, Accra';
+      if (lower.includes('kejetia') || lower.includes('kumasi')) return 'Kumasi Central Hub';
+      if (lower.includes('aflao')) return 'Aflao Border Post';
+      if (lower.includes('takoradi') && lower.includes('harbour')) return 'Takoradi Harbour Port';
+      if (lower.includes('tema')) return 'Tema Harbour Port';
+      if (lower.includes('spintex')) return 'Spintex Road, Accra';
+      if (lower.includes('dansoman')) return 'Dansoman, Accra';
+      if (lower.includes('kaneshie')) return 'Kaneshie Hub, Accra';
+      if (lower.includes('osu')) return 'Osu Sector, Accra';
+      if (lower.includes('tamale')) return 'Tamale Central';
+      if (lower.includes('koforidua')) return 'Koforidua Central';
+      if (lower.includes('cape coast')) return 'Cape Coast Metro';
+      if (lower.includes('sunyani')) return 'Sunyani Central';
+      if (lower.includes('bolgatanga')) return 'Bolgatanga Central';
+      if (lower.includes('wa') && !lower.includes('wiawso')) return 'Wa Central';
+      if (lower.includes('elubo')) return 'Elubo Border Post';
+      if (lower.includes('paga')) return 'Paga Border Post';
+      if (lower.includes('techiman')) return 'Techiman Hub';
+      if (lower.includes('ho ') || lower.includes('ho civic') || lower.includes('ho,') || lower === 'ho') return 'Ho Central';
+      const parts = String(raw || '').split(',').map(s => s.trim()).filter(Boolean);
+      if (parts.length >= 2) return parts[0] + ', ' + parts[1];
+      return parts[0] || (reg ? reg + ' Sector' : 'Unspecified Location');
+    }
+
+    function computeScoreboardFromCases(casesList) {
+      if (!Array.isArray(casesList) || casesList.length === 0) return [];
+      const buckets = {};
+      let totalMapped = 0;
+      casesList.forEach((c) => {
+        const rawLoc = c.raid_location || c.location || '';
+        const reg = c.region || '';
+        const lat = (c.latitude !== null && c.latitude !== undefined && c.latitude !== '') ? Number(c.latitude) : null;
+        const lng = (c.longitude !== null && c.longitude !== undefined && c.longitude !== '') ? Number(c.longitude) : null;
+        if (!rawLoc && lat === null) return;
+        const shortName = extractLocationShortName(rawLoc, reg);
+        const key = shortName.toLowerCase();
+        if (!buckets[key]) {
+          buckets[key] = {
+            name: shortName,
+            region: reg || 'Ghana',
+            latitude: lat,
+            longitude: lng,
+            cases_count: 0,
+            critical_count: 0
+          };
+        }
+        buckets[key].cases_count++;
+        const p = String(c.priority || 'HIGH').toUpperCase();
+        if (p === 'CRITICAL' || p === 'HIGH') buckets[key].critical_count++;
+        if (buckets[key].latitude === null && lat !== null) {
+          buckets[key].latitude = lat;
+          buckets[key].longitude = lng;
+        }
+        totalMapped++;
+      });
+
+      const sorted = Object.values(buckets).sort((a, b) => {
+        if (b.cases_count === a.cases_count) return b.critical_count - a.critical_count;
+        return b.cases_count - a.cases_count;
+      });
+
+      return sorted.map((item, idx) => ({
+        ...item,
+        rank: idx + 1,
+        percentage: totalMapped > 0 ? Math.round((item.cases_count / totalMapped) * 1000) / 10 : 0
+      }));
+    }
+
+    window.focusScoreboardLocation = function (lat, lng, name) {
+      if (lat == null || lng == null) return;
+      const numLat = Number(lat);
+      const numLng = Number(lng);
+      if (!Number.isFinite(numLat) || !Number.isFinite(numLng)) return;
+
+      const ctrl = window.ForensicLeafletMaps && window.ForensicLeafletMaps['forensicMapContainer'];
+      const map = ctrl ? ctrl.map : (window.ForensicMapStage && window.ForensicMapStage.instance);
+      if (map) {
+        if (typeof map.flyTo === 'function') {
+          map.flyTo([numLat, numLng], 14, { duration: 1.2 });
+        } else if (typeof map.setView === 'function') {
+          map.setView([numLat, numLng], 14);
+        }
+
+        const layerGroup = ctrl ? (ctrl.markerLayer || ctrl.layerGroup) : null;
+        if (layerGroup && typeof layerGroup.eachLayer === 'function') {
+          let matchedLayer = null;
+          let minDistance = Infinity;
+          layerGroup.eachLayer(function (layer) {
+            if (layer.getLatLng && typeof layer.openPopup === 'function') {
+              const ll = layer.getLatLng();
+              const d = Math.hypot(ll.lat - numLat, ll.lng - numLng);
+              if (d < 0.05 && d < minDistance) {
+                minDistance = d;
+                matchedLayer = layer;
+              }
+            }
+          });
+          if (matchedLayer) {
+            setTimeout(() => {
+              try { matchedLayer.openPopup(); } catch (e) {}
+            }, 350);
+          }
+        }
+
+        if (Array.isArray(filteredCases) && filteredCases.length > 0) {
+          const matchedCase = filteredCases.find(c => {
+            if (c.latitude != null && c.longitude != null) {
+              return Math.hypot(Number(c.latitude) - numLat, Number(c.longitude) - numLng) < 0.03;
+            }
+            const loc = (c.raid_location || c.location || '').toLowerCase();
+            return name && loc.includes(name.split(',')[0].trim().toLowerCase());
+          });
+          if (matchedCase) {
+            selectedCaseId = matchedCase.case_number || matchedCase.id;
+            renderTable();
+          }
+        }
+
+        const mapShell = document.querySelector('.map-shell') || document.getElementById('forensicMapContainer');
+        if (mapShell) {
+          const rect = mapShell.getBoundingClientRect();
+          if (rect.top < 0 || rect.bottom > window.innerHeight) {
+            mapShell.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        }
+      }
+    };
+
+    function renderIncidentScoreboard(casesList) {
+      let items = [];
+      if (Array.isArray(casesList) && casesList.length > 0) {
+        if (casesList[0] && typeof casesList[0].cases_count !== 'undefined' && casesList[0].name) {
+          items = casesList;
+        } else {
+          items = computeScoreboardFromCases(casesList);
+        }
+      }
+      if (!items.length && telemetryPayload && Array.isArray(telemetryPayload.top_incident_locations)) {
+        items = telemetryPayload.top_incident_locations;
+      }
+
+      // Update badge count
+      const badge = document.getElementById('hotspotsCountBadge');
+      if (badge) {
+        badge.textContent = items.length + (items.length === 1 ? ' hotspot' : ' hotspots');
+      }
+
+      // Update leader text in section header
+      const leaderLbl = document.getElementById('scoreboardChartLeaderLabel');
+      if (leaderLbl) {
+        if (items.length > 0) {
+          leaderLbl.textContent = 'Click to pinpoint · Top: ' + items[0].name + ' (' + items[0].cases_count + (items[0].cases_count === 1 ? ' case' : ' cases') + ')';
+        } else {
+          leaderLbl.textContent = 'Click location to pinpoint';
+        }
+      }
+
+      // 1. Render Horizontal Bar Chart
+      const chartCanvas = document.getElementById('incidentLocationScoreboardChart');
+      if (chartCanvas && typeof window.Chart !== 'undefined') {
+        const topCount = Math.min(items.length, 6);
+        const topItems = items.slice(0, topCount);
+        const labels = topItems.length ? topItems.map(h => h.name) : ['No Incidents'];
+        const dataValues = topItems.length ? topItems.map(h => h.cases_count) : [0];
+
+        // Color palette for horizontal bars (gold for 1st, blue for 2nd, cyan for 3rd, emerald for 4th, indigo for 5th, purple for 6th)
+        const barColors = topItems.map((_, i) => {
+          if (i === 0) return '#f59e0b'; // Gold
+          if (i === 1) return '#3b82f6'; // Blue
+          if (i === 2) return '#06b6d4'; // Cyan
+          if (i === 3) return '#10b981'; // Emerald
+          if (i === 4) return '#6366f1'; // Indigo
+          return '#8b5cf6';             // Violet
+        });
+
+        const triggerChartLocationClick = function (evt) {
+          const chartInstance = sparkCharts['incidentLocationScoreboardChart'];
+          if (!chartInstance) return;
+          const topList = chartInstance._currentTopItems || topItems;
+          if (!topList || !topList.length) return;
+
+          const rect = chartCanvas.getBoundingClientRect();
+          const clickY = evt.clientY - rect.top;
+
+          let targetIndex = null;
+          if (chartInstance.scales && chartInstance.scales.y) {
+            let minDistance = Infinity;
+            for (let i = 0; i < topList.length; i++) {
+              const barY = chartInstance.scales.y.getPixelForValue(i);
+              const dist = Math.abs(clickY - barY);
+              if (dist < minDistance) {
+                minDistance = dist;
+                targetIndex = i;
+              }
+            }
+          }
+
+          if (targetIndex === null || targetIndex < 0 || targetIndex >= topList.length) {
+            const fraction = Math.max(0, Math.min(1, clickY / rect.height));
+            targetIndex = Math.min(topList.length - 1, Math.floor(fraction * topList.length));
+          }
+
+          if (targetIndex !== null && topList[targetIndex]) {
+            const spot = topList[targetIndex];
+            if (spot && spot.latitude != null && spot.longitude != null) {
+              window.focusScoreboardLocation(spot.latitude, spot.longitude, spot.name);
+            }
+          }
+        };
+
+        if (sparkCharts['incidentLocationScoreboardChart']) {
+          const chart = sparkCharts['incidentLocationScoreboardChart'];
+          chart._currentTopItems = topItems;
+          chart.data.labels = labels;
+          chart.data.datasets[0].data = dataValues;
+          chart.data.datasets[0].backgroundColor = barColors;
+          chart.update('none');
+        } else {
+          const newChart = new window.Chart(chartCanvas, {
+            type: 'bar',
+            data: {
+              labels: labels,
+              datasets: [{
+                label: 'Cases',
+                data: dataValues,
+                backgroundColor: barColors,
+                borderRadius: 6,
+                borderSkipped: false,
+                barPercentage: 0.65,
+                categoryPercentage: 0.82
+              }]
+            },
+            options: {
+              indexAxis: 'y',
+              responsive: true,
+              maintainAspectRatio: false,
+              animation: false,
+              onClick: function (evt, activeEls, chartInstance) {
+                const nativeEvt = evt.native || evt;
+                if (nativeEvt) triggerChartLocationClick(nativeEvt);
+              },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: '#0f172a',
+                  titleColor: '#f8fafc',
+                  bodyColor: '#e2e8f0',
+                  cornerRadius: 8,
+                  padding: 8,
+                  callbacks: {
+                    label: function (ctx) {
+                      const item = topItems[ctx.dataIndex];
+                      if (!item) return 'Cases: ' + ctx.raw;
+                      let tip = 'Cases: ' + item.cases_count;
+                      if (item.critical_count) tip += ' (' + item.critical_count + ' Critical)';
+                      if (item.percentage) tip += ' · ' + item.percentage + '%';
+                      return tip;
+                    },
+                    footer: function () {
+                      return '📍 Click to pinpoint on map';
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  beginAtZero: true,
+                  grace: '15%',
+                  grid: { color: 'rgba(226, 232, 240, 0.7)', tickLength: 0 },
+                  border: { display: false },
+                  ticks: {
+                    precision: 0,
+                    stepSize: 1,
+                    color: '#94a3b8',
+                    font: { size: 9.5, family: 'JetBrains Mono, monospace' }
+                  }
+                },
+                y: {
+                  grid: { display: false },
+                  border: { display: false },
+                  ticks: {
+                    color: '#334155',
+                    font: { size: 10.5, weight: '600', family: 'Inter, system-ui, sans-serif' }
+                  }
+                }
+              }
+            }
+          });
+          newChart._currentTopItems = topItems;
+          sparkCharts['incidentLocationScoreboardChart'] = newChart;
+        }
+
+        // Always re-bind direct canvas click and hover cursor
+        chartCanvas.style.cursor = 'pointer';
+        chartCanvas.onclick = triggerChartLocationClick;
+      }
+    }
+
     function renderPreview(c) {
       const iconBox = document.getElementById('previewPriorityIcon');
       const status = document.getElementById('previewStatusLabel');
@@ -2068,8 +2560,8 @@
 
       if (!c) {
         iconBox.className = 'dock-priority';
-        status.textContent = 'No matching dockets';
-        title.textContent = 'No docket selected';
+        status.textContent = 'No matching cases';
+        title.textContent = 'No case selected';
         sub.textContent = 'Clear filters or log a new case';
         cnt.textContent = '0';
         cta.href = @json($casesUrl);
@@ -2083,7 +2575,7 @@
       iconBox.className = iconCls;
 
       status.textContent = (c.status_badge || 'Active').toUpperCase();
-      title.textContent = c.suspect_name || c.title || 'Forensic docket';
+      title.textContent = c.suspect_name || c.title || 'Forensic case';
       sub.textContent = (c.case_number || '') + ' · ' + (c.unit_name || 'Directorate');
       cnt.textContent = c.exhibits_count ?? 0;
       cta.href = REVIEW_BASE_URL + '/' + encodeURIComponent(c.case_number || c.id) + '/review';
@@ -2115,7 +2607,7 @@
     function renderStats() {
       const list = filteredCases;
       const total = list.length;
-      const scopeText = total + (total === 1 ? ' docket' : ' dockets');
+      const scopeText = total + (total === 1 ? ' case' : ' cases');
       const sevScope = document.getElementById('severityScopeCount');
       const unitScope = document.getElementById('unitScopeCount');
       if (sevScope) sevScope.textContent = scopeText;
@@ -2153,8 +2645,10 @@
         color: unitPal[i % unitPal.length]
       }));
 
-      renderLollipopChart(document.getElementById('forensicSeverityLollipop'), severityBuckets);
-      renderLollipopChart(document.getElementById('forensicUnitLollipop'), unitBuckets);
+      const sevEl = document.getElementById('forensicSeverityLollipop');
+      if (sevEl) renderLollipopChart(sevEl, severityBuckets);
+      const unitEl = document.getElementById('forensicUnitLollipop');
+      if (unitEl) renderLollipopChart(unitEl, unitBuckets);
     }
 
     function renderTable() {
@@ -2175,8 +2669,8 @@
       if (filteredCases.length === 0) {
         if (wrap) wrap.style.display = 'none';
         if (empty) empty.style.display = 'block';
-        if (badge) badge.textContent = '0 dockets';
-        if (note) note.textContent = 'No matching dockets';
+        if (badge) badge.textContent = '0 cases';
+        if (note) note.textContent = 'No matching cases';
         if (toggle) toggle.style.display = 'none';
         renderPreview(null);
         return;
@@ -2195,7 +2689,7 @@
       const visible = showAllRows ? filteredCases.length : 6;
       const rows = filteredCases.slice(0, visible);
 
-      if (badge) badge.textContent = filteredCases.length + (filteredCases.length === 1 ? ' docket' : ' dockets');
+      if (badge) badge.textContent = filteredCases.length + (filteredCases.length === 1 ? ' case' : ' cases');
       if (note) note.textContent = 'Showing ' + rows.length + ' of ' + filteredCases.length;
       if (toggle) {
         if (filteredCases.length > 6) {
@@ -2278,6 +2772,7 @@
 
       renderTable();
       renderStats();
+      renderIncidentScoreboard(filteredCases);
 
       const mappedCases = all.filter((c) => (
         c.latitude !== null && c.latitude !== undefined && c.latitude !== '' &&
@@ -2390,6 +2885,7 @@
       icons();
       const u = document.getElementById('filterUnit');
       if (u && DEFAULT_UNIT_FILTER) u.value = DEFAULT_UNIT_FILTER;
+      renderIncidentScoreboard(@json($topIncidentLocations));
       window.refreshRealtimeData(false);
       setInterval(() => window.refreshRealtimeData(true), 30000);
     });

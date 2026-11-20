@@ -1540,7 +1540,7 @@ class CaseShowReviewPresenter
 
         $resolveDevField = function(...$vals) {
             foreach ($vals as $v) {
-                if ($v !== null && trim((string)$v) !== '') return trim((string)$v);
+                if ($v !== null && !is_array($v) && !is_object($v) && trim((string)$v) !== '') return trim((string)$v);
             }
             return 'N/A';
         };
@@ -1567,28 +1567,28 @@ class CaseShowReviewPresenter
             'vOwnerContact' => $aEx['veh_owner_contact'] ?? ($aEx['veh']['owner_contact'] ?? ($aEx['owner_contact'] ?? null)),
             'vDocsAvailable' => $aEx['veh_docs_available'] ?? ($aEx['veh']['docs_available'] ?? ($aEx['docs_available'] ?? null)),
             'vDocRef' => $aEx['veh_doc_ref'] ?? ($aEx['veh']['doc_ref'] ?? ($aEx['doc_ref'] ?? null)),
-            'vCondition' => $aEx['veh_condition'] ?? ($aEx['veh']['condition'] ?? ($aEx['overall_condition'] ?? null)),
-            'vFuel' => $aEx['veh_fuel'] ?? ($aEx['veh']['fuel'] ?? ($aEx['fuel_level'] ?? null)),
-            'vKeysRecv' => $aEx['veh_keys_recv'] ?? ($aEx['veh']['keys_recv'] ?? ($aEx['keys_received'] ?? null)),
-            'vKeyCount' => $aEx['veh_key_count'] ?? ($aEx['veh']['key_count'] ?? ($aEx['key_count'] ?? null)),
-            'vDamage' => $aEx['veh_damage'] ?? ($aEx['veh']['damage'] ?? ($aEx['existing_damage'] ?? null)),
-            'vMods' => $aEx['veh_mods'] ?? ($aEx['veh']['mods'] ?? ($aEx['modifications'] ?? null)),
-            'vFeatures' => $aEx['veh_features'] ?? ($aEx['veh']['features'] ?? ($aEx['notable_features'] ?? null)),
-            'vLoc' => $aEx['seizure_location'] ?? ($aEx['location'] ?? 'N/A'),
-            'vOfficer' => $aEx['seizure_officer'] ?? ($aEx['officer'] ?? 'N/A'),
+            'vCondition' => (isset($aEx['veh_condition']) && is_string($aEx['veh_condition'])) ? $aEx['veh_condition'] : ((isset($aEx['veh']['condition']) && is_string($aEx['veh']['condition'])) ? $aEx['veh']['condition'] : ((isset($aEx['overall_condition']) && is_string($aEx['overall_condition'])) ? $aEx['overall_condition'] : null)),
+            'vFuel' => (isset($aEx['veh_fuel']) && is_string($aEx['veh_fuel'])) ? $aEx['veh_fuel'] : ((isset($aEx['veh']['fuel']) && is_string($aEx['veh']['fuel'])) ? $aEx['veh']['fuel'] : ((isset($aEx['fuel_level']) && is_string($aEx['fuel_level'])) ? $aEx['fuel_level'] : null)),
+            'vKeysRecv' => (isset($aEx['veh_keys_recv']) && is_string($aEx['veh_keys_recv'])) ? $aEx['veh_keys_recv'] : ((isset($aEx['veh']['keys_recv']) && is_string($aEx['veh']['keys_recv'])) ? $aEx['veh']['keys_recv'] : ((isset($aEx['keys_received']) && is_string($aEx['keys_received'])) ? $aEx['keys_received'] : null)),
+            'vKeyCount' => (isset($aEx['veh_key_count']) && is_string($aEx['veh_key_count'])) ? $aEx['veh_key_count'] : ((isset($aEx['veh']['key_count']) && is_string($aEx['veh']['key_count'])) ? $aEx['veh']['key_count'] : ((isset($aEx['key_count']) && is_string($aEx['key_count'])) ? $aEx['key_count'] : null)),
+            'vDamage' => (isset($aEx['veh_damage']) && is_string($aEx['veh_damage'])) ? $aEx['veh_damage'] : ((isset($aEx['veh']['damage']) && is_string($aEx['veh']['damage'])) ? $aEx['veh']['damage'] : ((isset($aEx['existing_damage']) && is_string($aEx['existing_damage'])) ? $aEx['existing_damage'] : null)),
+            'vMods' => (isset($aEx['veh_mods']) && is_string($aEx['veh_mods'])) ? $aEx['veh_mods'] : ((isset($aEx['veh']['mods']) && is_string($aEx['veh']['mods'])) ? $aEx['veh']['mods'] : ((isset($aEx['modifications']) && is_string($aEx['modifications'])) ? $aEx['modifications'] : null)),
+            'vFeatures' => (isset($aEx['veh_features']) && is_string($aEx['veh_features'])) ? $aEx['veh_features'] : ((isset($aEx['veh']['features']) && is_string($aEx['veh']['features'])) ? $aEx['veh']['features'] : ((isset($aEx['notable_features']) && is_string($aEx['notable_features'])) ? $aEx['notable_features'] : null)),
+            'vLoc' => (isset($aEx['seizure_location']) && is_string($aEx['seizure_location'])) ? $aEx['seizure_location'] : ((isset($aEx['location']) && is_string($aEx['location'])) ? $aEx['location'] : 'N/A'),
+            'vOfficer' => (isset($aEx['seizure_officer']) && is_string($aEx['seizure_officer'])) ? $aEx['seizure_officer'] : ((isset($aEx['officer']) && is_string($aEx['officer'])) ? $aEx['officer'] : 'N/A'),
             'vDateTime' => !empty($vDate) ? "{$vDate} {$vTime}" : 'N/A',
-            'vReason' => $aEx['seizure_reason'] ?? 'N/A',
+            'vReason' => (isset($aEx['seizure_reason']) && is_string($aEx['seizure_reason'])) ? $aEx['seizure_reason'] : 'N/A',
             'vPhotos' => $exPhotos,
             'vPhotosFormatted' => $exPhotosFormatted,
-            'wModel' => $aEx['weapon_model'] ?? ($aEx['wpn_model'] ?? ($aEx['seizure_name'] ?? 'Firearm / Weapon Exhibit')),
-            'wSerial' => $aEx['weapon_serial_number'] ?? ($aEx['wpn_serial_no'] ?? ($aEx['weapon_serial'] ?? null)),
-            'wCalibre' => $aEx['weapon_calibre'] ?? ($aEx['wpn_calibre'] ?? null),
-            'wColour' => $aEx['weapon_color'] ?? ($aEx['wpn_colour'] ?? null),
-            'wSize' => $aEx['weapon_size_length'] ?? ($aEx['wpn_size'] ?? null),
-            'wLoaded' => $aEx['weapon_loaded_status'] ?? ($aEx['wpn_loaded_status'] ?? null),
-            'wCondition' => $aEx['weapon_condition_at_recovery'] ?? ($aEx['wpn_condition'] ?? null),
-            'wLocation' => $aEx['weapon_location_found'] ?? ($aEx['wpn_location_found'] ?? null),
-            'wMarks' => $aEx['weapon_distinguishing_marks'] ?? ($aEx['wpn_marks'] ?? null),
+            'wModel' => (isset($aEx['weapon_model']) && is_string($aEx['weapon_model'])) ? $aEx['weapon_model'] : ((isset($aEx['wpn_model']) && is_string($aEx['wpn_model'])) ? $aEx['wpn_model'] : ((isset($aEx['seizure_name']) && is_string($aEx['seizure_name'])) ? $aEx['seizure_name'] : 'Firearm / Weapon Exhibit')),
+            'wSerial' => (isset($aEx['weapon_serial_number']) && is_string($aEx['weapon_serial_number'])) ? $aEx['weapon_serial_number'] : ((isset($aEx['wpn_serial_no']) && is_string($aEx['wpn_serial_no'])) ? $aEx['wpn_serial_no'] : ((isset($aEx['weapon_serial']) && is_string($aEx['weapon_serial'])) ? $aEx['weapon_serial'] : null)),
+            'wCalibre' => (isset($aEx['weapon_calibre']) && is_string($aEx['weapon_calibre'])) ? $aEx['weapon_calibre'] : ((isset($aEx['wpn_calibre']) && is_string($aEx['wpn_calibre'])) ? $aEx['wpn_calibre'] : null),
+            'wColour' => (isset($aEx['weapon_color']) && is_string($aEx['weapon_color'])) ? $aEx['weapon_color'] : ((isset($aEx['wpn_colour']) && is_string($aEx['wpn_colour'])) ? $aEx['wpn_colour'] : null),
+            'wSize' => (isset($aEx['weapon_size_length']) && is_string($aEx['weapon_size_length'])) ? $aEx['weapon_size_length'] : ((isset($aEx['wpn_size']) && is_string($aEx['wpn_size'])) ? $aEx['wpn_size'] : null),
+            'wLoaded' => (isset($aEx['weapon_loaded_status']) && is_string($aEx['weapon_loaded_status'])) ? $aEx['weapon_loaded_status'] : ((isset($aEx['wpn_loaded_status']) && is_string($aEx['wpn_loaded_status'])) ? $aEx['wpn_loaded_status'] : null),
+            'wCondition' => (isset($aEx['weapon_condition_at_recovery']) && is_string($aEx['weapon_condition_at_recovery'])) ? $aEx['weapon_condition_at_recovery'] : ((isset($aEx['wpn_condition']) && is_string($aEx['wpn_condition'])) ? $aEx['wpn_condition'] : null),
+            'wLocation' => (isset($aEx['weapon_location_found']) && is_string($aEx['weapon_location_found'])) ? $aEx['weapon_location_found'] : ((isset($aEx['wpn_location_found']) && is_string($aEx['wpn_location_found'])) ? $aEx['wpn_location_found'] : null),
+            'wMarks' => (isset($aEx['weapon_distinguishing_marks']) && is_string($aEx['weapon_distinguishing_marks'])) ? $aEx['weapon_distinguishing_marks'] : ((isset($aEx['wpn_marks']) && is_string($aEx['wpn_marks'])) ? $aEx['wpn_marks'] : null),
             'wPhotos' => $exPhotos,
             'wPhotosFormatted' => $exPhotosFormatted,
             'dModel' => $resolveDevField(

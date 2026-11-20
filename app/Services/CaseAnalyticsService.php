@@ -471,6 +471,7 @@ class CaseAnalyticsService
                 'units' => $unitCounts,
             ],
             'region_counts' => $regionCounts,
+            'top_incident_locations' => $this->buildTopIncidentLocations($cases),
             'cases'         => $casesList,
         ];
     }
@@ -590,5 +591,103 @@ class CaseAnalyticsService
         }
 
         return [$rawLocation, null, null, null];
+    }
+
+    /**
+     * Build ranked scoreboard of incident locations with the highest case concentrations.
+     *
+     * @param \Illuminate\Support\Collection<int, mixed>|null $cases
+     * @return array<int, array{rank: int, name: string, full_location: string, region: string, latitude: float|null, longitude: float|null, cases_count: int, critical_count: int, percentage: float}>
+     */
+    public function buildTopIncidentLocations($cases = null): array
+    {
+        $collection = $cases ?? ForensicCase::allCases();
+        $buckets = [];
+        $totalMapped = 0;
+
+        foreach ($collection as $c) {
+            $docket = $this->decodeDocket($c);
+            [$rawLocation, $matchedReg, $lat, $lng] = $this->resolveCaseLocationAndCoordinates($c, $docket);
+            $cleanLoc = trim($rawLocation);
+            if ($cleanLoc === '' || in_array(strtolower($cleanLoc), ['n/a', 'na', 'none', 'unknown', 'nil', '-'], true)) {
+                $cleanLoc = $matchedReg ? ($matchedReg . ' Region') : 'Unspecified Scene';
+            }
+
+            $shortName = $this->extractShortLocationName($cleanLoc, $matchedReg);
+            $key = strtolower($shortName);
+
+            if (!isset($buckets[$key])) {
+                $buckets[$key] = [
+                    'name'           => $shortName,
+                    'full_location'  => $cleanLoc,
+                    'region'         => $matchedReg ?? 'Ghana',
+                    'latitude'       => $lat,
+                    'longitude'      => $lng,
+                    'cases_count'    => 0,
+                    'critical_count' => 0,
+                ];
+            }
+
+            $buckets[$key]['cases_count']++;
+            $priority = strtoupper(trim((string) ($c->priority ?? 'HIGH')));
+            if ($priority === 'CRITICAL' || $priority === 'HIGH') {
+                $buckets[$key]['critical_count']++;
+            }
+            $totalMapped++;
+        }
+
+        // Sort descending by cases_count, then by critical_count
+        usort($buckets, function ($a, $b) {
+            if ($b['cases_count'] === $a['cases_count']) {
+                return $b['critical_count'] <=> $a['critical_count'];
+            }
+            return $b['cases_count'] <=> $a['cases_count'];
+        });
+
+        // Add rank and percentage
+        $ranked = [];
+        foreach (array_values($buckets) as $idx => $item) {
+            $item['rank'] = $idx + 1;
+            $item['percentage'] = $totalMapped > 0 ? round(($item['cases_count'] / $totalMapped) * 100, 1) : 0;
+            $ranked[] = $item;
+        }
+
+        return $ranked;
+    }
+
+    /**
+     * Format a concise location name suitable for scoreboard card and bar charts.
+     */
+    private function extractShortLocationName(string $raw, ?string $region = null): string
+    {
+        $lower = strtolower($raw);
+
+        if (str_contains($lower, 'east legon')) return 'East Legon, Accra';
+        if (str_contains($lower, 'airport') && str_contains($lower, 'accra')) return 'Airport Area, Accra';
+        if (str_contains($lower, 'kejetia') || str_contains($lower, 'kumasi')) return 'Kumasi Central Hub';
+        if (str_contains($lower, 'aflao')) return 'Aflao Border Post';
+        if (str_contains($lower, 'takoradi') && str_contains($lower, 'harbour')) return 'Takoradi Harbour Port';
+        if (str_contains($lower, 'tema')) return 'Tema Harbour Port';
+        if (str_contains($lower, 'spintex')) return 'Spintex Road, Accra';
+        if (str_contains($lower, 'dansoman')) return 'Dansoman, Accra';
+        if (str_contains($lower, 'kaneshie')) return 'Kaneshie Hub, Accra';
+        if (str_contains($lower, 'osu')) return 'Osu Sector, Accra';
+        if (str_contains($lower, 'tamale')) return 'Tamale Central';
+        if (str_contains($lower, 'koforidua')) return 'Koforidua Central';
+        if (str_contains($lower, 'cape coast')) return 'Cape Coast Metro';
+        if (str_contains($lower, 'sunyani')) return 'Sunyani Central';
+        if (str_contains($lower, 'bolgatanga')) return 'Bolgatanga Central';
+        if (str_contains($lower, 'wa') && !str_contains($lower, 'wiawso')) return 'Wa Central';
+        if (str_contains($lower, 'elubo')) return 'Elubo Border Post';
+        if (str_contains($lower, 'paga')) return 'Paga Border Post';
+        if (str_contains($lower, 'techiman')) return 'Techiman Hub';
+        if (str_contains($lower, 'ho ') || str_contains($lower, 'ho civic') || str_contains($lower, 'ho,') || $lower === 'ho') return 'Ho Central';
+
+        $parts = array_map('trim', explode(',', $raw));
+        if (count($parts) >= 2) {
+            return $parts[0] . ', ' . $parts[1];
+        }
+
+        return !empty($parts[0]) ? $parts[0] : ($region ? "{$region} Sector" : 'Unspecified Location');
     }
 }

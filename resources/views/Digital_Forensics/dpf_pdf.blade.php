@@ -722,9 +722,9 @@
                                 <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Investigation Date</p>
                                 <p class="mt-1 text-sm font-bold text-slate-900">{{ $investigationDate }}</p>
                             </div>
-                            <div class="py-3 px-4 border-r border-slate-200">
+                            <div class="py-3 px-4 border-r border-slate-200 min-w-0">
                                 <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Location / Post</p>
-                                <p class="mt-1 text-sm font-bold text-slate-900 truncate">{{ $locationPost }}</p>
+                                <p class="mt-1 text-sm font-bold text-slate-900 leading-snug break-words">{{ $locationPost }}</p>
                             </div>
                             <div class="py-3 pl-4">
                                 <p class="text-[8px] font-bold uppercase tracking-wider text-slate-700">Report Date</p>

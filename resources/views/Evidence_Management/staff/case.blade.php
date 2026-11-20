@@ -141,7 +141,7 @@
                                 <span class="text-xs font-bold text-slate-600 font-mono-code">STAFF CASE DIRECTORY</span>
                             </div>
                             <h1 class="text-2xl font-black text-slate-900 tracking-tight">Active Incident &amp; Case Registry</h1>
-                            <p class="text-xs text-slate-500 mt-1">Custodian: <strong class="text-slate-800">{{ $staffName }}</strong> <span class="text-slate-300 mx-1">|</span> Chief Custodian: <strong>{{ $headName }}</strong></p>
+                            <p class="text-xs text-slate-500 mt-1">Custodian: <strong class="text-slate-800">{{ $staffName }}</strong> <span class="text-slate-300 mx-1">|</span> Unit Head: <strong>{{ $headName }}</strong></p>
                         </div>
 
                         @php

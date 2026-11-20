@@ -45,7 +45,7 @@ class DashboardRedesignTest extends TestCase
             $resp->assertSee('openstreetmap.org/copyright', false);
             $resp->assertSee($locationNoun, false);
             $resp->assertSee('geospatial view');
-            $resp->assertSee('Registered Dockets');
+            $resp->assertSee('Registered Cases');
             $resp->assertSee('Forensic');
             $resp->assertSee('stats');
 
@@ -186,5 +186,52 @@ class DashboardRedesignTest extends TestCase
         $this->assertNotFalse($js);
         $this->assertStringContainsString("p === 'CRITICAL' || p === 'HIGH' || Number(locationCount || 0) >= 3", $js);
         $this->assertStringContainsString("return '#dc2626';", $js);
+    }
+
+    #[Test]
+    public function dashboard_renders_key_metrics_and_registered_dockets_without_severity_or_unit_distribution(): void
+    {
+        $officer = User::factory()->head()->create([
+            'unit'        => 'Forensic Directorate',
+            'is_approved' => true,
+        ]);
+
+        SingleSuspectCase::create([
+            'case_number'   => 'NCC-SEV-01',
+            'title'         => 'Dashboard Layout Test',
+            'unit_name'     => 'Cyber Crime',
+            'suspect_name'  => 'Test Suspect',
+            'status'        => 'Under Investigation',
+            'case_status'   => 'Under Investigation',
+            'priority'      => 'HIGH',
+            'raid_location' => 'Accra Central',
+        ]);
+
+        $response = $this->actingAs($officer)->get('/Forensic_Head');
+        $response->assertOk();
+
+        // Key Metrics card title and container
+        $response->assertSee('Key Metrics');
+        $response->assertSee('aria-label="Key forensic metrics"', false);
+
+        // Case Severity and Unit Distribution sections are removed
+        $response->assertDontSee('Case Severity');
+        $response->assertDontSee('Key Metrics &amp; Severity', false);
+        $response->assertDontSee('id="forensicSeverityLollipop"', false);
+        $response->assertDontSee('Unit Distribution');
+        $response->assertDontSee('id="forensicUnitLollipop"', false);
+
+        // Key Metrics elements are present
+        $response->assertSee('id="kpiTotalCasesValue"', false);
+        $response->assertSee('id="ringStatus1"', false);
+        $response->assertSee('id="ringStatus2"', false);
+        $response->assertSee('id="ringStatus3"', false);
+        $response->assertSee('id="kpiTopStatusPct"', false);
+
+        // Registered Cases bar chart is present
+        $response->assertSee('Registered Cases');
+        $response->assertSee('aria-label="Registered cases bar chart"', false);
+        $response->assertSee('id="docketsBarBadge"', false);
+        $response->assertSee('id="registeredDocketsBarChart"', false);
     }
 }

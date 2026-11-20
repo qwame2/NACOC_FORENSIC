@@ -13,22 +13,36 @@ use Illuminate\Support\Facades\Auth;
 
 class StaffCaseSubmissionController extends Controller
 {
-    protected function resolveUnitContext(Request $request): array
+    protected function resolveUnitContext(Request $request, ?StaffCaseSubmission $submission = null): array
     {
         $path = strtolower($request->path());
-        if (str_contains($path, 'lab_analysis')) {
-            return ['key' => 'lab_analysis', 'label' => 'Lab Analysis Unit', 'sidebar' => 'Lab Analysis'];
+        if (str_contains($path, 'lab_analysis') || str_contains($path, 'lab')) {
+            return ['key' => 'lab_analysis', 'label' => 'Lab Analysis Unit', 'sidebar' => 'Lab Analysis', 'sidebar_slug' => 'Lab_Analysis'];
         }
-        if (str_contains($path, 'evidence_management')) {
-            return ['key' => 'evidence_management', 'label' => 'Evidence Management Unit', 'sidebar' => 'Evidence Management'];
+        if (str_contains($path, 'evidence_management') || str_contains($path, 'evidence')) {
+            return ['key' => 'evidence_management', 'label' => 'Evidence Management Unit', 'sidebar' => 'Evidence Management', 'sidebar_slug' => 'Evidence_Management'];
         }
-        if (str_contains($path, 'digital_forensics')) {
-            return ['key' => 'digital_forensics', 'label' => 'Digital & Physical Forensics Unit', 'sidebar' => 'Digital Forensics'];
+        if (str_contains($path, 'digital_forensics') || str_contains($path, 'digital')) {
+            return ['key' => 'digital_forensics', 'label' => 'Digital & Physical Forensics Unit', 'sidebar' => 'Digital Forensics', 'sidebar_slug' => 'Digital_Forensics'];
         }
         if (str_contains($path, 'forensic_head')) {
-            return ['key' => 'forensic_head', 'label' => 'Forensic Directorate (All Units)', 'sidebar' => 'Forensic Directorate'];
+            return ['key' => 'forensic_head', 'label' => 'Forensic Directorate (All Units)', 'sidebar' => 'Forensic Directorate', 'sidebar_slug' => 'Forensic_Head'];
         }
-        return ['key' => 'crime_scene_support', 'label' => 'Crime Scene Support Unit', 'sidebar' => 'Crime Scene Support'];
+        if (str_contains($path, 'crime_scene_support') || str_contains($path, 'crime_scene')) {
+            return ['key' => 'crime_scene_support', 'label' => 'Crime Scene Support Unit', 'sidebar' => 'Crime Scene Support', 'sidebar_slug' => 'Crime_Scene_Support'];
+        }
+
+        // Fallback when URL does not contain a unit slug (e.g. /reviews-approvals/1/rollback)
+        $fallbackUnit = $submission?->unit_name ?? Auth::user()?->unit;
+        $normKey = $this->normalizeUnitKey($fallbackUnit);
+
+        return match ($normKey) {
+            'lab_analysis' => ['key' => 'lab_analysis', 'label' => 'Lab Analysis Unit', 'sidebar' => 'Lab Analysis', 'sidebar_slug' => 'Lab_Analysis'],
+            'evidence_management' => ['key' => 'evidence_management', 'label' => 'Evidence Management Unit', 'sidebar' => 'Evidence Management', 'sidebar_slug' => 'Evidence_Management'],
+            'digital_forensics' => ['key' => 'digital_forensics', 'label' => 'Digital & Physical Forensics Unit', 'sidebar' => 'Digital Forensics', 'sidebar_slug' => 'Digital_Forensics'],
+            'forensic_head' => ['key' => 'forensic_head', 'label' => 'Forensic Directorate (All Units)', 'sidebar' => 'Forensic Directorate', 'sidebar_slug' => 'Forensic_Head'],
+            default => ['key' => 'crime_scene_support', 'label' => 'Crime Scene Support Unit', 'sidebar' => 'Crime Scene Support', 'sidebar_slug' => 'Crime_Scene_Support'],
+        };
     }
 
     protected function normalizeUnitKey(?string $unit): ?string
@@ -214,7 +228,10 @@ class StaffCaseSubmissionController extends Controller
         if (!$this->headCanAccessSubmission($head, $submission, $request)) {
             abort(403, 'You are not authorized to review or approve cases created by staff from another unit.');
         }
-        if ($submission->status !== 'Pending Approval' && $submission->status !== 'Rolled Back') {
+        if ($submission->status === 'Rolled Back') {
+            return back()->with('error', "Submission #{$submission->id} is currently rolled back to staff for corrections.");
+        }
+        if ($submission->status !== 'Pending Approval') {
             return back()->with('error', "Submission #{$submission->id} has already been {$submission->status}.");
         }
 
@@ -244,7 +261,26 @@ class StaffCaseSubmissionController extends Controller
             'approved_case_number' => $caseNumber,
         ]);
 
-        return back()->with('status', "Submission #{$submission->id} approved and saved to database as Case {$caseNumber}.");
+        $targetUnitKey = $this->normalizeUnitKey($submission->unit_name) ?: ($this->normalizeUnitKey($head->unit) ?: 'crime_scene_support');
+        $redirectUrl = match ($targetUnitKey) {
+            'lab_analysis' => url('/Lab_Analysis/reviews-approvals'),
+            'evidence_management' => url('/Evidence_Management/reviews-approvals'),
+            'digital_forensics' => url('/Digital_Forensics/reviews-approvals'),
+            'forensic_head' => url('/Forensic_Head/reviews-approvals'),
+            default => url('/Crime_Scene_Support/reviews-approvals'),
+        };
+
+        $msg = "Submission #{$submission->id} approved and saved to database as Case {$caseNumber}.";
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'redirect' => $redirectUrl,
+            ]);
+        }
+
+        return redirect($redirectUrl)->with('status', $msg);
     }
 
     public function decline(Request $request, $id)
@@ -258,7 +294,10 @@ class StaffCaseSubmissionController extends Controller
         if (!$this->headCanAccessSubmission($head, $submission, $request)) {
             abort(403, 'You are not authorized to review or approve cases created by staff from another unit.');
         }
-        if ($submission->status !== 'Pending Approval' && $submission->status !== 'Rolled Back') {
+        if ($submission->status === 'Rolled Back') {
+            return back()->with('error', "Submission #{$submission->id} is currently rolled back to staff for corrections.");
+        }
+        if ($submission->status !== 'Pending Approval') {
             return back()->with('error', "Submission #{$submission->id} has already been {$submission->status}.");
         }
 
@@ -270,7 +309,26 @@ class StaffCaseSubmissionController extends Controller
             'review_notes' => $request->input('review_notes') ?: 'Declined by Unit Head during review.',
         ]);
 
-        return back()->with('status', "Submission #{$submission->id} has been declined and was not saved to the database.");
+        $targetUnitKey = $this->normalizeUnitKey($submission->unit_name) ?: ($this->normalizeUnitKey($head->unit) ?: 'crime_scene_support');
+        $redirectUrl = match ($targetUnitKey) {
+            'lab_analysis' => url('/Lab_Analysis/reviews-approvals'),
+            'evidence_management' => url('/Evidence_Management/reviews-approvals'),
+            'digital_forensics' => url('/Digital_Forensics/reviews-approvals'),
+            'forensic_head' => url('/Forensic_Head/reviews-approvals'),
+            default => url('/Crime_Scene_Support/reviews-approvals'),
+        };
+
+        $msg = "Submission #{$submission->id} has been declined and was not saved to the database.";
+
+        if ($request->wantsJson() || $request->ajax()) {
+            return response()->json([
+                'success' => true,
+                'message' => $msg,
+                'redirect' => $redirectUrl,
+            ]);
+        }
+
+        return redirect($redirectUrl)->with('status', $msg);
     }
 
     public function rollback(Request $request, $id)
@@ -287,6 +345,9 @@ class StaffCaseSubmissionController extends Controller
 
         if ($submission->status === 'Approved') {
             return back()->with('error', "Submission #{$submission->id} has already been approved and saved to database.");
+        }
+        if ($submission->status === 'Rolled Back') {
+            return back()->with('error', "Submission #{$submission->id} is already rolled back to staff. Please wait for staff to resubmit.");
         }
 
         // Parse corrections payload: can be array or JSON string
@@ -316,8 +377,8 @@ class StaffCaseSubmissionController extends Controller
             'rolled_back_at' => now(),
         ]);
 
-        $unitCtx = $this->resolveUnitContext($request);
-        $redirectUrl = match ($unitCtx['key']) {
+        $targetUnitKey = $this->normalizeUnitKey($submission->unit_name) ?: ($this->normalizeUnitKey($head->unit) ?: 'crime_scene_support');
+        $redirectUrl = match ($targetUnitKey) {
             'lab_analysis' => url('/Lab_Analysis/reviews-approvals'),
             'evidence_management' => url('/Evidence_Management/reviews-approvals'),
             'digital_forensics' => url('/Digital_Forensics/reviews-approvals'),
@@ -325,15 +386,17 @@ class StaffCaseSubmissionController extends Controller
             default => url('/Crime_Scene_Support/reviews-approvals'),
         };
 
+        $msg = "Submission #{$submission->id} has been rolled back to staff officer for requested corrections.";
+
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => "Submission #{$submission->id} has been rolled back to staff for requested corrections.",
+                'message' => $msg,
                 'redirect' => $redirectUrl,
             ]);
         }
 
-        return redirect($redirectUrl)->with('status', "Submission #{$submission->id} has been rolled back to {$submission->submitted_by_name} for requested corrections.");
+        return redirect($redirectUrl)->with('status', $msg);
     }
 
     public function staffRollbackIndex(Request $request)

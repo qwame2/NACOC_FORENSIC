@@ -133,7 +133,7 @@
                                 </span>
                             </div>
                             <h1 class="text-2xl font-black text-slate-900 tracking-tight">Active Incident &amp; Case Registry</h1>
-                            <p class="text-xs text-slate-500 mt-1">Field Officer: <strong class="text-slate-800">{{ $staffName }}</strong> <span class="text-slate-300 mx-1">|</span> Commander: <strong>{{ $headName }}</strong></p>
+                            <p class="text-xs text-slate-500 mt-1">Field Officer: <strong class="text-slate-800">{{ $staffName }}</strong> <span class="text-slate-300 mx-1">|</span> Unit Head: <strong>{{ $headName }}</strong></p>
                         </div>
 
                         <div class="flex items-center gap-2">
