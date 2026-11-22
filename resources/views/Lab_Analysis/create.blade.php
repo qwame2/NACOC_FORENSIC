@@ -6707,7 +6707,7 @@
             });
         }
 
-        function toggleConfirmatoryTest(choice) {
+        window.toggleConfirmatoryTest = function(choice) {
             const yesBox = document.getElementById('confirmatoryTestYes');
             const noBox = document.getElementById('confirmatoryTestNo');
             const inputEl = document.getElementById('confirmatoryTestResultInput');
@@ -6739,7 +6739,7 @@
             }
         }
 
-        function togglePresumptiveTest(choice) {
+        window.togglePresumptiveTest = function(choice) {
             const yesBox = document.getElementById('presumptiveTestYes');
             const noBox = document.getElementById('presumptiveTestNo');
             const container = document.getElementById('presumptiveReactionDetailsContainer');
@@ -6824,7 +6824,7 @@
             updatePresumptiveReactionText();
         }
 
-        function removePresumptiveTestRow(btn) {
+        window.removePresumptiveTestRow = function(btn) {
             const row = btn.closest('.presumptive-test-row');
             if (row) {
                 row.remove();
@@ -6860,7 +6860,7 @@
             });
         }
 
-        function updatePresumptiveReactionText() {
+        window.updatePresumptiveReactionText = function() {
             const container = document.getElementById('presumptiveTestRowsContainer');
             const inputEl = document.getElementById('presumptiveReactionResultInput');
             if (!container || !inputEl) return;
@@ -8064,14 +8064,6 @@
             });
 
             return suspects;
-        }
-
-        function toggleSidebarEventMenu(e) {
-            if (e) e.stopPropagation();
-            const menu = document.getElementById('sidebarEventMenu');
-            const chevron = document.getElementById('sidebarEventChevron');
-            if (menu) menu.classList.toggle('hidden');
-            if (chevron) chevron.classList.toggle('rotate-180');
         }
 
         function handleArrestMugshotDragOver(e, dropzoneEl) {
@@ -11289,19 +11281,6 @@
             });
         }
 
-        function selectDeviceType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root = getSeizureBlockFromEvent(e);
-            const hidden = root.querySelector('#newSeizureNameDevice');
-            const display = root.querySelector('#deviceSearchInput');
-            const panel = root.querySelector('#deviceListPanel');
-            if (hidden) hidden.value = val;
-            if (display) display.value = val;
-            if (panel) panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
-
         function filterDeviceList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
             const rawVal = root.querySelector('#deviceSearchInput')?.value || '';
@@ -11354,20 +11333,7 @@
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
-        }
-
-        function selectDrugType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root = getSeizureBlockFromEvent(e);
-            const hidden = root.querySelector('#newSeizureNameDrug');
-            const display = root.querySelector('#drugSearchInput');
-            const panel = root.querySelector('#drugListPanel');
-            if (hidden) hidden.value = val;
-            if (display) display.value = val;
-            if (panel) panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
+        }
 
         function filterDrugList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -11424,24 +11390,7 @@
             });
         }
 
-        function selectCurrencyType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root = getSeizureBlockFromEvent(e);
-            const hidden = root.querySelector('#newSeizureNameCurrency');
-            const display = root.querySelector('#currencySearchInput');
-            const panel = root.querySelector('#currencyListPanel');
-            if (hidden) hidden.value = val;
-            if (display) {
-                display.value = val;
-                display.removeAttribute('readonly');
-            }
-            if (panel) panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-            if (typeof syncSection4ExhibitsToLabSection === 'function') {
-                syncSection4ExhibitsToLabSection();
-            }
-        }
+        
 
         function filterCurrencyList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -11499,20 +11448,7 @@
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
-        }
-
-        function selectWeaponType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root = getSeizureBlockFromEvent(e);
-            const hidden = root.querySelector('#newSeizureNameWeapon');
-            const display = root.querySelector('#weaponSearchInput');
-            const panel = root.querySelector('#weaponListPanel');
-            if (hidden) hidden.value = val;
-            if (display) display.value = val;
-            if (panel) panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
+        }
 
         function filterWeaponList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -11747,6 +11683,11 @@
                 caseTitleEl.addEventListener('input', function() {
                     caseTitleEl.dataset.userEdited = 'true';
                 });
+            }
+
+            // In rollback mode, do not clear or reset docket mode, gender, nationality, or marital status
+            if (window.IS_ROLLBACK_MODE) {
+                return;
             }
 
             // Always enforce default "Select..." state on page load/refresh for Docket Mode, Gender, and Nationality
@@ -12603,35 +12544,35 @@
             return data;
         }
 
-        function togglePresumptiveTest(choice) {
+        window.togglePresumptiveTest = function(choice) {
             togglePresumptiveTestForExhibit(1, choice);
         }
-        function addPresumptiveTestRow() {
+        window.addPresumptiveTestRow = function() {
             addPresumptiveTestRowForExhibit(1);
         }
-        function removePresumptiveTestRow(btn) {
+        window.removePresumptiveTestRow = function(btn) {
             const card = btn.closest('.presumptive-exhibit-card');
             const idx = card ? parseInt(card.getAttribute('data-exhibit-index'), 10) : 1;
             removePresumptiveTestRowForExhibit(btn, idx);
         }
-        function updatePresumptiveReactionText() {
+        window.updatePresumptiveReactionText = function() {
             updatePresumptiveReactionTextForExhibit(1);
         }
-        function toggleConfirmatoryTest(choice) {
+        window.toggleConfirmatoryTest = function(choice) {
             toggleConfirmatoryTestForExhibit(1, choice);
         }
-        function updateSampleWeightReserved() {
+        window.updateSampleWeightReserved = function() {
             updateSampleWeightReservedForExhibit(1);
         }
-        function addDetectedSubstanceRow(substance = '', percentage = '') {
+        window.addDetectedSubstanceRow = function(substance = '', percentage = '') {
             addDetectedSubstanceRowForExhibit(1, substance, percentage);
         }
-        function removeDetectedSubstanceRow(btn) {
+        window.removeDetectedSubstanceRow = function(btn) {
             const card = btn.closest('.confirmatory-exhibit-card');
             const idx = card ? parseInt(card.getAttribute('data-exhibit-index'), 10) : 1;
             removeDetectedSubstanceRowForExhibit(btn, idx);
         }
-        function getDetectedSubstancesData() {
+        window.getDetectedSubstancesData = function() {
             return getDetectedSubstancesDataForExhibit(1);
         }
 
@@ -13302,7 +13243,7 @@
             }
         }
 
-        function updateSampleWeightReserved() {
+        window.updateSampleWeightReserved = function() {
             const grossInput = document.getElementById('sampleWeightGross');
             const takenInput = document.getElementById('sampleWeightTaken');
             const addonInput = document.getElementById('sampleWeightTakenUnitAddon');
@@ -13359,7 +13300,7 @@
             });
         }
 
-        function addDetectedSubstanceRow(substance = '', percentage = '') {
+        window.addDetectedSubstanceRow = function(substance = '', percentage = '') {
             const container = document.getElementById('detectedSubstancesListContainer');
             if (!container) return;
             const rowDiv = document.createElement('div');
@@ -13385,7 +13326,7 @@
             updateDetectedSubstanceRemoveButtons();
         }
 
-        function removeDetectedSubstanceRow(btn) {
+        window.removeDetectedSubstanceRow = function(btn) {
             const container = document.getElementById('detectedSubstancesListContainer');
             if (container) {
                 const rows = container.querySelectorAll('.detected-substance-row');
@@ -13398,7 +13339,7 @@
             }
         }
 
-        function getDetectedSubstancesData() {
+        window.getDetectedSubstancesData = function() {
             const rows = document.querySelectorAll('#detectedSubstancesListContainer .detected-substance-row');
             const data = [];
             rows.forEach(r => {

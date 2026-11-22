@@ -64,7 +64,7 @@ class UnitPermissionsPageTest extends TestCase
             ->assertOk()
             ->assertDontSee('/Forensic_Head/permissions', false)
             ->assertDontSee('Case Rollback')
-            ->assertSee('Staff Audit Logs');
+            ->assertDontSee('Staff Audit Logs');
     }
 
     #[Test]

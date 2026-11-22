@@ -196,6 +196,7 @@
                             <button type="button" onclick="switchPersonnelUnitTab('lab', this)" class="filter-tab-btn {{ ($unitFilter ?? '') === 'lab' ? 'active-tab' : '' }}">Lab Analysis</button>
                             <button type="button" onclick="switchPersonnelUnitTab('dpf', this)" class="filter-tab-btn {{ ($unitFilter ?? '') === 'dpf' ? 'active-tab' : '' }}">Digital &amp; Physical</button>
                             <button type="button" onclick="switchPersonnelUnitTab('directorate', this)" class="filter-tab-btn {{ ($unitFilter ?? '') === 'directorate' ? 'active-tab' : '' }}">Forensic Department</button>
+                            <button type="button" onclick="switchPersonnelUnitTab('dg', this)" class="filter-tab-btn {{ ($unitFilter ?? '') === 'dg' ? 'active-tab' : '' }}">Director General</button>
                         </div>
 
                         <div class="text-xs text-slate-500 font-mono-code" id="personnelResultsCounter">
@@ -215,6 +216,7 @@
                                 <option value="lab" {{ ($unitFilter ?? '') === 'lab' ? 'selected' : '' }}>Lab Analysis (LAU)</option>
                                 <option value="dpf" {{ ($unitFilter ?? '') === 'dpf' ? 'selected' : '' }}>Digital &amp; Physical Forensics (DPFU)</option>
                                 <option value="directorate" {{ ($unitFilter ?? '') === 'directorate' ? 'selected' : '' }}>Forensic Department (FDept)</option>
+                                <option value="dg" {{ ($unitFilter ?? '') === 'dg' ? 'selected' : '' }}>Office of the Director-General (DG)</option>
                             </select>
                         </div>
 
@@ -224,6 +226,7 @@
                                 <option value="all" {{ ($roleFilter ?? 'all') === 'all' ? 'selected' : '' }}>All Roles</option>
                                 <option value="head" {{ ($roleFilter ?? '') === 'head' ? 'selected' : '' }}>Units / Department Heads</option>
                                 <option value="staff" {{ ($roleFilter ?? '') === 'staff' ? 'selected' : '' }}>Standard Officers / Staff</option>
+                                <option value="dg" {{ ($roleFilter ?? '') === 'dg' ? 'selected' : '' }}>Director-General</option>
                             </select>
                         </div>
 

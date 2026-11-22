@@ -13,8 +13,8 @@
         'casesUrl'         => url('/Forensic_Head/cases'),
         'createUrl'        => null,
         'createLabel'      => 'Open Master Case Directory',
-        'reportUrl'        => url('/Report'),
-        'notificationsUrl' => url('/Forensic_Head/notifications'),
+        'reportUrl'        => null,
+        'notificationsUrl' => null,
         'defaultUnitFilter'=> 'all',
         'tabs' => [
             ['label' => 'Executive Command',     'url' => url('/Forensic_Head'),       'icon' => 'layout-dashboard', 'active' => true],

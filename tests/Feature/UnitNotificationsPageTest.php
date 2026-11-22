@@ -48,8 +48,7 @@ class UnitNotificationsPageTest extends TestCase
         $this->actingAs($forensicHead)
             ->get('/Forensic_Head')
             ->assertOk()
-            ->assertSee('/Forensic_Head/notifications', false)
-            ->assertSee('Notifications');
+            ->assertDontSee('/Forensic_Head/notifications', false);
 
         // Verify pages rendering the <aside> sidebar also include the Notifications button
         $this->actingAs($labHead)->get('/Lab_Analysis/create')->assertOk()->assertSee('/Lab_Analysis/notifications', false);

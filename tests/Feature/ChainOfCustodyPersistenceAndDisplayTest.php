@@ -376,10 +376,6 @@ class ChainOfCustodyPersistenceAndDisplayTest extends TestCase
             'Evidence_Management/staff/review.blade.php',
             'Crime_Scene_Support/show_review.blade.php',
             'Crime_Scene_Support/staff/review.blade.php',
-            'Digital_Forensics/show_review.blade.php',
-            'Digital_Forensics/staff/review.blade.php',
-            'Lab_Analysis/show_review.blade.php',
-            'Lab_Analysis/staff/review.blade.php',
             'Forensic_Head/show_review.blade.php',
             'Forensic_Head/staff/review.blade.php',
         ];
@@ -391,6 +387,20 @@ class ChainOfCustodyPersistenceAndDisplayTest extends TestCase
             $this->assertStringContainsString('newSeizureCustodyTo', $content, "View {$viewFile} must contain custody to input");
             $this->assertStringContainsString('newSeizureChainOfCustody', $content, "View {$viewFile} must contain synchronized chain of custody textarea");
             $this->assertStringContainsString('updateChainOfCustodyValue', $content, "View {$viewFile} must contain updateChainOfCustodyValue handler");
+        }
+
+        // Digital Forensics and Lab Analysis views have Chain of Custody safely removed completely
+        $viewsWithoutCustody = [
+            'Digital_Forensics/show_review.blade.php',
+            'Digital_Forensics/staff/review.blade.php',
+            'Lab_Analysis/show_review.blade.php',
+            'Lab_Analysis/staff/review.blade.php',
+        ];
+
+        foreach ($viewsWithoutCustody as $viewFile) {
+            $content = file_get_contents(resource_path("views/{$viewFile}"));
+            $this->assertStringNotContainsString('newSeizureCustodyFrom', $content, "View {$viewFile} should not contain custody from input");
+            $this->assertStringNotContainsString('newSeizureCustodyTo', $content, "View {$viewFile} should not contain custody to input");
         }
     }
 

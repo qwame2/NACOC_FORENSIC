@@ -642,17 +642,17 @@
                         </div>
                     @elseif($isRolledBack)
                         <div class="space-y-3 pt-2">
-                            <div class="p-3.5 bg-amber-50 border border-amber-300 rounded-xl text-xs text-amber-900 font-medium flex items-center justify-between flex-wrap gap-3 shadow-2xs">
+                            <div class="p-3.5 bg-green-100 border-none rounded-xl text-xs text-green-950 font-medium flex items-center justify-between flex-wrap gap-3 shadow-2xs">
                                 <div class="flex items-center gap-2.5">
-                                    <div class="w-7 h-7 rounded-lg bg-amber-200 text-amber-800 flex items-center justify-center shrink-0">
+                                    <div class="w-7 h-7 rounded-lg bg-green-700 text-white flex items-center justify-center shrink-0">
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                                     </div>
                                     <div>
-                                        <div class="font-bold text-amber-950">Awaiting Staff Corrections &amp; Resubmission</div>
-                                        <div class="text-[11px] text-amber-800 mt-0.5">This case docket was returned to <strong>{{ $submission->submitted_by_name ?? 'Staff Officer' }}</strong> on {{ optional($submission->rolled_back_at)->format('d M Y, H:i') }}. Case Rollback and Approval buttons are locked until the staff officer updates the docket and resubmits to your unit.</div>
+                                        <div class="font-bold text-green-950">Awaiting Staff Corrections &amp; Resubmission</div>
+                                        <div class="text-[11px] text-green-800 mt-0.5">This case docket was returned to <strong>{{ $submission->submitted_by_name ?? 'Staff Officer' }}</strong> on {{ optional($submission->rolled_back_at)->format('d M Y, H:i') }}. Case Rollback and Approval buttons are locked until the staff officer updates the docket and resubmits to your unit.</div>
                                     </div>
                                 </div>
-                                <a href="{{ $reviewsIndexUrl }}" class="px-3.5 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-900 hover:bg-amber-100 font-bold text-xs transition shadow-2xs shrink-0">
+                                <a href="{{ $reviewsIndexUrl }}" class="px-3.5 py-1.5 rounded-lg bg-white border-none text-green-900 hover:bg-green-200 font-bold text-xs transition shadow-2xs shrink-0">
                                     &larr; Return to Reviews
                                 </a>
                             </div>
@@ -738,7 +738,7 @@
         <div class="bg-white rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl border border-slate-200 max-h-[90vh] flex flex-col">
             <div class="flex items-start justify-between shrink-0">
                 <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold">
+                    <div class="w-10 h-10 rounded-xl bg-green-100 text-green-700 flex items-center justify-center font-bold">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
                         </svg>
@@ -1061,8 +1061,8 @@
                     });
 
                     html += `
-                        <div class="p-2.5 bg-amber-50/70 border border-amber-200 rounded-xl text-xs space-y-1">
-                            <div class="flex items-center justify-between font-bold text-amber-900 font-mono-code text-[11px]">
+                        <div class="p-2.5 bg-green-100 border-none rounded-xl text-xs space-y-1">
+                            <div class="flex items-center justify-between font-bold text-green-950 font-mono-code text-[11px]">
                                 <span>#${idx + 1}. ${label}</span>
                             </div>
                             <div class="text-slate-700 font-sans">${note}</div>

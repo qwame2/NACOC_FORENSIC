@@ -31,5 +31,33 @@ class ForensicHeadCaseController extends Controller
 
         return view('Forensic_Head.show_review', compact('case', 'gsaReports', 'nlrReports', 'presenter'));
     }
+
+    public function showVaultExhibits(Request $request, $id, CaseShowReviewPresenter $presenter, ForensicCasePolicy $policy)
+    {
+        $case = $this->findCase($id);
+        if (!$case) {
+            abort(404, "Case {$id} not found.");
+        }
+
+        if (!$policy->viewForensicHeadReview($request->user(), $case)) {
+            abort(403, 'Unauthorized access: Restricted to Unit Command & Directorate Heads.');
+        }
+
+        $this->repairExhibitAssociations($case);
+        $detailedExhibits = method_exists($case, 'getDetailedSuspectExhibits') ? $case->getDetailedSuspectExhibits() : [];
+        $caseExhibits = method_exists($case, 'getAllCaseExhibits') ? $case->getAllCaseExhibits() : [];
+
+        $isDrugCase = method_exists($case, 'isDrugCase') && $case->isDrugCase();
+        $hasPrelimReport = false;
+        try {
+            $hasPrelimReport = \App\Models\SuspectPreliminaryReport::forCase($case->case_number, $case->id)->exists();
+        } catch (\Throwable $e) {}
+
+        $backUrl = url('/Forensic_Head/cases?status=Vault+Storage');
+        $reviewUrl = url('/Forensic_Head/cases/' . $case->case_number . '/review');
+        $role = 'hof';
+
+        return view('vault_storage.show', compact('case', 'detailedExhibits', 'caseExhibits', 'isDrugCase', 'hasPrelimReport', 'backUrl', 'reviewUrl', 'role'));
+    }
 }
 

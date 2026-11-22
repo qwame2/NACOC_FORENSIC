@@ -241,9 +241,13 @@
                             </div>
 
                             @php
+                                $hasDirectorGeneral = $hasDirectorGeneral ?? false;
                                 $defaultUnit = isset($units) ? $units->first() : null;
                                 $defaultUnitName = old('unit', $defaultUnit ? (is_object($defaultUnit) ? $defaultUnit->name : $defaultUnit['name']) : 'Crime Scene Support');
                                 if ($hasForensicHead && in_array(strtolower(trim($defaultUnitName)), ['head of forensic', 'forensic head', 'forensic directorate'])) {
+                                    $defaultUnitName = 'Crime Scene Support';
+                                }
+                                if ($hasDirectorGeneral && in_array(strtolower(trim($defaultUnitName)), ['director general', 'director-general', 'office of the director-general', 'dg'])) {
                                     $defaultUnitName = 'Crime Scene Support';
                                 }
                                 $defaultHeadDisplay =
@@ -316,6 +320,12 @@
                                                                 'category' => 'CYBER & TECH',
                                                             ],
                                                         ];
+                                                        if (empty($hasDirectorGeneral)) {
+                                                            $officialUnits[] = [
+                                                                'name' => 'Director General',
+                                                                'category' => 'SUPREME COMMAND',
+                                                            ];
+                                                        }
                                                         if (!$hasForensicHead) {
                                                             $officialUnits[] = [
                                                                 'name' => 'Head of Forensic',
@@ -352,6 +362,36 @@
                                                                 $allUnitsList = collect($allUnitsList)->push((object)[
                                                                     'name' => 'Head of Forensic',
                                                                     'category' => 'COMMAND',
+                                                                ])->values();
+                                                            }
+                                                        }
+
+                                                        if (!empty($hasDirectorGeneral)) {
+                                                            $allUnitsList = collect($allUnitsList)->filter(function($u) {
+                                                                $name = is_object($u) ? $u->name : ($u['name'] ?? '');
+                                                                $lower = strtolower(trim($name));
+                                                                return !in_array($lower, [
+                                                                    'director general',
+                                                                    'director-general',
+                                                                    'office of the director-general',
+                                                                    'dg',
+                                                                ], true);
+                                                            })->values();
+                                                        } else {
+                                                            $hasDgInAll = collect($allUnitsList)->contains(function($u) {
+                                                                $name = is_object($u) ? $u->name : ($u['name'] ?? '');
+                                                                $lower = strtolower(trim($name));
+                                                                return in_array($lower, [
+                                                                    'director general',
+                                                                    'director-general',
+                                                                    'office of the director-general',
+                                                                    'dg',
+                                                                ], true);
+                                                            });
+                                                            if (!$hasDgInAll) {
+                                                                $allUnitsList = collect($allUnitsList)->push((object)[
+                                                                    'name' => 'Director General',
+                                                                    'category' => 'SUPREME COMMAND',
                                                                 ])->values();
                                                             }
                                                         }
@@ -753,6 +793,11 @@
         }
 
         function toggleStaffStatus(checkbox) {
+            const currentUnit = document.getElementById('selectedUnitInput') ? document.getElementById('selectedUnitInput').value : '';
+            const isDgOrHof = currentUnit === 'Director General' || currentUnit === 'Head of Forensic' || currentUnit.toLowerCase().includes('director general') || currentUnit.toLowerCase().includes('head of forensic');
+            if (isDgOrHof && checkbox.checked) {
+                checkbox.checked = false;
+            }
             const roleInput = document.getElementById('userRoleInput');
             if (roleInput) {
                 roleInput.value = checkbox.checked ? 'staff' : 'head';
@@ -797,7 +842,8 @@
             document.getElementById('select2Arrow').classList.remove('rotate-180');
 
             const isHof = val === 'Head of Forensic' || val === 'Forensic Directorate' || val.toLowerCase().includes('head of forensic');
-            if (isHof) {
+            const isDg = val === 'Director General' || val.toLowerCase().includes('director general') || val.toLowerCase().includes('director-general');
+            if (isHof || isDg) {
                 const staffToggle = document.getElementById('isStaffToggle');
                 const roleInput = document.getElementById('userRoleInput');
                 if (staffToggle && staffToggle.checked) {

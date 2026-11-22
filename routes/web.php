@@ -14,6 +14,7 @@ use App\Http\Controllers\DigitalForensicsCaseController;
 use App\Http\Controllers\EvidenceManagementCaseController;
 use App\Http\Controllers\CrimeSceneSupportCaseController;
 use App\Http\Controllers\ForensicHeadCaseController;
+use App\Http\Controllers\DGCaseController;
 use App\Http\Controllers\CourtEvidenceController;
 use App\Http\Controllers\PersonnelRosterController;
 use App\Http\Controllers\FieldOfficersController;
@@ -380,6 +381,12 @@ Route::middleware(['auth'])->group(function () {
 
     // GENERAL DOCKET & EVENT ROUTES
     Route::get('/cases/create', function (\Illuminate\Http\Request $request) {
+        $authUser = auth()->user();
+        $isDG = ($authUser && ($authUser->unit === 'Office of the Director-General' || $authUser->unit === 'Director General' || str_contains(strtolower((string) $authUser->unit), 'director general') || str_contains(strtolower((string) $authUser->unit), 'director-general')))
+            || in_array(strtolower((string) $request->query('from')), ['dg', 'director general', 'director-general', 'office of the director-general']);
+        if ($isDG) {
+            return redirect('/DG/cases')->with('error', 'Director-General is not permitted to create cases. Cases originate from operational units.');
+        }
         if ($request->query('from') === 'Forensic_Head' || $request->query('from') === 'Forensic Head') {
             return redirect('/Forensic_Head/cases')->with('error', 'Directorate Head is not permitted to create cases. Cases originate from operational units.');
         }
@@ -564,7 +571,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/Crime_Scene_Support/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('crime_scene.staff.cases.review');
 
-    Route::get('/Crime_Scene_Support/staff/create', function () {
+    Route::get('/Crime_Scene_Support/staff/create', function (\Illuminate\Http\Request $request) {
+        if ($request->filled('rollback_id')) {
+            return app(\App\Http\Controllers\StaffCaseSubmissionController::class)->staffRollbackShow($request, $request->input('rollback_id'));
+        }
         return view('Crime_Scene_Support.staff.create');
     })->name('crime_scene.staff.create');
 
@@ -609,7 +619,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/Lab_Analysis/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('lab.staff.cases.review');
 
-    Route::get('/Lab_Analysis/staff/create', function () {
+    Route::get('/Lab_Analysis/staff/create', function (\Illuminate\Http\Request $request) {
+        if ($request->filled('rollback_id')) {
+            return app(\App\Http\Controllers\StaffCaseSubmissionController::class)->staffRollbackShow($request, $request->input('rollback_id'));
+        }
         return view('Lab_Analysis.staff.create');
     })->name('lab.staff.create');
 
@@ -786,7 +799,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/Evidence_Management/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('evidence.staff.cases.review');
 
-    Route::get('/Evidence_Management/staff/create', function () {
+    Route::get('/Evidence_Management/staff/create', function (\Illuminate\Http\Request $request) {
+        if ($request->filled('rollback_id')) {
+            return app(\App\Http\Controllers\StaffCaseSubmissionController::class)->staffRollbackShow($request, $request->input('rollback_id'));
+        }
         return view('Evidence_Management.staff.create');
     })->name('evidence.staff.create');
 
@@ -2014,7 +2030,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/Digital_Forensics/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('digital.staff.cases.review');
 
-    Route::get('/Digital_Forensics/staff/create', function () {
+    Route::get('/Digital_Forensics/staff/create', function (\Illuminate\Http\Request $request) {
+        if ($request->filled('rollback_id')) {
+            return app(\App\Http\Controllers\StaffCaseSubmissionController::class)->staffRollbackShow($request, $request->input('rollback_id'));
+        }
         return view('Digital_Forensics.staff.create');
     })->name('digital.staff.create');
 
@@ -2046,7 +2065,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/Forensic_Head/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('forensic_head.staff.cases.review');
 
-    Route::get('/Forensic_Head/staff/create', function () {
+    Route::get('/Forensic_Head/staff/create', function (\Illuminate\Http\Request $request) {
+        if ($request->filled('rollback_id')) {
+            return app(\App\Http\Controllers\StaffCaseSubmissionController::class)->staffRollbackShow($request, $request->input('rollback_id'));
+        }
         return view('Forensic_Head.staff.create');
     })->name('forensic_head.staff.create');
 
@@ -2066,7 +2088,10 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('/staff/cases/{id}/review', [CaseController::class, 'staffReview'])->name('staff.cases.review');
 
-    Route::get('/staff/create', function () {
+    Route::get('/staff/create', function (\Illuminate\Http\Request $request) {
+        if ($request->filled('rollback_id')) {
+            return app(\App\Http\Controllers\StaffCaseSubmissionController::class)->staffRollbackShow($request, $request->input('rollback_id'));
+        }
         return view('staff.create');
     })->name('staff.create');
 
@@ -2109,6 +2134,8 @@ Route::middleware(['auth'])->group(function () {
             $search = trim($request->input('search', ''));
             $status = trim($request->input('status', ''));
             $unit = trim($request->input('unit', ''));
+            $dateFrom = trim($request->input('date_from', ''));
+            $dateTo = trim($request->input('date_to', ''));
 
             $filtered = $allCases;
 
@@ -2124,6 +2151,48 @@ Route::middleware(['auth'])->group(function () {
                 })->values();
             }
 
+            if ($dateFrom !== '') {
+                $fromCarbon = null;
+                try {
+                    $fromCarbon = \Carbon\Carbon::parse($dateFrom)->startOfDay();
+                } catch (\Throwable $e) {}
+
+                if ($fromCarbon) {
+                    $filtered = $filtered->filter(function ($c) use ($fromCarbon) {
+                        $cDate = null;
+                        if (!empty($c->created_at)) {
+                            $cDate = $c->created_at instanceof \Carbon\Carbon ? $c->created_at : \Carbon\Carbon::parse($c->created_at);
+                        } elseif (!empty($c->incident_date)) {
+                            try { $cDate = \Carbon\Carbon::parse($c->incident_date); } catch (\Throwable $e) {}
+                        } elseif (!empty($c->seizure_date)) {
+                            try { $cDate = \Carbon\Carbon::parse($c->seizure_date); } catch (\Throwable $e) {}
+                        }
+                        return $cDate ? $cDate->gte($fromCarbon) : false;
+                    })->values();
+                }
+            }
+
+            if ($dateTo !== '') {
+                $toCarbon = null;
+                try {
+                    $toCarbon = \Carbon\Carbon::parse($dateTo)->endOfDay();
+                } catch (\Throwable $e) {}
+
+                if ($toCarbon) {
+                    $filtered = $filtered->filter(function ($c) use ($toCarbon) {
+                        $cDate = null;
+                        if (!empty($c->created_at)) {
+                            $cDate = $c->created_at instanceof \Carbon\Carbon ? $c->created_at : \Carbon\Carbon::parse($c->created_at);
+                        } elseif (!empty($c->incident_date)) {
+                            try { $cDate = \Carbon\Carbon::parse($c->incident_date); } catch (\Throwable $e) {}
+                        } elseif (!empty($c->seizure_date)) {
+                            try { $cDate = \Carbon\Carbon::parse($c->seizure_date); } catch (\Throwable $e) {}
+                        }
+                        return $cDate ? $cDate->lte($toCarbon) : false;
+                    })->values();
+                }
+            }
+
             if ($status !== '' && strtoupper($status) !== 'ALL') {
                 $sLower = strtolower($status);
                 $filtered = $filtered->filter(function ($c) use ($sLower) {
@@ -2135,10 +2204,31 @@ Route::middleware(['auth'])->group(function () {
                         return str_contains($cStat, 'approv') || str_contains($cStat, 'authoriz') || str_contains($cStat, 'court') || str_contains($cStat, 'completed') || str_contains($cStat, 'certified');
                     }
                     if (str_contains($sLower, 'vault')) {
-                        return str_contains($cStat, 'vault') || str_contains(strtolower($c->unit_name ?? ''), 'evidence');
+                        $hasEx = (method_exists($c, 'hasExhibits') && $c->hasExhibits());
+                        return str_contains($cStat, 'vault') || str_contains(strtolower($c->unit_name ?? ''), 'evidence') || $hasEx;
                     }
                     if (str_contains($sLower, 'lab')) {
-                        return str_contains($cStat, 'lab') || str_contains(strtolower($c->unit_name ?? ''), 'lab');
+                        $isDrug = (method_exists($c, 'isDrugCase') && $c->isDrugCase());
+                        if (!$isDrug && method_exists($c, 'classifyExhibits')) {
+                            $flags = $c->classifyExhibits();
+                            $isDrug = !empty($flags['has_drug']);
+                        }
+                        if (!$isDrug) {
+                            $txtCheck = strtolower(($c->title ?? '') . ' ' . ($c->exhibits_summary ?? '') . ' ' . ($c->commodity_name ?? '') . ' ' . ($c->substance_name ?? ''));
+                            foreach (['cocaine', 'heroin', 'cannabis', 'weed', 'meth', 'substance', 'narcotic', 'drug', 'powder', 'organic powder', 'white powder', 'crystal'] as $kw) {
+                                if (str_contains($txtCheck, $kw)) {
+                                    $isDrug = true;
+                                    break;
+                                }
+                            }
+                        }
+                        $hasReport = false;
+                        try {
+                            $hasReport = \App\Models\SuspectPreliminaryReport::forCase($c->case_number, $c->id)->exists();
+                        } catch (\Throwable $e) {
+                            $hasReport = false;
+                        }
+                        return str_contains($cStat, 'lab') || str_contains(strtolower($c->unit_name ?? ''), 'lab') || $isDrug || $hasReport;
                     }
                     return strcasecmp($c->status ?? '', $sLower) === 0 || str_contains($cStat, $sLower);
                 })->values();
@@ -2149,7 +2239,7 @@ Route::middleware(['auth'])->group(function () {
                 $filtered = $filtered->filter(function ($c) use ($uLower) {
                     $cUnit = strtolower($c->unit_name ?? '');
                     if (str_contains($uLower, 'crime') || str_contains($uLower, 'scene') || $uLower === 'css') {
-                        return str_contains($cUnit, 'crime') || str_contains($cUnit, 'scene') || $cUnit === 'css';
+                        return str_contains($cUnit, 'crime') || str_contains($cUnit, 'scene') || $uLower === 'css';
                     }
                     if (str_contains($uLower, 'evidence')) {
                         return str_contains($cUnit, 'evidence');
@@ -2172,13 +2262,14 @@ Route::middleware(['auth'])->group(function () {
             $cases = ForensicCase::paginateCases($filtered, $perPage);
 
             if ($request->ajax()) {
-                return view('Forensic_Head.partials.cases_table', compact('cases', 'allCases'));
+                return view('Forensic_Head.partials.cases_table', compact('cases', 'allCases', 'status', 'dateFrom', 'dateTo'));
             }
 
-            return view('Forensic_Head.cases', compact('cases', 'pendingCasesCount', 'pendingCount', 'allCases'));
+            return view('Forensic_Head.cases', compact('cases', 'pendingCasesCount', 'pendingCount', 'allCases', 'status', 'dateFrom', 'dateTo'));
         });
 
         Route::get('/Forensic_Head/cases/{id}/review', [ForensicHeadCaseController::class, 'showReview'])->name('forensic_head.cases.review');
+        Route::get('/Forensic_Head/cases/{id}/vault-exhibits', [ForensicHeadCaseController::class, 'showVaultExhibits'])->name('forensic_head.cases.vault_exhibits');
         Route::get('/Forensic_Head/cases/{id}/pdf', [CaseController::class, 'showPdf']);
         Route::get('/Forensic_Head/personnel-roster', [PersonnelRosterController::class, 'index'])->name('forensic_head.personnel_roster');
 
@@ -2203,5 +2294,29 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/cases/{id}/decline', [CaseController::class, 'decline']);
         Route::post('/Forensic_Head/cases/{id}/approve', [CaseController::class, 'approve']);
         Route::post('/Forensic_Head/cases/{id}/decline', [CaseController::class, 'decline']);
+
+        Route::get('/cases/{id}/vault-exhibits', function ($id) {
+            $user = auth()->user();
+            if ($user && ($user->isDirectorGeneral() || $user->unit === 'Directorate' || $user->role === 'dg')) {
+                return redirect()->route('dg.cases.vault_exhibits', ['id' => $id]);
+            }
+            return redirect()->route('forensic_head.cases.vault_exhibits', ['id' => $id]);
+        })->name('cases.vault_exhibits');
+
+        // DIRECTOR-GENERAL (DG) SUPREME COMMAND ROUTES
+        Route::get('/DG', [DGCaseController::class, 'dashboard'])->name('dg.dashboard');
+        Route::get('/DG/dashboard', function () {
+            return redirect('/DG');
+        });
+        Route::get('/DG/cases', [DGCaseController::class, 'cases'])->name('dg.cases');
+        Route::get('/DG/cases/suspect-report-preview', [DGCaseController::class, 'suspectReportPreview'])->name('dg.cases.suspect_report_preview');
+        Route::get('/DG/cases/{id}/review', [DGCaseController::class, 'showReview'])->name('dg.cases.review');
+        Route::get('/DG/cases/{id}/vault-exhibits', [DGCaseController::class, 'showVaultExhibits'])->name('dg.cases.vault_exhibits');
+        Route::get('/DG/cases/{id}/pdf', [CaseController::class, 'showPdf'])->name('dg.cases.pdf');
+        Route::get('/DG/notifications', [NotificationsController::class, 'index'])->name('dg.notifications');
+        Route::get('/DG/personnel-roster', [PersonnelRosterController::class, 'index'])->name('dg.personnel_roster');
+        Route::get('/DG/court-evidence', [CourtEvidenceController::class, 'index'])->name('dg.court_evidence');
+        Route::post('/DG/cases/{id}/approve', [CaseController::class, 'approve'])->name('dg.cases.approve');
+        Route::post('/DG/cases/{id}/decline', [CaseController::class, 'decline'])->name('dg.cases.decline');
     });
 });

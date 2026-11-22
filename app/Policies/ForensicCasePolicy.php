@@ -23,6 +23,14 @@ class ForensicCasePolicy
     }
 
     /**
+     * Determine whether the user can view the Director-General (DG) review screen.
+     */
+    public function viewDGReview(?Authenticatable $user, mixed $case = null): bool
+    {
+        return $user !== null && (bool) $user->is_head && (bool) $user->is_approved;
+    }
+
+    /**
      * Determine whether the user holds Head of Forensic Directorate authority.
      */
     public function isForensicHead(?Authenticatable $user): bool
@@ -36,6 +44,10 @@ class ForensicCasePolicy
         return $unit === 'Forensic Directorate'
             || $unit === 'Forensic Head'
             || $unit === 'Directorate Head'
+            || $unit === 'Office of the Director-General'
+            || $unit === 'DG'
+            || str_contains($unit, 'Director-General')
+            || str_contains($unit, 'Director General')
             || str_contains($unit, 'Forensic');
     }
 

@@ -28,9 +28,10 @@
         <tbody class="divide-y divide-slate-200" id="personnelTableBody">
             @forelse($users as $personnel)
                 @php
+                    $isDG = ($personnel->unit === 'Office of the Director-General' || $personnel->unit === 'Director General' || str_contains(strtolower((string) $personnel->unit), 'director general') || str_contains(strtolower((string) $personnel->unit), 'director-general'));
                     $resolvedUnit = \App\Enums\ForensicUnit::resolve($personnel->unit);
-                    $unitCode = $resolvedUnit?->code() ?? 'UNIT';
-                    $unitBadgeClass = match($resolvedUnit) {
+                    $unitCode = $isDG ? 'DG' : ($resolvedUnit?->code() ?? 'UNIT');
+                    $unitBadgeClass = $isDG ? 'bg-purple-900 text-white border-purple-800' : match($resolvedUnit) {
                         \App\Enums\ForensicUnit::CRIME_SCENE_SUPPORT => 'bg-amber-50 text-amber-800 border-amber-200',
                         \App\Enums\ForensicUnit::EVIDENCE_MANAGEMENT => 'bg-indigo-50 text-indigo-800 border-indigo-200',
                         \App\Enums\ForensicUnit::LAB_ANALYSIS => 'bg-emerald-50 text-emerald-800 border-emerald-200',
@@ -80,9 +81,9 @@
                     </td>
                     <td class="py-4 px-5 whitespace-nowrap">
                         @php
-                            $unitLabel = ($resolvedUnit === \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE && strcasecmp(trim((string) $personnel->unit), 'Forensic Directorate') === 0)
+                            $unitLabel = $isDG ? 'Office of the Director-General' : (($resolvedUnit === \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE && strcasecmp(trim((string) $personnel->unit), 'Forensic Directorate') === 0)
                                 ? 'Forensic Department'
-                                : $personnel->unit;
+                                : $personnel->unit);
                         @endphp
                         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-bold font-mono-code border {{ $unitBadgeClass }}">
                             <span class="font-black">{{ $unitCode }}</span>
@@ -91,7 +92,11 @@
                         </span>
                     </td>
                     <td class="py-4 px-5 text-center whitespace-nowrap">
-                        @if($personnel->is_head)
+                        @if($isDG)
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold font-mono-code bg-purple-50 text-purple-800 border border-purple-200">
+                                Director-General
+                            </span>
+                        @elseif($personnel->is_head)
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold font-mono-code bg-blue-50 text-blue-800 border border-blue-200">
                                 {{ $resolvedUnit === \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE ? 'Department Head' : 'Unit Head' }}
                             </span>

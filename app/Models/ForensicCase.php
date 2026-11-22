@@ -97,6 +97,7 @@ class ForensicCase extends Model
         $instance->operation_code_name = $record->operation_code_name ?? null;
         $instance->search_warrant_document = $record->search_warrant_document ?? null;
         $instance->raid_location = $record->raid_location ?? null;
+        $instance->holding_facility = $record->holding_facility ?? null;
         $instance->latitude = $record->latitude ?? null;
         $instance->longitude = $record->longitude ?? null;
         $instance->offense_description = $record->offense_description ?? null;
@@ -1278,6 +1279,11 @@ class ForensicCase extends Model
                 'hash_log'             => $attributes['hash_log'] ?? ('HASH-' . strtoupper(substr(md5(uniqid()), 0, 8)) . '-VERIFIED'),
             ]);
 
+            if (!empty($attributes['created_at'])) {
+                $multi->created_at = $attributes['created_at'];
+                $multi->saveQuietly();
+            }
+
             $createdSuspects = [];
             foreach ($suspects as $sIdx => $s) {
                 $multiSuspectName = $s['suspect_name'] ?? ($attributes['suspect_name'] ?? 'Unnamed Suspect');
@@ -1459,9 +1465,9 @@ class ForensicCase extends Model
                         'amount'                  => (!empty($sz['amount']) && $sz['amount'] !== 'N/A') ? $sz['amount'] : ((!empty($attributes['amount']) && $attributes['amount'] !== 'N/A') ? $attributes['amount'] : (in_array(strtolower(trim((string)($sz['exhibit_category'] ?? ($sz['category'] ?? ($attributes['exhibit_category'] ?? 'Drugs'))))), ['money', 'currency', 'cash']) ? (!empty($sz['seizure_quantity']) ? $sz['seizure_quantity'] : ((!empty($sz['seizure_value']) && $sz['seizure_value'] !== 'N/A') ? $sz['seizure_value'] : null)) : null)),
                         'seizure_weight'          => $sz['seizure_weight'] ?? null,
                         'seizure_unit'            => $sz['seizure_unit'] ?? null,
-                        'seizure_packaging'       => $sz['seizure_packaging'] ?? ($attributes['seizure_packaging'] ?? null),
+                        'seizure_packaging'       => $sz['seizure_packaging'] ?? ($sz['packaging'] ?? ($attributes['seizure_packaging'] ?? null)),
                         'seizure_value'           => $sz['seizure_value'] ?? ($sz['valuation'] ?? ($attributes['seizure_value'] ?? ($attributes['valuation'] ?? null))),
-                        'seizure_concealment'     => $sz['seizure_concealment'] ?? ($attributes['seizure_concealment'] ?? null),
+                        'seizure_concealment'     => $sz['seizure_concealment'] ?? ($sz['concealment'] ?? ($attributes['seizure_concealment'] ?? null)),
                         'seizure_date'            => $sz['seizure_date'] ?? ($attributes['seizure_date'] ?? null),
                         'seizure_time'            => $sz['seizure_time'] ?? ($attributes['seizure_time'] ?? null),
                         'seizure_location'        => $sz['seizure_location'] ?? ($attributes['seizure_location'] ?? null),
@@ -1515,7 +1521,7 @@ class ForensicCase extends Model
                         'other_exhibit_description' => $sz['other_exhibit_description'] ?? ($sz['other_description'] ?? ($attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null))),
                         'contents'                => $sz['contents'] ?? ($sz['seizure_contents'] ?? ($attributes['contents'] ?? null)),
                         'description_of_exhibits' => $sz['description_of_exhibits'] ?? ($attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null)),
-                        'evidence_photos'         => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []),
+                        'evidence_photos'         => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : (!empty($sz['photos']) ? $sz['photos'] : (!empty($sz['photo']) ? [$sz['photo']] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []))),
                     ]);
 
                     $hasLabForSeizure = !empty($sz['has_saved_lab']) 
@@ -1764,6 +1770,11 @@ class ForensicCase extends Model
             'hash_log'             => $attributes['hash_log'] ?? ('HASH-' . strtoupper(substr(md5(uniqid()), 0, 8)) . '-VERIFIED'),
         ]);
 
+        if (!empty($attributes['created_at'])) {
+            $single->created_at = $attributes['created_at'];
+            $single->saveQuietly();
+        }
+
         $seizures = $docketData['seizures'] ?? [];
         $linkedExhibitIdsTopSingle = array_values(array_filter(array_map('intval', (array) ($docketData['linked_exhibit_ids'] ?? ($attributes['linked_exhibit_ids'] ?? [])))));
         $hasExplicitTopLevelExhibitSingle = self::hasTopLevelExhibitData($attributes);
@@ -1878,7 +1889,7 @@ class ForensicCase extends Model
                     'seizure_unit'          => $sz['seizure_unit'] ?? null,
                     'seizure_packaging'     => $sz['seizure_packaging'] ?? ($sz['packaging'] ?? ($attributes['seizure_packaging'] ?? null)),
                     'seizure_value'         => $sz['seizure_value'] ?? ($sz['valuation'] ?? ($attributes['seizure_value'] ?? ($attributes['valuation'] ?? null))),
-                    'seizure_concealment'   => $sz['seizure_concealment'] ?? ($attributes['seizure_concealment'] ?? null),
+                    'seizure_concealment'   => $sz['seizure_concealment'] ?? ($sz['concealment'] ?? ($attributes['seizure_concealment'] ?? null)),
                     'seizure_date'          => $sz['seizure_date'] ?? ($attributes['seizure_date'] ?? null),
                     'seizure_time'          => $sz['seizure_time'] ?? ($attributes['seizure_time'] ?? null),
                     'seizure_location'      => $sz['seizure_location'] ?? ($attributes['seizure_location'] ?? null),
@@ -1932,7 +1943,7 @@ class ForensicCase extends Model
                     'other_exhibit_description' => $sz['other_exhibit_description'] ?? ($sz['other_description'] ?? ($attributes['other_exhibit_description'] ?? ($attributes['other_description'] ?? null))),
                     'contents'              => $sz['contents'] ?? ($sz['seizure_contents'] ?? ($attributes['contents'] ?? null)),
                     'description_of_exhibits' => $sz['description_of_exhibits'] ?? ($attributes['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null)),
-                    'evidence_photos'       => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []),
+                    'evidence_photos'       => !empty($sz['evidence_photos']) ? $sz['evidence_photos'] : (!empty($sz['photos']) ? $sz['photos'] : (!empty($sz['photo']) ? [$sz['photo']] : ($sIdx === 0 ? ($attributes['evidence_photos'] ?? ($docketData['evidence_photos'] ?? [])) : []))),
                 ]);
 
                 $hasLabForSeizure = !empty($sz['has_saved_lab']) 
@@ -2613,12 +2624,16 @@ class ForensicCase extends Model
 
         // Direct DB query for exhibits if case ID is present
         if (!empty($this->id)) {
+            $isMultiCase = $this->isMultipleSuspect();
             $uId = isset($this->underlyingRecord) ? $this->underlyingRecord->id : $this->id;
-            $dbExhibits = Exhibit::where(function ($q) use ($uId) {
-                $q->where('single_suspect_case_id', $this->id)
-                    ->orWhere('multiple_suspect_case_id', $this->id)
-                    ->orWhere('single_suspect_case_id', $uId)
-                    ->orWhere('multiple_suspect_case_id', $uId);
+            $dbExhibits = Exhibit::where(function ($q) use ($uId, $isMultiCase) {
+                if ($isMultiCase) {
+                    $q->where('multiple_suspect_case_id', $this->id)
+                        ->orWhere('multiple_suspect_case_id', $uId);
+                } else {
+                    $q->where('single_suspect_case_id', $this->id)
+                        ->orWhere('single_suspect_case_id', $uId);
+                }
             })->get();
             foreach ($dbExhibits as $exRecord) {
                 $classifyItem([
@@ -2708,6 +2723,650 @@ class ForensicCase extends Model
     {
         $flags = $this->classifyExhibits();
         return (bool) ($flags['has_drug'] ?? false);
+    }
+
+    /**
+     * Retrieve all exhibits associated with this case from the exhibits DB table and docket data.
+     * Deduplicates and formats items for consistent display across case registers and dossiers.
+     */
+    public function getAllCaseExhibits(): array
+    {
+        $exhibitsList = [];
+        $seenKeys = [];
+
+        // 1. Relational records from 'exhibits' table
+        if (!empty($this->id)) {
+            $isMultiCase = $this->isMultipleSuspect();
+            $uId = isset($this->underlyingRecord) ? $this->underlyingRecord->id : $this->id;
+            try {
+                $dbExhibits = Exhibit::where(function ($q) use ($uId, $isMultiCase) {
+                    if ($isMultiCase) {
+                        $q->where('multiple_suspect_case_id', $this->id)
+                            ->orWhere('multiple_suspect_case_id', $uId);
+                    } else {
+                        $q->where('single_suspect_case_id', $this->id)
+                            ->orWhere('single_suspect_case_id', $uId);
+                    }
+                })->get();
+
+                foreach ($dbExhibits as $ex) {
+                    $exNo = trim((string)($ex->exhibit_number ?? ($ex->property_id ?? ($ex->lab_exhibit_no ?? ''))));
+                    $name = trim((string)($ex->commodity_name ?? ($ex->seizure_name_drug ?? ($ex->seizure_name ?? ''))));
+                    $cat = trim((string)($ex->exhibit_category ?? 'General'));
+                    $weight = trim((string)($ex->seizure_weight ?? ($ex->sample_weight ?? '')));
+                    $unit = trim((string)($ex->seizure_unit ?? ''));
+                    $qty = trim((string)($ex->seizure_quantity ?? ($ex->amount ?? '')));
+
+                    $qtyStr = '';
+                    if ($weight !== '') {
+                        $qtyStr = $weight . ($unit !== '' ? ' ' . $unit : '');
+                    } elseif ($qty !== '') {
+                        $qtyStr = $qty . ' ' . ($ex->seizure_packaging ?? 'Units');
+                    }
+
+                    $dedupKey = strtolower(($exNo ?: $name) . '|' . $cat);
+                    if (!isset($seenKeys[$dedupKey]) && ($name !== '' || $exNo !== '')) {
+                        $seenKeys[$dedupKey] = true;
+                        $exhibitsList[] = [
+                            'id' => $ex->id,
+                            'exhibit_number' => $exNo ?: ('EXH-' . str_pad((string)(count($exhibitsList) + 1), 3, '0', STR_PAD_LEFT)),
+                            'commodity_name' => $name ?: 'Seized Exhibit',
+                            'category' => $cat,
+                            'quantity_or_weight' => $qtyStr,
+                            'custodial_status' => $ex->custodial_status ?? 'In Vault Custody',
+                            'packaging' => $ex->seizure_packaging ?? null,
+                            'location' => $ex->seizure_location ?? ($this->holding_facility ?? 'NACOC Central Vault'),
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {
+                // Ignore DB error and fallback to docket data
+            }
+        }
+
+        // 2. Docket data seizures
+        $docketData = is_array($this->docket_data)
+            ? $this->docket_data
+            : (json_decode($this->docket_data ?? '[]', true) ?: []);
+
+        $allSeizures = array_merge(
+            $docketData['seizures'] ?? [],
+            $docketData['associated_seizures'] ?? [],
+            $docketData['associate_exhibits'] ?? []
+        );
+
+        foreach ($allSeizures as $sz) {
+            $exNo = trim((string)($sz['exhibit_number'] ?? ($sz['property_id'] ?? ($sz['lab_exhibit_no'] ?? ''))));
+            $name = trim((string)($sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? ($sz['commodity_name'] ?? ($sz['name'] ?? '')))));
+            $cat = trim((string)($sz['exhibit_category'] ?? ($sz['category'] ?? 'General')));
+            $weight = trim((string)($sz['seizure_weight'] ?? ($sz['sample_weight'] ?? '')));
+            $unit = trim((string)($sz['seizure_unit'] ?? ''));
+            $qty = trim((string)($sz['seizure_quantity'] ?? ($sz['amount'] ?? '')));
+
+            $qtyStr = '';
+            if ($weight !== '') {
+                $qtyStr = $weight . ($unit !== '' ? ' ' . $unit : '');
+            } elseif ($qty !== '') {
+                $qtyStr = $qty . ' ' . ($sz['seizure_packaging'] ?? 'Units');
+            }
+
+            $dedupKey = strtolower(($exNo ?: $name) . '|' . $cat);
+            if (!isset($seenKeys[$dedupKey]) && ($name !== '' || $exNo !== '')) {
+                $seenKeys[$dedupKey] = true;
+                $exhibitsList[] = [
+                    'id' => null,
+                    'exhibit_number' => $exNo ?: ('EXH-' . str_pad((string)(count($exhibitsList) + 1), 3, '0', STR_PAD_LEFT)),
+                    'commodity_name' => $name ?: 'Seized Exhibit',
+                    'category' => $cat,
+                    'quantity_or_weight' => $qtyStr,
+                    'custodial_status' => $sz['custodial_status'] ?? 'In Vault Custody',
+                    'packaging' => $sz['seizure_packaging'] ?? null,
+                    'location' => $sz['seizure_location'] ?? ($this->holding_facility ?? 'NACOC Central Vault'),
+                ];
+            }
+        }
+
+        // 3. Fallback: top-level exhibit fields on case
+        if (empty($exhibitsList) && (!empty($this->commodity_name) || !empty($this->exhibits_summary))) {
+            $name = $this->commodity_name ?: ($this->exhibits_summary ?: 'Exhibits Logged');
+            $exhibitsList[] = [
+                'id' => null,
+                'exhibit_number' => 'EXH-001',
+                'commodity_name' => $name,
+                'category' => $this->exhibit_category ?? 'General',
+                'quantity_or_weight' => $this->seizure_weight ?? null,
+                'custodial_status' => 'In Vault Custody',
+                'packaging' => null,
+                'location' => $this->holding_facility ?? 'NACOC Central Vault',
+            ];
+        }
+
+        return $exhibitsList;
+    }
+
+    /**
+     * Check if case has any exhibits logged.
+     */
+    public function hasExhibits(): bool
+    {
+        return !empty($this->getAllCaseExhibits());
+    }
+
+    /**
+     * Retrieve comprehensive exhibit details linked to the case and its suspects for the Vault Storage exhibit modal.
+     */
+    public function getDetailedSuspectExhibits(): array
+    {
+        $exhibits = [];
+        $seenKeys = [];
+
+        $dData = is_array($this->docket_data) ? $this->docket_data : (json_decode($this->docket_data ?? '[]', true) ?: []);
+        $primarySuspect = $this->suspect_name ?? ($dData['suspect_name'] ?? 'Primary Suspect');
+
+        $allSeizures = array_merge(
+            $dData['seizures'] ?? [],
+            $dData['associated_seizures'] ?? [],
+            $dData['associate_exhibits'] ?? []
+        );
+
+        $photoResolver = app(\App\Services\CasePhotoResolver::class);
+
+        // Helper to format currency
+        $fmtVal = function ($v) {
+            if ($v === null || $v === '') return null;
+            $num = (float) preg_replace('/[^0-9.]/', '', (string)$v);
+            return $num > 0 ? 'GHS ' . number_format($num, 2) : (string)$v;
+        };
+
+        // 1. Database relational records from 'exhibits' table
+        if (!empty($this->id)) {
+            $isMultiCase = $this->isMultipleSuspect();
+            $uId = isset($this->underlyingRecord) ? $this->underlyingRecord->id : $this->id;
+            try {
+                $dbExhibits = Exhibit::where(function ($q) use ($uId, $isMultiCase) {
+                    if ($isMultiCase) {
+                        $q->where('multiple_suspect_case_id', $this->id)
+                            ->orWhere('multiple_suspect_case_id', $uId);
+                    } else {
+                        $q->where('single_suspect_case_id', $this->id)
+                            ->orWhere('single_suspect_case_id', $uId);
+                    }
+                })->get();
+
+                foreach ($dbExhibits as $ex) {
+                    $exNo = trim((string)($ex->exhibit_number ?? ($ex->property_id ?? ($ex->lab_exhibit_no ?? ''))));
+                    $name = trim((string)($ex->commodity_name ?? ($ex->seizure_name_drug ?? ($ex->seizure_name ?? ''))));
+                    $cat = trim((string)($ex->exhibit_category ?? ($ex->exhibit_type ?? 'General')));
+                    $weight = trim((string)($ex->seizure_weight ?? ($ex->sample_weight ?? '')));
+                    $unit = trim((string)($ex->seizure_unit ?? ''));
+                    $qty = trim((string)($ex->seizure_quantity ?? ($ex->amount ?? '')));
+
+                    $qtyStr = '';
+                    if ($weight !== '') {
+                        $qtyStr = $weight . ($unit !== '' ? ' ' . $unit : '');
+                    } elseif ($qty !== '') {
+                        $qtyStr = $qty . ' ' . ($ex->seizure_packaging ?? 'Units');
+                    }
+
+                    // Match with docket seizures to backfill any unpersisted field or photos
+                    $matchedDocketSz = null;
+                    foreach ($allSeizures as $szCandidate) {
+                        $candName = trim((string)($szCandidate['seizure_name_drug'] ?? ($szCandidate['seizure_name'] ?? ($szCandidate['commodity_name'] ?? ($szCandidate['name'] ?? '')))));
+                        $candNo = trim((string)($szCandidate['exhibit_number'] ?? ($szCandidate['property_id'] ?? ($szCandidate['lab_exhibit_no'] ?? ''))));
+                        if (($exNo !== '' && $candNo === $exNo) || ($name !== '' && strtolower($candName) === strtolower($name))) {
+                            $matchedDocketSz = $szCandidate;
+                            break;
+                        }
+                    }
+
+                    $rawPhotos = [];
+                    if (method_exists($ex, 'resolveEvidencePhotosArray')) {
+                        $rawPhotos = $ex->resolveEvidencePhotosArray();
+                    }
+                    if (empty($rawPhotos)) {
+                        $rawPhotos = $photoResolver->extractAllPhotos($ex);
+                    }
+                    if (!empty($matchedDocketSz)) {
+                        $rawPhotos = array_merge($rawPhotos, $photoResolver->extractAllPhotos($matchedDocketSz));
+                    }
+                    if (empty($rawPhotos) && !empty($dData['evidence_photos'])) {
+                        $rawPhotos = $photoResolver->extractAllPhotos(['evidence_photos' => $dData['evidence_photos']]);
+                    }
+                    if (empty($rawPhotos) && !empty($this->evidence_photos)) {
+                        $rawPhotos = $photoResolver->extractAllPhotos(['evidence_photos' => $this->evidence_photos]);
+                    }
+
+                    $photos = [];
+                    foreach ($rawPhotos as $p) {
+                        $url = $photoResolver->formatPhotoUrl($p);
+                        if (!empty($url)) {
+                            $photos[] = $url;
+                        }
+                    }
+                    $photos = array_values(array_unique($photos));
+
+                    // Lab Result resolution
+                    $lab = null;
+                    try {
+                        if (method_exists($ex, 'laboratoryExaminationResult')) {
+                            $lab = $ex->laboratoryExaminationResult;
+                        }
+                        if (!$lab && !empty($ex->id)) {
+                            $lab = \App\Models\LaboratoryExaminationResult::where('exhibit_id', $ex->id)->first();
+                        }
+                    } catch (\Throwable $e) {}
+
+                    // Vehicle specs
+                    $vehDetails = array_filter([
+                        'Make & Model' => trim(($ex->veh_make ?? '') . ' ' . ($ex->veh_model ?? '')),
+                        'Registration / Plate #' => $ex->veh_reg_no,
+                        'VIN / Chassis #' => $ex->veh_vin,
+                        'Engine Number' => $ex->veh_engine_no,
+                        'Country of Reg' => $ex->veh_country_reg,
+                        'Type & Model Year' => trim(($ex->veh_type ?? '') . ' ' . ($ex->veh_year ?? '')),
+                        'Color' => $ex->veh_colour,
+                        'Registered Owner' => $ex->veh_owner,
+                        'Owner Contact' => $ex->veh_owner_contact,
+                        'Driver at Interdiction' => $ex->veh_driver,
+                        'Documents Available' => $ex->veh_docs_available,
+                        'Document Ref #' => $ex->veh_doc_ref,
+                        'Condition & Operability' => $ex->veh_condition,
+                        'Fuel Level' => $ex->veh_fuel,
+                        'Keys Received' => $ex->veh_keys_recv ? ('Yes' . ($ex->veh_key_count ? ' (' . $ex->veh_key_count . ' Keys)' : '')) : null,
+                        'Visible Damage / Marks' => $ex->veh_damage,
+                        'Modifications / Features' => trim(($ex->veh_mods ?? '') . ' ' . ($ex->veh_features ?? '')),
+                    ]);
+
+                    // Weapon specs
+                    $ammoStr = null;
+                    if (!empty($ex->ammunition_details)) {
+                        $ammo = is_array($ex->ammunition_details) ? $ex->ammunition_details : (json_decode($ex->ammunition_details, true) ?: [$ex->ammunition_details]);
+                        if (is_array($ammo)) {
+                            $ammoParts = [];
+                            foreach ($ammo as $k => $v) {
+                                if (is_string($k)) $ammoParts[] = ucfirst($k) . ': ' . $v;
+                                else $ammoParts[] = (string)$v;
+                            }
+                            $ammoStr = implode(', ', $ammoParts);
+                        } else {
+                            $ammoStr = (string)$ammo;
+                        }
+                    }
+
+                    $wpnDetails = array_filter([
+                        'Weapon Model' => $ex->wpn_model,
+                        'Serial Number' => $ex->wpn_serial_no,
+                        'Calibre / Gauge' => $ex->wpn_calibre,
+                        'Color & Finish' => $ex->wpn_colour,
+                        'Size / Barrel' => $ex->wpn_size,
+                        'Distinctive Marks' => $ex->wpn_marks,
+                        'Location Found' => $ex->wpn_location_found,
+                        'Loaded Status' => $ex->wpn_loaded_status,
+                        'Mechanical Condition' => $ex->wpn_condition,
+                        'Ammunition & Rounds' => $ammoStr,
+                    ]);
+
+                    // Device specs
+                    $devDetails = array_filter([
+                        'Device Model' => $ex->dev_model,
+                        'Serial Number' => $ex->dev_serial_no,
+                        'IMEI 1' => $ex->dev_imei1,
+                        'IMEI 2' => $ex->dev_imei2,
+                        'MAC Address' => $ex->dev_mac_address,
+                        'Storage Capacity' => $ex->dev_storage,
+                        'Color' => $ex->dev_colour,
+                        'Marks / Condition' => $ex->dev_marks,
+                    ]);
+
+                    // Chemical & Lab specs
+                    $detSub = $lab ? $lab->detected_substances : null;
+                    if (is_array($detSub)) $detSub = implode(', ', $detSub);
+                    $testMeth = $lab ? $lab->test_methods : null;
+                    if (is_array($testMeth)) $testMeth = implode(', ', $testMeth);
+
+                    $labDetails = array_filter([
+                        'Drug Classification' => $ex->drug_classification ?: ($lab->substance_identification ?? null),
+                        'Presumptive Test Result' => $lab ? $lab->presumptive_result : ($this->presumptive_test_result ?? null),
+                        'Confirmatory Test Result' => $lab ? $lab->confirmatory_result : ($this->confirmatory_test_result ?? null),
+                        'Detected Substances' => $detSub ?: ($this->detected_substances ?? null),
+                        'Substance Identification' => $lab ? $lab->substance_identification : null,
+                        'Test Methods' => $testMeth ?: ($this->confirmatory_test_methods ?? null),
+                        'Screening Method' => $lab ? $lab->screening_method : ($this->screening_method ?? null),
+                        'Gross Weight' => $lab ? $lab->sample_weight_gross : null,
+                        'Sample Taken for Lab' => $lab ? $lab->sample_weight_taken : null,
+                        'Reserved Sample' => $lab ? $lab->sample_weight_reserved : null,
+                        'Laboratory #' => $lab ? ($lab->laboratory_number ?: $lab->gsa_lab_number) : ($this->laboratory_number ?? null),
+                        'Exam Reference #' => $lab ? $lab->exam_reference : ($ex->lab_exhibit_no ?? null),
+                        'Forensic Analyst' => $lab ? $lab->analyst : null,
+                        'Purpose of Examination' => $lab ? $lab->purpose_of_examination : ($this->purpose_of_examination ?? null),
+                        'Exhibit Disposition' => $lab ? $lab->disposition_of_exhibit : ($this->disposition_of_exhibit ?? null),
+                    ]);
+
+                    $packaging = $ex->seizure_packaging ?: ($matchedDocketSz['seizure_packaging'] ?? ($matchedDocketSz['packaging'] ?? ($this->seizure_packaging ?? 'Official Sealed Evidence Bag')));
+                    $concealment = $ex->seizure_concealment ?: ($matchedDocketSz['seizure_concealment'] ?? ($matchedDocketSz['concealment'] ?? ($this->seizure_concealment ?? 'N/A')));
+                    $seizLoc = $ex->seizure_location ?: ($matchedDocketSz['seizure_location'] ?? ($this->raid_location ?? 'Location Undisclosed'));
+                    $seizOff = $ex->seizure_officer ?: ($matchedDocketSz['seizure_officer'] ?? ($this->submitting_officer ?? 'Forensic Evidence Officer'));
+                    $invOff = $ex->investigating_officer ?: ($matchedDocketSz['investigating_officer'] ?? null);
+
+                    // General attributes
+                    $details = [];
+                    if (!empty($ex->drug_classification)) $details['Drug Classification'] = $ex->drug_classification;
+                    if ($concealment && $concealment !== 'N/A') $details['Concealment Method'] = $concealment;
+                    if ($packaging) $details['Packaging'] = $packaging;
+                    if ($seizLoc) $details['Seizure Location'] = $seizLoc;
+                    if (!empty($ex->seizure_date)) $details['Seizure Date'] = $ex->seizure_date . (!empty($ex->seizure_time) ? ' ' . $ex->seizure_time : '');
+                    if ($seizOff) $details['Seizing Officer'] = $seizOff;
+                    if ($invOff) $details['Investigating Officer'] = $invOff;
+                    if (!empty($ex->source_requesting_unit)) $details['Requesting Unit'] = $ex->source_requesting_unit;
+                    if (!empty($ex->source_of_exhibits)) $details['Source of Exhibits'] = $ex->source_of_exhibits;
+                    if (!empty($ex->seizure_reason)) $details['Seizure Reason'] = $ex->seizure_reason;
+                    if (!empty($ex->seizure_value)) $details['Estimated Street Value'] = $fmtVal($ex->seizure_value);
+
+                    // Reconstructed or resolved Chain of Custody
+                    $chainOfCustody = null;
+                    if (method_exists($ex, 'getResolvedChainOfCustodyAttribute')) {
+                        $chainOfCustody = $ex->resolved_chain_of_custody;
+                    } elseif (!empty($ex->chain_of_custody)) {
+                        $chainOfCustody = trim($ex->chain_of_custody);
+                    } else {
+                        $from = $ex->source_of_exhibits ?: ($ex->source_requesting_unit ?: ($seizLoc ?: 'Seizure Site'));
+                        $to = $ex->custodial_status === 'In Vault Custody' ? 'Evidence Vault' : ($ex->custodial_status ?: 'Central Evidence Vault');
+                        $chainOfCustody = "{$from} ➔ {$to}";
+                    }
+
+                    $dedupKey = strtolower(($exNo ?: $name) . '|' . $cat);
+                    if (!isset($seenKeys[$dedupKey]) && ($name !== '' || $exNo !== '')) {
+                        $seenKeys[$dedupKey] = true;
+                        $exhibits[] = [
+                            'id' => $ex->id,
+                            'exhibit_number' => $exNo ?: ('EXH-' . str_pad((string)(count($exhibits) + 1), 3, '0', STR_PAD_LEFT)),
+                            'property_id' => $ex->property_id ?? null,
+                            'lab_exhibit_no' => $ex->lab_exhibit_no ?? ($lab ? $lab->exam_reference : null),
+                            'commodity_name' => $name ?: 'Seized Exhibit',
+                            'category' => $cat,
+                            'exhibit_type' => $ex->exhibit_type ?? $cat,
+                            'quantity_or_weight' => $qtyStr ?: '1 Unit',
+                            'quantity' => $qty,
+                            'weight' => $weight,
+                            'weight_unit' => $unit,
+                            'estimated_value' => $fmtVal($ex->seizure_value),
+                            'custodial_status' => $ex->custodial_status ?? 'In Vault Storage',
+                            'location' => $ex->custody_location ?? ($seizLoc ?? ($this->holding_facility ?? 'NACOC Central Vault Safe B-04')),
+                            'packaging' => $packaging,
+                            'concealment' => $concealment,
+                            'suspect_name' => $ex->associated_person ?: ($ex->suspect_name ?: $primarySuspect),
+                            'seizure_date' => $ex->seizure_date ?? ($this->created_at ? $this->created_at->format('Y-m-d') : date('Y-m-d')),
+                            'seizure_time' => $ex->seizure_time ?? null,
+                            'seizure_location' => $seizLoc,
+                            'seizure_officer' => $seizOff,
+                            'investigating_officer' => $invOff,
+                            'requesting_unit' => $ex->source_requesting_unit ?? ($this->unit_name ?? 'Forensic Directorate'),
+                            'source_of_exhibits' => $ex->source_of_exhibits ?? null,
+                            'seizure_reason' => $ex->seizure_reason ?? null,
+                            'description' => $ex->description_of_exhibits ?? ($ex->other_exhibit_description ?? ($ex->contents ?? null)),
+                            'remark' => $ex->exhibit_remark ?? ($ex->lab_remark ?? 'Exhibit secured in Central Vault with chain of custody verified.'),
+                            'chain_of_custody' => $chainOfCustody,
+                            'photos' => $photos,
+                            'details' => $details,
+                            'vehicle' => $vehDetails,
+                            'weapon' => $wpnDetails,
+                            'device' => $devDetails,
+                            'lab' => $labDetails,
+                        ];
+                    }
+                }
+            } catch (\Throwable $e) {}
+        }
+
+        // 2. Docket data seizures
+        $allSeizures = array_merge(
+            $dData['seizures'] ?? [],
+            $dData['associated_seizures'] ?? [],
+            $dData['associate_exhibits'] ?? []
+        );
+
+        foreach ($allSeizures as $sz) {
+            $exNo = trim((string)($sz['exhibit_number'] ?? ($sz['property_id'] ?? ($sz['lab_exhibit_no'] ?? ''))));
+            $name = trim((string)($sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? ($sz['commodity_name'] ?? ($sz['name'] ?? '')))));
+            $cat = trim((string)($sz['exhibit_category'] ?? ($sz['category'] ?? ($sz['exhibit_type'] ?? 'General'))));
+            $weight = trim((string)($sz['seizure_weight'] ?? ($sz['sample_weight'] ?? ($sz['weight'] ?? ''))));
+            $unit = trim((string)($sz['seizure_unit'] ?? ($sz['unit'] ?? '')));
+            $qty = trim((string)($sz['seizure_quantity'] ?? ($sz['amount'] ?? ($sz['quantity'] ?? ''))));
+
+            $qtyStr = '';
+            if ($weight !== '') {
+                $qtyStr = $weight . ($unit !== '' ? ' ' . $unit : '');
+            } elseif ($qty !== '') {
+                $qtyStr = $qty . ' ' . ($sz['seizure_packaging'] ?? ($sz['packaging'] ?? 'Units'));
+            }
+
+            $dedupKey = strtolower(($exNo ?: $name) . '|' . $cat);
+            if (!isset($seenKeys[$dedupKey]) && ($name !== '' || $exNo !== '')) {
+                $seenKeys[$dedupKey] = true;
+
+                $rawPhotos = $photoResolver->extractAllPhotos($sz);
+                if (empty($rawPhotos) && !empty($dData['evidence_photos'])) {
+                    $rawPhotos = $photoResolver->extractAllPhotos(['evidence_photos' => $dData['evidence_photos']]);
+                }
+                if (empty($rawPhotos) && !empty($this->evidence_photos)) {
+                    $rawPhotos = $photoResolver->extractAllPhotos(['evidence_photos' => $this->evidence_photos]);
+                }
+
+                $photos = [];
+                foreach ($rawPhotos as $p) {
+                    $url = $photoResolver->formatPhotoUrl($p);
+                    if (!empty($url)) {
+                        $photos[] = $url;
+                    }
+                }
+                $photos = array_values(array_unique($photos));
+
+                // Vehicle specs from docket
+                $vehDetails = array_filter([
+                    'Make & Model' => trim(($sz['veh_make'] ?? '') . ' ' . ($sz['veh_model'] ?? '')),
+                    'Registration / Plate #' => $sz['veh_reg_no'] ?? null,
+                    'VIN / Chassis #' => $sz['veh_vin'] ?? null,
+                    'Engine Number' => $sz['veh_engine_no'] ?? null,
+                    'Country of Reg' => $sz['veh_country_reg'] ?? null,
+                    'Type & Model Year' => trim(($sz['veh_type'] ?? '') . ' ' . ($sz['veh_year'] ?? '')),
+                    'Color' => $sz['veh_colour'] ?? null,
+                    'Registered Owner' => $sz['veh_owner'] ?? null,
+                    'Owner Contact' => $sz['veh_owner_contact'] ?? null,
+                    'Driver at Interdiction' => $sz['veh_driver'] ?? null,
+                    'Documents Available' => $sz['veh_docs_available'] ?? null,
+                    'Document Ref #' => $sz['veh_doc_ref'] ?? null,
+                    'Condition & Operability' => $sz['veh_condition'] ?? null,
+                    'Fuel Level' => $sz['veh_fuel'] ?? null,
+                    'Keys Received' => !empty($sz['veh_keys_recv']) ? ('Yes' . (!empty($sz['veh_key_count']) ? ' (' . $sz['veh_key_count'] . ' Keys)' : '')) : null,
+                    'Visible Damage / Marks' => $sz['veh_damage'] ?? null,
+                    'Modifications / Features' => trim(($sz['veh_mods'] ?? '') . ' ' . ($sz['veh_features'] ?? '')),
+                ]);
+
+                // Weapon specs from docket
+                $ammoStr = null;
+                if (!empty($sz['ammunition_details'])) {
+                    $ammo = is_array($sz['ammunition_details']) ? $sz['ammunition_details'] : (json_decode($sz['ammunition_details'], true) ?: [$sz['ammunition_details']]);
+                    if (is_array($ammo)) {
+                        $ammoParts = [];
+                        foreach ($ammo as $k => $v) {
+                            if (is_string($k)) $ammoParts[] = ucfirst($k) . ': ' . $v;
+                            else $ammoParts[] = (string)$v;
+                        }
+                        $ammoStr = implode(', ', $ammoParts);
+                    } else {
+                        $ammoStr = (string)$ammo;
+                    }
+                }
+
+                $wpnDetails = array_filter([
+                    'Weapon Model' => $sz['wpn_model'] ?? null,
+                    'Serial Number' => $sz['wpn_serial_no'] ?? null,
+                    'Calibre / Gauge' => $sz['wpn_calibre'] ?? null,
+                    'Color & Finish' => $sz['wpn_colour'] ?? null,
+                    'Size / Barrel' => $sz['wpn_size'] ?? null,
+                    'Distinctive Marks' => $sz['wpn_marks'] ?? null,
+                    'Location Found' => $sz['wpn_location_found'] ?? null,
+                    'Loaded Status' => $sz['wpn_loaded_status'] ?? null,
+                    'Mechanical Condition' => $sz['wpn_condition'] ?? null,
+                    'Ammunition & Rounds' => $ammoStr,
+                ]);
+
+                // Device specs from docket
+                $devDetails = array_filter([
+                    'Device Model' => $sz['dev_model'] ?? null,
+                    'Serial Number' => $sz['dev_serial_no'] ?? null,
+                    'IMEI 1' => $sz['dev_imei1'] ?? null,
+                    'IMEI 2' => $sz['dev_imei2'] ?? null,
+                    'MAC Address' => $sz['dev_mac_address'] ?? null,
+                    'Storage Capacity' => $sz['dev_storage'] ?? null,
+                    'Color' => $sz['dev_colour'] ?? null,
+                    'Marks / Condition' => $sz['dev_marks'] ?? null,
+                ]);
+
+                // Chemical & Lab specs from docket
+                $detSub = $sz['detected_substances'] ?? null;
+                if (is_array($detSub)) $detSub = implode(', ', $detSub);
+                $testMeth = $sz['test_methods'] ?? null;
+                if (is_array($testMeth)) $testMeth = implode(', ', $testMeth);
+
+                $labDetails = array_filter([
+                    'Drug Classification' => $sz['drug_classification'] ?? ($sz['substance_identification'] ?? null),
+                    'Presumptive Test Result' => $sz['presumptive_result'] ?? ($this->presumptive_test_result ?? null),
+                    'Confirmatory Test Result' => $sz['confirmatory_result'] ?? ($this->confirmatory_test_result ?? null),
+                    'Detected Substances' => $detSub ?: ($this->detected_substances ?? null),
+                    'Substance Identification' => $sz['substance_identification'] ?? null,
+                    'Test Methods' => $testMeth ?: ($this->confirmatory_test_methods ?? null),
+                    'Screening Method' => $sz['screening_method'] ?? ($this->screening_method ?? null),
+                    'Gross Weight' => $sz['sample_gross'] ?? null,
+                    'Sample Taken for Lab' => $sz['sample_taken'] ?? null,
+                    'Reserved Sample' => $sz['sample_reserved'] ?? null,
+                    'Laboratory #' => $sz['laboratory_number'] ?? ($this->laboratory_number ?? null),
+                    'Exam Reference #' => $sz['exam_reference'] ?? ($sz['lab_exhibit_no'] ?? null),
+                    'Forensic Analyst' => $sz['analyst'] ?? null,
+                    'Purpose of Examination' => $sz['purpose_of_examination'] ?? ($this->purpose_of_examination ?? null),
+                    'Exhibit Disposition' => $sz['disposition_of_exhibit'] ?? ($this->disposition_of_exhibit ?? null),
+                ]);
+
+                // General key-values
+                $details = [];
+                if (!empty($sz['drug_classification'])) $details['Drug Classification'] = $sz['drug_classification'];
+                if (!empty($sz['seizure_concealment'])) $details['Concealment Method'] = $sz['seizure_concealment'];
+                if (!empty($sz['seizure_packaging'])) $details['Packaging'] = $sz['seizure_packaging'];
+                if (!empty($sz['seizure_location'])) $details['Seizure Location'] = $sz['seizure_location'];
+                if (!empty($sz['seizure_date'])) $details['Seizure Date'] = $sz['seizure_date'] . (!empty($sz['seizure_time']) ? ' ' . $sz['seizure_time'] : '');
+                if (!empty($sz['seizure_officer'])) $details['Seizing Officer'] = $sz['seizure_officer'];
+                if (!empty($sz['investigating_officer'])) $details['Investigating Officer'] = $sz['investigating_officer'];
+                if (!empty($sz['source_requesting_unit'])) $details['Requesting Unit'] = $sz['source_requesting_unit'];
+                if (!empty($sz['source_of_exhibits'])) $details['Source of Exhibits'] = $sz['source_of_exhibits'];
+                if (!empty($sz['seizure_reason'])) $details['Seizure Reason'] = $sz['seizure_reason'];
+                if (!empty($sz['seizure_value'])) $details['Estimated Street Value'] = $fmtVal($sz['seizure_value']);
+
+                $from = $sz['source_of_exhibits'] ?? ($sz['seizure_location'] ?? 'Seizure Site');
+                $to = $this->holding_facility ?? 'NACOC Central Vault Safe B-04';
+                $chain = $sz['chain_of_custody'] ?? "{$from} ➔ {$to}";
+
+                $exhibits[] = [
+                    'id' => null,
+                    'exhibit_number' => $exNo ?: ('EXH-' . str_pad((string)(count($exhibits) + 1), 3, '0', STR_PAD_LEFT)),
+                    'property_id' => $sz['property_id'] ?? null,
+                    'lab_exhibit_no' => $sz['lab_exhibit_no'] ?? null,
+                    'commodity_name' => $name ?: 'Seized Exhibit',
+                    'category' => $cat,
+                    'exhibit_type' => $sz['exhibit_type'] ?? $cat,
+                    'quantity_or_weight' => $qtyStr ?: '1 Unit',
+                    'quantity' => $qty,
+                    'weight' => $weight,
+                    'weight_unit' => $unit,
+                    'estimated_value' => $fmtVal($sz['seizure_value'] ?? ($sz['amount'] ?? null)),
+                    'custodial_status' => $sz['custodial_status'] ?? 'In Vault Storage',
+                    'location' => $sz['seizure_location'] ?? ($this->holding_facility ?? 'NACOC Central Vault Safe B-04'),
+                    'packaging' => $sz['seizure_packaging'] ?? ($sz['packaging'] ?? 'Official Sealed Evidence Bag'),
+                    'concealment' => $sz['seizure_concealment'] ?? ($sz['concealment'] ?? 'N/A'),
+                    'suspect_name' => $sz['associated_person'] ?? ($sz['suspect_name'] ?? $primarySuspect),
+                    'seizure_date' => $sz['seizure_date'] ?? ($this->created_at ? $this->created_at->format('Y-m-d') : date('Y-m-d')),
+                    'seizure_time' => $sz['seizure_time'] ?? null,
+                    'seizure_location' => $sz['seizure_location'] ?? ($this->raid_location ?? 'Location Undisclosed'),
+                    'seizure_officer' => $sz['seizure_officer'] ?? ($this->submitting_officer ?? 'Forensic Evidence Officer'),
+                    'investigating_officer' => $sz['investigating_officer'] ?? null,
+                    'requesting_unit' => $sz['source_requesting_unit'] ?? ($this->unit_name ?? 'Forensic Directorate'),
+                    'source_of_exhibits' => $sz['source_of_exhibits'] ?? null,
+                    'seizure_reason' => $sz['seizure_reason'] ?? null,
+                    'description' => $sz['description_of_exhibits'] ?? ($sz['description'] ?? ($sz['contents'] ?? null)),
+                    'remark' => $sz['remark'] ?? ($sz['notes'] ?? 'Exhibit secured in Central Vault with chain of custody verified.'),
+                    'chain_of_custody' => $chain,
+                    'photos' => $photos,
+                    'details' => $details,
+                    'vehicle' => $vehDetails,
+                    'weapon' => $wpnDetails,
+                    'device' => $devDetails,
+                    'lab' => $labDetails,
+                ];
+            }
+        }
+
+        // 3. Fallback: top-level exhibit fields
+        if (empty($exhibits)) {
+            $name = $this->commodity_name ?: ($this->exhibits_summary ?: 'Seized Forensic Exhibit');
+            $rawPhotos = $photoResolver->extractAllPhotos($dData);
+            if (empty($rawPhotos) && !empty($this->evidence_photos)) {
+                $rawPhotos = $photoResolver->extractAllPhotos(['evidence_photos' => $this->evidence_photos]);
+            }
+            $photos = [];
+            foreach ($rawPhotos as $p) {
+                $url = $photoResolver->formatPhotoUrl($p);
+                if (!empty($url)) {
+                    $photos[] = $url;
+                }
+            }
+            $photos = array_values(array_unique($photos));
+
+            $exhibits[] = [
+                'id' => null,
+                'exhibit_number' => 'EXH-001',
+                'property_id' => null,
+                'lab_exhibit_no' => $this->lab_exhibit_no ?? null,
+                'commodity_name' => $name,
+                'category' => $this->exhibit_category ?? 'General Evidence',
+                'exhibit_type' => $this->exhibit_type ?? 'General Evidence',
+                'quantity_or_weight' => $this->seizure_weight ? ($this->seizure_weight . ' ' . ($this->seizure_unit ?? 'g')) : '1 Unit',
+                'quantity' => $this->seizure_quantity ?? 1,
+                'weight' => $this->seizure_weight ?? null,
+                'weight_unit' => $this->seizure_unit ?? null,
+                'estimated_value' => $fmtVal($this->seizure_value),
+                'custodial_status' => 'In Vault Storage',
+                'location' => $this->holding_facility ?? 'NACOC Central Vault Safe B-04',
+                'packaging' => $this->seizure_packaging ?? 'Official Evidence Packaging',
+                'concealment' => $this->seizure_concealment ?? 'N/A',
+                'suspect_name' => $primarySuspect,
+                'seizure_date' => $this->seizure_date ?? ($this->created_at ? $this->created_at->format('Y-m-d') : date('Y-m-d')),
+                'seizure_time' => $this->seizure_time ?? null,
+                'seizure_location' => $this->raid_location ?? 'Location Undisclosed',
+                'seizure_officer' => $this->submitting_officer ?? 'Evidence Officer',
+                'investigating_officer' => $this->investigating_officer ?? null,
+                'requesting_unit' => $this->unit_name ?? 'Forensic Directorate',
+                'source_of_exhibits' => null,
+                'seizure_reason' => null,
+                'description' => $this->description_of_exhibits ?? ($this->description ?? null),
+                'remark' => 'Exhibit securely vaulted under NACOC evidence custody regulations.',
+                'chain_of_custody' => ($this->raid_location ?: 'Seizure Site') . ' ➔ ' . ($this->holding_facility ?: 'NACOC Central Vault'),
+                'photos' => $photos,
+                'details' => array_filter([
+                    'Classification' => $this->commodity_name,
+                    'Seizure Location' => $this->raid_location,
+                    'Holding Vault' => $this->holding_facility ?? 'NACOC Central Vault',
+                ]),
+                'vehicle' => [],
+                'weapon' => [],
+                'device' => [],
+                'lab' => array_filter([
+                    'Presumptive Test Result' => $this->presumptive_test_result,
+                    'Confirmatory Test Result' => $this->confirmatory_test_result,
+                    'Laboratory #' => $this->laboratory_number,
+                ]),
+            ];
+        }
+
+        return $exhibits;
     }
 
     /**
@@ -3418,12 +4077,16 @@ class ForensicCase extends Model
 
         // 1. Relational Exhibit records from 'exhibits' DB table
         if (!empty($this->id)) {
+            $isMultiCase = $this->isMultipleSuspect();
             $uId = isset($this->underlyingRecord) ? $this->underlyingRecord->id : $this->id;
-            $dbExhibits = Exhibit::where(function ($q) use ($uId) {
-                $q->where('single_suspect_case_id', $this->id)
-                    ->orWhere('multiple_suspect_case_id', $this->id)
-                    ->orWhere('single_suspect_case_id', $uId)
-                    ->orWhere('multiple_suspect_case_id', $uId);
+            $dbExhibits = Exhibit::where(function ($q) use ($uId, $isMultiCase) {
+                if ($isMultiCase) {
+                    $q->where('multiple_suspect_case_id', $this->id)
+                        ->orWhere('multiple_suspect_case_id', $uId);
+                } else {
+                    $q->where('single_suspect_case_id', $this->id)
+                        ->orWhere('single_suspect_case_id', $uId);
+                }
             })->get();
 
             foreach ($dbExhibits as $ex) {

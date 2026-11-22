@@ -7,8 +7,17 @@
         request()->is('staff')
     );
     $isStaffAccount = (auth()->user() instanceof \App\Models\StaffAccount) && !$isStaffAuditPath;
+    $isDGUser = auth()->check() && (
+        auth()->user()->unit === 'Office of the Director-General' ||
+        auth()->user()->unit === 'Director General' ||
+        auth()->user()->unit === 'DG' ||
+        str_contains(strtolower((string) auth()->user()->unit), 'director general') ||
+        str_contains(strtolower((string) auth()->user()->unit), 'director-general')
+    );
 @endphp
-@if($isStaffAccount || $isActualStaffRoute)
+@if($isDGUser)
+    @include('DG.partials.sidebar')
+@elseif($isStaffAccount || $isActualStaffRoute)
     @include('staff.partials.sidebar')
 @else
 @php

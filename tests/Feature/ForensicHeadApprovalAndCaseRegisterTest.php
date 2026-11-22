@@ -167,7 +167,7 @@ class ForensicHeadApprovalAndCaseRegisterTest extends TestCase
         $pageResp->assertSee("filterUnit('Digital & Physical Forensics', this)", false);
         $pageResp->assertSee("filterStatus('ALL', this)", false);
         $pageResp->assertSee("filterStatus('Under Investigation', this)", false);
-        $pageResp->assertSee("filterStatus('Court Ready', this)", false);
+        $pageResp->assertDontSee("filterStatus('Court Ready', this)", false);
         $pageResp->assertSee("filterStatus('Vault Storage', this)", false);
         $pageResp->assertSee("filterStatus('Lab Analysis', this)", false);
 
@@ -300,5 +300,190 @@ class ForensicHeadApprovalAndCaseRegisterTest extends TestCase
         $resp->assertDontSee('AWAITING HOF SIGN-OFF');
         $resp->assertDontSee('Docket is submitted for HOF executive sign-off');
         $resp->assertDontSee('HOF approval triggers once all');
+    }
+
+    #[Test]
+    public function case_register_table_renders_date_filters_and_pagination_controls(): void
+    {
+        $resp = $this->actingAs($this->headUser)->get('/Forensic_Head/cases');
+        $resp->assertStatus(200);
+
+        // Date filter inputs
+        $resp->assertSee('id="caseDateFrom"', false);
+        $resp->assertSee('name="date_from"', false);
+        $resp->assertSee('id="caseDateTo"', false);
+        $resp->assertSee('name="date_to"', false);
+        $resp->assertSee('id="clearDateFilterBtn"', false);
+        $resp->assertSee('onclick="clearDateFilter()"', false);
+
+        // Pagination and per page selector
+        $resp->assertSee('id="perPageSelect"', false);
+        $resp->assertSee('onchange="changePerPage(this.value)"', false);
+        $resp->assertSee('Showing', false);
+        $resp->assertSee('case register dockets', false);
+    }
+
+    #[Test]
+    public function case_register_filters_by_date_range(): void
+    {
+        // Case 1: Early 2026
+        $caseEarly = ForensicCase::create([
+            'case_number' => 'NACOC-DATE-2026-EARLY',
+            'title' => 'Early Seizure Case',
+            'unit_name' => 'Evidence Management',
+            'status' => 'Under Investigation',
+            'priority' => 'High',
+            'created_at' => '2026-01-10 10:00:00',
+            'docket_data' => ['suspects' => []],
+        ]);
+
+        // Case 2: Mid 2026
+        $caseMid = ForensicCase::create([
+            'case_number' => 'NACOC-DATE-2026-MID',
+            'title' => 'Mid Year Inspection',
+            'unit_name' => 'LAB Analysis',
+            'status' => 'Under Investigation',
+            'priority' => 'High',
+            'created_at' => '2026-06-15 14:00:00',
+            'docket_data' => ['suspects' => []],
+        ]);
+
+        // Case 3: Late 2026
+        $caseLate = ForensicCase::create([
+            'case_number' => 'NACOC-DATE-2026-LATE',
+            'title' => 'Late Border Interception',
+            'unit_name' => 'Crime Scene Support',
+            'status' => 'Under Investigation',
+            'priority' => 'High',
+            'created_at' => '2026-11-20 18:00:00',
+            'docket_data' => ['suspects' => []],
+        ]);
+
+        // Filter date_from=2026-05-01 & date_to=2026-07-01 via AJAX
+        $resp = $this->actingAs($this->headUser)->get('/Forensic_Head/cases?date_from=2026-05-01&date_to=2026-07-01', [
+            'X-Requested-With' => 'XMLHttpRequest'
+        ]);
+        $resp->assertStatus(200);
+        $resp->assertSee('NACOC-DATE-2026-MID');
+        $resp->assertDontSee('NACOC-DATE-2026-EARLY');
+        $resp->assertDontSee('NACOC-DATE-2026-LATE');
+
+        // Filter date_from=2026-10-01 (from only)
+        $respFromOnly = $this->actingAs($this->headUser)->get('/Forensic_Head/cases?date_from=2026-10-01', [
+            'X-Requested-With' => 'XMLHttpRequest'
+        ]);
+        $respFromOnly->assertStatus(200);
+        $respFromOnly->assertSee('NACOC-DATE-2026-LATE');
+        $respFromOnly->assertDontSee('NACOC-DATE-2026-EARLY');
+        $respFromOnly->assertDontSee('NACOC-DATE-2026-MID');
+    }
+
+    #[Test]
+    public function case_register_paginates_results_correctly(): void
+    {
+        // Create 22 cases
+        for ($i = 1; $i <= 22; $i++) {
+            $num = str_pad($i, 3, '0', STR_PAD_LEFT);
+            ForensicCase::create([
+                'case_number' => "NACOC-PAGE-{$num}",
+                'title' => "Pagination Case {$i}",
+                'unit_name' => 'Evidence Management',
+                'status' => 'Under Investigation',
+                'priority' => 'Normal',
+                'created_at' => '2026-02-01 12:00:00',
+                'docket_data' => ['suspects' => []],
+            ]);
+        }
+
+        // Request page 1 with per_page=10
+        $respPage1 = $this->actingAs($this->headUser)->get('/Forensic_Head/cases?per_page=10&page=1', [
+            'X-Requested-With' => 'XMLHttpRequest'
+        ]);
+        $respPage1->assertStatus(200);
+        $respPage1->assertSee('NACOC-PAGE-001');
+        $respPage1->assertSee('NACOC-PAGE-010');
+        $respPage1->assertDontSee('NACOC-PAGE-011');
+        $respPage1->assertSee('Showing <span class="font-bold text-slate-900">1</span> to <span class="font-bold text-slate-900">10</span> of <span class="font-bold text-slate-900">22</span>', false);
+
+        // Request page 2 with per_page=10
+        $respPage2 = $this->actingAs($this->headUser)->get('/Forensic_Head/cases?per_page=10&page=2', [
+            'X-Requested-With' => 'XMLHttpRequest'
+        ]);
+        $respPage2->assertStatus(200);
+        $respPage2->assertSee('NACOC-PAGE-011');
+        $respPage2->assertSee('NACOC-PAGE-020');
+        $respPage2->assertDontSee('NACOC-PAGE-001');
+        $respPage2->assertSee('Showing <span class="font-bold text-slate-900">11</span> to <span class="font-bold text-slate-900">20</span> of <span class="font-bold text-slate-900">22</span>', false);
+    }
+
+    #[Test]
+    public function forensic_head_can_access_vault_storage_exhibit_page_with_full_details(): void
+    {
+        $case = ForensicCase::create([
+            'case_number' => 'NACOC-VAULT-PAGE-001',
+            'title' => 'Vault Evidence Custody Docket',
+            'unit_name' => 'Evidence Management',
+            'status' => 'Under Investigation',
+            'priority' => 'Critical',
+            'suspect_name' => 'Ibrahim Tanko',
+            'suspect_alias' => 'Scorpion',
+            'raid_location' => 'Tema Harbour Terminal 3',
+            'holding_facility' => 'NACOC Secure Vault Alpha',
+            'docket_data' => [
+                'suspects' => [
+                    [
+                        'name' => 'Ibrahim Tanko',
+                        'alias' => 'Scorpion',
+                        'disposition' => 'Remanded in Custody',
+                    ],
+                ],
+                'seizures' => [
+                    [
+                        'seizure_name_drug' => 'White Cocaine Bricks',
+                        'exhibit_number' => 'EX-VAULT-001',
+                        'category' => 'Narcotics',
+                        'weight' => '12.5',
+                        'unit' => 'KG',
+                        'packaging' => 'Hydraulically Pressed Bricks',
+                        'concealment' => 'Refrigerated Container Double Wall',
+                        'location' => 'Tema Harbour Berth 2',
+                        'seizure_officer' => 'Capt. Boateng',
+                        'investigating_officer' => 'Insp. Owusu',
+                        'value' => 'GHS 4,500,000.00',
+                        'photos' => [
+                            '/storage/evidence/brick1.jpg',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        // Request dedicated Vault Exhibits page
+        $resp = $this->actingAs($this->headUser)->get("/Forensic_Head/cases/{$case->case_number}/vault-exhibits");
+        $resp->assertStatus(200);
+        $resp->assertSee('Vault Storage');
+        $resp->assertSee('NACOC-VAULT-PAGE-001');
+        $resp->assertSee('Ibrahim Tanko');
+        $resp->assertSee('Scorpion');
+        $resp->assertSee('White Cocaine Bricks');
+        $resp->assertSee('Hydraulically Pressed Bricks');
+        $resp->assertSee('Refrigerated Container Double Wall');
+        $resp->assertSee('NACOC Secure Vault Alpha');
+        $resp->assertSee('Back to Case Register');
+        $resp->assertDontSee('Print Manifest');
+        $resp->assertDontSee('Printable View');
+        $resp->assertSee('OFFICIAL EVIDENCE CUSTODY &amp; VAULT STORAGE MANIFEST', false);
+        $resp->assertDontSee('CUSTODIAL INTEGRITY CERTIFICATION &amp; OFFICIAL ENDORSEMENT', false);
+        $resp->assertDontSee('EVIDENCE VAULT CUSTODIAN');
+        $resp->assertDontSee('DIRECTORATE ENDORSEMENT &amp; STAMP', false);
+        $resp->assertSee('Open Case Review');
+
+        // Eye icon on table has data-vault-url
+        $tableResp = $this->actingAs($this->headUser)->get('/Forensic_Head/cases?status=Vault+Storage', [
+            'X-Requested-With' => 'XMLHttpRequest'
+        ]);
+        $tableResp->assertStatus(200);
+        $tableResp->assertSee("data-vault-url=\"" . url("/Forensic_Head/cases/{$case->case_number}/vault-exhibits") . "\"", false);
+        $tableResp->assertSee("View Vault Storage Exhibit Dossier");
     }
 }

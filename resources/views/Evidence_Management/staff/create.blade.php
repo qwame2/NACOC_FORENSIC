@@ -317,6 +317,7 @@
                 <form id="arrestDocketForm" autocomplete="off" onsubmit="event.preventDefault(); processNewArrested();"
                     onreset="setTimeout(clearDocketFormDraftAndReset, 50)" novalidate class="space-y-6 text-xs font-medium">
                     @csrf
+                    @include('partials.rollback_form_handler')
                     <input type="hidden" id="caseReferenceIdInput" value="{{ $case->case_number ?? $caseRefAuto }}">
 
                     @if(!$seizuresOnlyMode)
@@ -5610,9 +5611,9 @@
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                                         </svg>
-                                        <span>Save Case</span>
+                                        <span>{{ !empty($isRollbackMode) ? 'Send for Review and Approval' : 'Save Case' }}</span>
                                     </button>
                                 </div>
                             </div>
@@ -5632,13 +5633,13 @@
                                     </div>
                                     <div>
                                         <h4 class="text-xs font-black text-slate-900 uppercase font-mono-code">
-                                            {{ $seizuresOnlyMode ? 'Finalize & Save Seized Exhibit(s)' : 'Finalize & Save Docket File' }}</h4>
+                                            {{ !empty($isRollbackMode) ? 'Resubmit Case Docket to Unit Head' : ($seizuresOnlyMode ? 'Finalize & Save Seized Exhibit(s)' : 'Finalize & Save Docket File') }}</h4>
                                         <p class="text-[11px] text-slate-500 font-medium">
-                                            {{ $seizuresOnlyMode ? 'Save seized exhibit(s) without a suspect to the Exhibit Vault. Suspect biodata can be linked later when an arrest is made.' : 'Save this case docket to enable inter-unit forensic workflow and real-time HOF tracking.' }}</p>
+                                            {{ !empty($isRollbackMode) ? 'Send your corrected case docket to your Unit Head for review and approval.' : ($seizuresOnlyMode ? 'Save seized exhibit(s) without a suspect to the Exhibit Vault. Suspect biodata can be linked later when an arrest is made.' : 'Save this case docket to enable inter-unit forensic workflow and real-time HOF tracking.') }}</p>
                                     </div>
                                 </div>
                                 <div class="flex items-center space-x-3 w-full sm:w-auto justify-end">
-                                    @if(!$seizuresOnlyMode)
+                                    @if(!$seizuresOnlyMode && empty($isRollbackMode))
                                     <button type="button" onclick="handleDraftAndContinueLater()"
                                         class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold text-xs rounded-xl hover:bg-slate-50 transition-colors cursor-pointer">Draft
                                         and Continue Later</button>
@@ -5649,9 +5650,9 @@
                                         <svg class="w-4 h-4" fill="none" stroke="currentColor"
                                             viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+                                                d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                                         </svg>
-                                        <span>{{ $seizuresOnlyMode ? 'Save Exhibit' : 'Save Case' }}</span>
+                                        <span>{{ !empty($isRollbackMode) ? 'Send for Review and Approval' : ($seizuresOnlyMode ? 'Save Exhibit' : 'Save Case') }}</span>
                                     </button>
                                 </div>
                             </div>
@@ -7095,14 +7096,6 @@
             return suspects;
         }
 
-        function toggleSidebarEventMenu(e) {
-            if (e) e.stopPropagation();
-            const menu = document.getElementById('sidebarEventMenu');
-            const chevron = document.getElementById('sidebarEventChevron');
-            if (menu) menu.classList.toggle('hidden');
-            if (chevron) chevron.classList.toggle('rotate-180');
-        }
-
         function handleArrestMugshotDragOver(e, dropzoneEl) {
             e.preventDefault();
             e.stopPropagation();
@@ -8299,6 +8292,7 @@
         const DRAFT_KEY = 'arrest_docket_form_draft_v1';
 
         function saveDocketFormDraft() {
+            if (window.IS_ROLLBACK_MODE) return;
             if (window.IS_SEIZURES_ONLY_MODE) return;
             const form = document.querySelector('form');
             if (!form) return;
@@ -8351,6 +8345,7 @@
         }
 
         function restoreDocketFormDraft() {
+            if (window.IS_ROLLBACK_MODE) return;
             try {
                 const raw = localStorage.getItem(DRAFT_KEY);
                 if (!raw) return;
@@ -10940,19 +10935,6 @@
             });
         }
 
-        function selectDeviceType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root = getSeizureBlockFromEvent(e);
-            const hidden = root.querySelector('#newSeizureNameDevice');
-            const display = root.querySelector('#deviceSearchInput');
-            const panel = root.querySelector('#deviceListPanel');
-            if (hidden) hidden.value = val;
-            if (display) display.value = val;
-            if (panel) panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
-
         function filterDeviceList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
             const rawVal = root.querySelector('#deviceSearchInput')?.value || '';
@@ -11005,20 +10987,7 @@
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
-        }
-
-        function selectDrugType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root = getSeizureBlockFromEvent(e);
-            const hidden = root.querySelector('#newSeizureNameDrug');
-            const display = root.querySelector('#drugSearchInput');
-            const panel = root.querySelector('#drugListPanel');
-            if (hidden) hidden.value = val;
-            if (display) display.value = val;
-            if (panel) panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
+        }
 
         function filterDrugList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -11075,24 +11044,7 @@
             });
         }
 
-        function selectCurrencyType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root = getSeizureBlockFromEvent(e);
-            const hidden = root.querySelector('#newSeizureNameCurrency');
-            const display = root.querySelector('#currencySearchInput');
-            const panel = root.querySelector('#currencyListPanel');
-            if (hidden) hidden.value = val;
-            if (display) {
-                display.value = val;
-                display.removeAttribute('readonly');
-            }
-            if (panel) panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-            if (typeof syncSection4ExhibitsToLabSection === 'function') {
-                syncSection4ExhibitsToLabSection();
-            }
-        }
+        
 
         function filterCurrencyList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -11150,20 +11102,7 @@
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
-        }
-
-        function selectWeaponType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root = getSeizureBlockFromEvent(e);
-            const hidden = root.querySelector('#newSeizureNameWeapon');
-            const display = root.querySelector('#weaponSearchInput');
-            const panel = root.querySelector('#weaponListPanel');
-            if (hidden) hidden.value = val;
-            if (display) display.value = val;
-            if (panel) panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
+        }
 
         function filterWeaponList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -11408,6 +11347,11 @@
                 caseTitleEl.addEventListener('input', function() {
                     caseTitleEl.dataset.userEdited = 'true';
                 });
+            }
+
+            // In rollback mode, do not clear or reset docket mode, gender, nationality, or marital status
+            if (window.IS_ROLLBACK_MODE) {
+                return;
             }
 
             // Always enforce default "Select..." state on page load/refresh for Docket Mode, Gender, and Nationality

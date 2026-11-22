@@ -2626,14 +2626,6 @@
                                 </div>
                             </div>
                             <!-- END SEIZURES LIST CONTAINER -->
-
-                            <!-- BOTTOM ADD ANOTHER SEIZURE ITEM BUTTON BAR -->
-                            <div class="flex items-center justify-center pt-2 pb-1 border-t border-slate-300/60">
-                                <button type="button" onclick="addSeizureBlock()" class="inline-flex items-center px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-sm hover:shadow transition-all group">
-                                    <svg class="w-4 h-4 mr-2 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
-                                    Add Another Seized Item(s)
-                                </button>
-                            </div>
                         </div>
                     </div>
                         <!-- DEDICATED STATIC FORM ACTION & SUBMISSION SECTION (OUTSIDE SECTION 4) -->
@@ -4071,14 +4063,6 @@
             return suspects;
         }
 
-        function toggleSidebarEventMenu(e) {
-            if (e) e.stopPropagation();
-            const menu = document.getElementById('sidebarEventMenu');
-            const chevron = document.getElementById('sidebarEventChevron');
-            if (menu) menu.classList.toggle('hidden');
-            if (chevron) chevron.classList.toggle('rotate-180');
-        }
-
         function handleArrestMugshotDragOver(e, dropzoneEl) {
             e.preventDefault();
             e.stopPropagation();
@@ -5162,6 +5146,7 @@
         }
 
         function resetAllSeizurePhotos() {
+            if (window.IS_ROLLBACK_MODE) return;
             seizedExhibitDataUrls = [];
             renderSeizurePhotosGrid();
             const rootInputs = document.querySelectorAll('#fileSeizurePhoto, .fileSeizurePhoto, .file-seizure-photo');
@@ -6932,19 +6917,6 @@
             });
         }
 
-        function selectDeviceType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root     = getSeizureBlockFromEvent(e);
-            const hidden   = root.querySelector('#newSeizureNameDevice');
-            const display  = root.querySelector('#deviceSearchInput');
-            const panel    = root.querySelector('#deviceListPanel');
-            if (hidden)  hidden.value  = val;
-            if (display) display.value = val;
-            if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
-
         function filterDeviceList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
             const rawVal = root.querySelector('#deviceSearchInput')?.value || '';
@@ -6997,20 +6969,7 @@
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
-        }
-
-        function selectDrugType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root    = getSeizureBlockFromEvent(e);
-            const hidden  = root.querySelector('#newSeizureNameDrug');
-            const display = root.querySelector('#drugSearchInput');
-            const panel   = root.querySelector('#drugListPanel');
-            if (hidden)  hidden.value  = val;
-            if (display) display.value = val;
-            if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
+        }
 
         function filterDrugList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -7067,21 +7026,7 @@
             });
         }
 
-        function selectCurrencyType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root     = getSeizureBlockFromEvent(e);
-            const hidden   = root.querySelector('#newSeizureNameCurrency');
-            const display  = root.querySelector('#currencySearchInput');
-            const panel    = root.querySelector('#currencyListPanel');
-            if (hidden)  hidden.value  = val;
-            if (display) { display.value = val; display.removeAttribute('readonly'); }
-            if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-            if (typeof syncSection4ExhibitsToLabSection === 'function') {
-                syncSection4ExhibitsToLabSection();
-            }
-        }
+        
 
         function filterCurrencyList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -7139,20 +7084,7 @@
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
-        }
-
-        function selectWeaponType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root     = getSeizureBlockFromEvent(e);
-            const hidden   = root.querySelector('#newSeizureNameWeapon');
-            const display  = root.querySelector('#weaponSearchInput');
-            const panel    = root.querySelector('#weaponListPanel');
-            if (hidden)  hidden.value  = val;
-            if (display) display.value = val;
-            if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
+        }
 
         function filterWeaponList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -7395,6 +7327,11 @@
                 caseTitleEl.addEventListener('input', function() {
                     caseTitleEl.dataset.userEdited = 'true';
                 });
+            }
+
+            // In rollback mode, do not clear or reset docket mode, gender, nationality, or marital status
+            if (window.IS_ROLLBACK_MODE) {
+                return;
             }
 
             // Always enforce default "Select..." state on page load/refresh for Docket Mode, Gender, and Nationality

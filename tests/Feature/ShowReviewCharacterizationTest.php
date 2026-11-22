@@ -425,11 +425,11 @@ class ShowReviewCharacterizationTest extends TestCase
         }
 
         $expectedHtml = file_get_contents($snapshotFile);
-        $this->assertSame(
-            $expectedHtml,
-            $normalizeHtml($html),
-            "Characterization HTML snapshot mismatch for unit [{$unitKey}] at URI [{$uri}]."
-        );
+        $actualHtml = $normalizeHtml($html);
+        if ($expectedHtml !== $actualHtml) {
+            $this->fail("Characterization HTML snapshot mismatch for unit [{$unitKey}] at URI [{$uri}]. Expected length: " . strlen($expectedHtml) . ", Actual length: " . strlen($actualHtml));
+        }
+        $this->assertTrue(true);
     }
 
     public function test_css_show_review_matches_snapshot(): void

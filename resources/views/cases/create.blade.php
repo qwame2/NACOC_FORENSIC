@@ -234,6 +234,8 @@
                 <form id="arrestDocketForm" autocomplete="off" onsubmit="event.preventDefault(); processNewArrested();" onreset="setTimeout(clearDocketFormDraftAndReset, 50)" class="space-y-6 text-xs font-medium">
                     @csrf
 
+                    @include('partials.rollback_form_handler')
+
                     <!-- SECTION 1: MASTER CASE TITLE & DOCKET CLASSIFICATION -->
                     <div class="bg-white p-6 rounded-2xl border border-slate-200/90 shadow-sm space-y-5 relative z-50">
                         <div class="pb-3 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -4914,14 +4916,6 @@
             return suspects;
         }
 
-        function toggleSidebarEventMenu(e) {
-            if (e) e.stopPropagation();
-            const menu = document.getElementById('sidebarEventMenu');
-            const chevron = document.getElementById('sidebarEventChevron');
-            if (menu) menu.classList.toggle('hidden');
-            if (chevron) chevron.classList.toggle('rotate-180');
-        }
-
         function handleArrestMugshotDragOver(e, dropzoneEl) {
             e.preventDefault();
             e.stopPropagation();
@@ -5932,6 +5926,7 @@
         const DRAFT_KEY = 'arrest_docket_form_draft_v1';
 
         function saveDocketFormDraft() {
+            if (window.IS_ROLLBACK_MODE) return;
             const form = document.querySelector('form');
             if (!form) return;
 
@@ -5982,6 +5977,7 @@
         }
 
         function restoreDocketFormDraft() {
+            if (window.IS_ROLLBACK_MODE) return;
             try {
                 const raw = localStorage.getItem(DRAFT_KEY);
                 if (!raw) return;
@@ -7741,19 +7737,6 @@
             });
         }
 
-        function selectDeviceType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root     = getSeizureBlockFromEvent(e);
-            const hidden   = root.querySelector('#newSeizureNameDevice');
-            const display  = root.querySelector('#deviceSearchInput');
-            const panel    = root.querySelector('#deviceListPanel');
-            if (hidden)  hidden.value  = val;
-            if (display) display.value = val;
-            if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
-
         function filterDeviceList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
             const rawVal = root.querySelector('#deviceSearchInput')?.value || '';
@@ -7806,20 +7789,7 @@
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
-        }
-
-        function selectDrugType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root    = getSeizureBlockFromEvent(e);
-            const hidden  = root.querySelector('#newSeizureNameDrug');
-            const display = root.querySelector('#drugSearchInput');
-            const panel   = root.querySelector('#drugListPanel');
-            if (hidden)  hidden.value  = val;
-            if (display) display.value = val;
-            if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
+        }
 
         function filterDrugList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -7876,21 +7846,7 @@
             });
         }
 
-        function selectCurrencyType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root     = getSeizureBlockFromEvent(e);
-            const hidden   = root.querySelector('#newSeizureNameCurrency');
-            const display  = root.querySelector('#currencySearchInput');
-            const panel    = root.querySelector('#currencyListPanel');
-            if (hidden)  hidden.value  = val;
-            if (display) { display.value = val; display.removeAttribute('readonly'); }
-            if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-            if (typeof syncSection4ExhibitsToLabSection === 'function') {
-                syncSection4ExhibitsToLabSection();
-            }
-        }
+        
 
         function filterCurrencyList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -7948,20 +7904,7 @@
                 const text = li.innerText.toLowerCase();
                 li.style.display = (!q || text.includes(q)) ? '' : 'none';
             });
-        }
-
-        function selectWeaponType(val, e) {
-            if (e && e.stopPropagation) e.stopPropagation();
-            const root     = getSeizureBlockFromEvent(e);
-            const hidden   = root.querySelector('#newSeizureNameWeapon');
-            const display  = root.querySelector('#weaponSearchInput');
-            const panel    = root.querySelector('#weaponListPanel');
-            if (hidden)  hidden.value  = val;
-            if (display) display.value = val;
-            if (panel)   panel.classList.add('hidden');
-            const textInput = root.querySelector('#newSeizureName');
-            if (textInput) textInput.value = val;
-        }
+        }
 
         function filterWeaponList(el) {
             const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
@@ -8237,6 +8180,11 @@
                 caseTitleEl.addEventListener('input', function() {
                     caseTitleEl.dataset.userEdited = 'true';
                 });
+            }
+
+            // In rollback mode, do not clear or reset docket mode, gender, nationality, or marital status
+            if (window.IS_ROLLBACK_MODE) {
+                return;
             }
 
             // Always enforce default "Select..." state on page load/refresh for Docket Mode, Gender, and Nationality

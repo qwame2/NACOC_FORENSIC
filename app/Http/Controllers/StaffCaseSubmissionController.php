@@ -117,12 +117,13 @@ class StaffCaseSubmissionController extends Controller
         $baseQuery = StaffCaseSubmission::forUnit($scopeUnit);
 
         $pendingSubmissions = (clone $baseQuery)
-            ->where('status', 'Pending Approval')
-            ->orderByDesc('created_at')
+            ->whereIn('status', ['Pending Approval', 'Rolled Back'])
+            ->orderByRaw("CASE WHEN status = 'Pending Approval' THEN 0 ELSE 1 END")
+            ->orderByDesc('updated_at')
             ->get();
 
         $reviewedSubmissions = (clone $baseQuery)
-            ->whereIn('status', ['Approved', 'Declined', 'Rolled Back'])
+            ->where('status', 'Approved')
             ->orderByDesc('reviewed_at')
             ->limit(25)
             ->get();
@@ -435,7 +436,17 @@ class StaffCaseSubmissionController extends Controller
         $payload = is_array($submission->payload) ? $submission->payload : [];
         $corrections = is_array($submission->rollback_corrections) ? $submission->rollback_corrections : [];
 
-        return view('staff.case_rollback_edit', [
+        $createView = match ($unitCtx['key']) {
+            'lab_analysis' => 'Lab_Analysis.staff.create',
+            'evidence_management' => 'Evidence_Management.staff.create',
+            'digital_forensics' => 'Digital_Forensics.staff.create',
+            'forensic_head' => 'Forensic_Head.staff.create',
+            default => 'Crime_Scene_Support.staff.create',
+        };
+
+        return view($createView, [
+            'rollbackSubmission' => $submission,
+            'isRollbackMode' => true,
             'submission' => $submission,
             'payload' => $payload,
             'corrections' => $corrections,
@@ -451,19 +462,69 @@ class StaffCaseSubmissionController extends Controller
         $submission = StaffCaseSubmission::findOrFail($id);
 
         $payload = is_array($submission->payload) ? $submission->payload : [];
+        $docketData = is_array($payload['docket_data'] ?? null) ? $payload['docket_data'] : [];
+        $suspects = is_array($payload['suspects'] ?? ($docketData['suspects'] ?? null)) ? ($payload['suspects'] ?? $docketData['suspects']) : [];
+        $firstSuspect = is_array($suspects[0] ?? null) ? $suspects[0] : [];
 
         // Collect inputs from the form except token and internal fields
         $updates = $request->except(['_token', 'resubmit_notes', 'corrections_acknowledged']);
         foreach ($updates as $k => $v) {
-            if ($v !== null) {
+            if ($v !== null && $v !== '') {
                 $payload[$k] = $v;
             }
         }
 
-        if ($request->filled('suspect_name')) {
-            $submission->suspect_name = trim((string) $request->input('suspect_name'));
-            $payload['suspect_name'] = $submission->suspect_name;
+        if ($request->filled('suspect_name') || $request->filled('full_name')) {
+            $nameVal = trim((string) ($request->input('suspect_name') ?: $request->input('full_name')));
+            $submission->suspect_name = $nameVal;
+            $payload['suspect_name'] = $nameVal;
+            $payload['full_name'] = $nameVal;
+            $docketData['full_name'] = $nameVal;
+            $firstSuspect['full_name'] = $nameVal;
+            $firstSuspect['name'] = $nameVal;
+            $firstSuspect['suspect_name'] = $nameVal;
         }
+
+        if ($request->filled('suspect_alias') || $request->filled('alias')) {
+            $aliasVal = trim((string) ($request->input('suspect_alias') ?: $request->input('alias')));
+            $payload['suspect_alias'] = $aliasVal;
+            $payload['alias'] = $aliasVal;
+            $docketData['alias'] = $aliasVal;
+            $firstSuspect['alias'] = $aliasVal;
+            $firstSuspect['suspect_alias'] = $aliasVal;
+        }
+
+        if ($request->filled('ghana_card') || $request->filled('id_card')) {
+            $cardVal = trim((string) ($request->input('ghana_card') ?: $request->input('id_card')));
+            $payload['ghana_card'] = $cardVal;
+            $payload['id_card'] = $cardVal;
+            $docketData['id_card'] = $cardVal;
+            $firstSuspect['id_card'] = $cardVal;
+            $firstSuspect['ghana_card'] = $cardVal;
+        }
+
+        foreach (['gender', 'dob', 'age', 'height', 'eye_color', 'nationality', 'pob', 'phone', 'address', 'marital_status', 'offense_description', 'raid_location', 'holding_facility', 'arrest_date', 'arrest_time', 'arresting_officer', 'supervising_officer', 'investigating_officer'] as $field) {
+            if ($request->filled($field)) {
+                $fVal = $request->input($field);
+                $payload[$field] = $fVal;
+                $docketData[$field] = $fVal;
+                $firstSuspect[$field] = $fVal;
+            }
+        }
+
+        if ($request->has('seizures') && is_array($request->input('seizures'))) {
+            $payload['seizures'] = $request->input('seizures');
+            $docketData['seizures'] = $request->input('seizures');
+        }
+
+        if (!empty($firstSuspect)) {
+            $suspects[0] = $firstSuspect;
+            $docketData['suspects'] = $suspects;
+            $payload['suspects'] = $suspects;
+        }
+
+        $payload['docket_data'] = $docketData;
+
         if ($request->filled('title')) {
             $submission->title = trim((string) $request->input('title'));
             $payload['title'] = $submission->title;
@@ -473,6 +534,8 @@ class StaffCaseSubmissionController extends Controller
             $payload['priority'] = $submission->priority;
         }
 
+        $payload['was_corrected'] = true;
+        $payload['resubmitted_at'] = now()->toDateTimeString();
         $submission->payload = $payload;
         $submission->status = 'Pending Approval';
         $submission->rollback_corrections = null;
@@ -489,15 +552,17 @@ class StaffCaseSubmissionController extends Controller
             default => url('/Crime_Scene_Support/staff/case-rollback'),
         };
 
+        $successMsg = "Case #{$submission->id} has been updated and sent to your Unit Head for review and approval.";
+
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json([
                 'success' => true,
-                'message' => "Submission #{$submission->id} has been updated and resubmitted to your Unit Head for approval.",
+                'message' => $successMsg,
                 'redirect' => $redirectUrl,
             ]);
         }
 
-        return redirect($redirectUrl)->with('status', "Submission #{$submission->id} has been updated and resubmitted for Unit Head review and approval.");
+        return redirect($redirectUrl)->with('status', $successMsg);
     }
 }
 

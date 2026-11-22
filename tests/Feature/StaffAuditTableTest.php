@@ -140,7 +140,11 @@ class StaffAuditTableTest extends TestCase
             $response->assertSee('staffAuditTableContainer', false);
             $response->assertSee('auditInspectModal', false);
             // Assert that the executive Head sidebar is rendered and staff sidebar is NOT rendered
-            $response->assertSee('Staff Audit Logs', false);
+            if (!in_array($route, ['/Forensic_Head/staff-audit-logs', '/staff-audit-logs'], true)) {
+                $response->assertSee('Staff Audit Logs', false);
+            } else {
+                $response->assertDontSee('/Forensic_Head/staff-audit-logs', false);
+            }
             $response->assertDontSee('Cyber Analyst / Staff', false);
             $response->assertDontSee('Forensic Chemist / Staff', false);
             $response->assertDontSee('STAFF OPERATIONAL DESK', false);

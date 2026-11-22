@@ -2363,53 +2363,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- CHAIN OF CUSTODY (OPTIONAL) -->
-                                    <div class="col-span-full">
-                                        <div class="flex items-center justify-between mb-1.5">
-                                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase flex items-center space-x-1.5">
-                                                <svg class="w-3.5 h-3.5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" /></svg>
-                                                <span>Chain of Custody <span class="text-slate-400 font-normal lowercase">(optional)</span></span>
-                                            </label>
-                                            <span class="text-[9px] font-mono-code font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200 uppercase">CUSTODY TRANSFER</span>
-                                        </div>
-
-                                        <!-- HORIZONTAL LINE CHAIN OF CUSTODY WITH EXCHANGE ICON -->
-                                        <div class="flex items-center gap-2 sm:gap-2.5 w-full">
-                                            <!-- CURRENT LOCATION (FROM) -->
-                                            <div class="relative flex-1 min-w-0 flex items-center group">
-                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-                                                </span>
-                                                <input type="text" id="newSeizureCustodyFrom"
-                                                    class="seizure-custody-from-input w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
-                                                    value="Lab Analysis"
-                                                    placeholder="Current Location (e.g. Lab Analysis)"
-                                                    oninput="updateChainOfCustodyValue(this)">
-                                            </div>
-
-                                            <!-- EXCHANGE ICON -->
-                                            <div class="flex items-center justify-center p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 shadow-2xs shrink-0 self-center" title="Custody Transfer / Exchange">
-                                                <svg class="w-4 h-4 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
-                                                </svg>
-                                            </div>
-
-                                            <!-- DESTINATION / TRANSFER TO -->
-                                            <div class="relative flex-1 min-w-0 flex items-center group">
-                                                <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
-                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                                                </span>
-                                                <input type="text" id="newSeizureCustodyTo"
-                                                    class="seizure-custody-to-input w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 placeholder:text-slate-400"
-                                                    placeholder="Transfer To (e.g. Central Vault, Forensic Lab, Court...)"
-                                                    oninput="updateChainOfCustodyValue(this)">
-                                            </div>
-                                        </div>
-
-                                        <!-- Hidden textarea synchronized with the inputs -->
-                                        <textarea id="newSeizureChainOfCustody" name="chain_of_custody" rows="1" data-alt-id="newSeizureChainOfCustody"
-                                            class="hidden newSeizureChainOfCustody seizure-chain-of-custody-input">Lab Analysis</textarea>
-                                    </div>
 
                                     <!-- SEIZED EXHIBIT PHOTO UPLOAD AREA -->
                                     <div class="col-span-full pt-2 border-t border-slate-300/60 space-y-3">
@@ -6837,6 +6790,128 @@ function setSeizureBlocksCount(val) {
 
                 if (typeof selectExhibitCategory === 'function') {
                     try {
+                syncSection4ExhibitsToLabSection();
+            }
+            if (typeof evaluateLabExaminationVisibility === 'function') {
+                evaluateLabExaminationVisibility();
+            }
+        }
+
+function setSeizureBlocksCount(val) {
+            const targetCount = parseInt(val, 10);
+            const container = document.getElementById('seizuresListContainer');
+            if (!container) return;
+
+            const countInput = document.getElementById('seizureCountInput');
+
+            if (isNaN(targetCount) || targetCount < 1) {
+                return;
+            }
+
+            const finalTarget = Math.min(Math.max(1, targetCount), 100);
+            const currentBlocks = container.querySelectorAll('.seizure-block');
+            const currentCount = currentBlocks.length;
+
+            if (finalTarget === currentCount) return;
+
+            if (finalTarget > currentCount) {
+                const diff = finalTarget - currentCount;
+                for (let i = 0; i < diff; i++) {
+                    addSeizureBlock(false);
+                }
+                updateSeizureBlockNumbers();
+                if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                    syncSuspectDropdownsForExhibits();
+                }
+                if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                    syncSection4ExhibitsToLabSection();
+                }
+                if (typeof evaluateLabExaminationVisibility === 'function') {
+                    evaluateLabExaminationVisibility();
+                }
+                if (typeof unlockSection5Form === 'function') {
+                    unlockSection5Form();
+                }
+            } else {
+                let hasData = false;
+                for (let i = finalTarget; i < currentCount; i++) {
+                    if (seizureBlockHasData(currentBlocks[i])) {
+                        hasData = true;
+                        break;
+                    }
+                }
+
+                if (hasData) {
+                    const confirmed = confirm('Decreasing the number of seized items will remove section(s) with entered data. Are you sure you want to proceed and discard this information?');
+                    if (!confirmed) {
+                        if (countInput) countInput.value = currentCount;
+                        return;
+                    }
+                }
+
+                for (let i = currentCount - 1; i >= finalTarget; i--) {
+                    currentBlocks[i].remove();
+                }
+                updateSeizureBlockNumbers();
+                if (typeof syncSuspectDropdownsForExhibits === 'function') {
+                    syncSuspectDropdownsForExhibits();
+                }
+                if (typeof syncSection4ExhibitsToLabSection === 'function') {
+                    syncSection4ExhibitsToLabSection();
+                }
+                if (typeof evaluateLabExaminationVisibility === 'function') {
+                    evaluateLabExaminationVisibility();
+                }
+                if (typeof unlockSection5Form === 'function') {
+                    unlockSection5Form();
+                }
+            }
+        }
+
+        function populateSeizureBlock(block, data) {
+            if (!block || !data) return;
+
+            if (data.exhibit_number) {
+                block.dataset.exhibitNumber = data.exhibit_number;
+            }
+            if (data.lab_exhibit_no !== undefined && data.lab_exhibit_no !== null) {
+                block.dataset.labExhibitNo = data.lab_exhibit_no;
+            }
+
+            const owner = data.resolved_owner || data.associated_person || data.suspect_name || data.owner_name || '';
+            const assocSelect = block.querySelector('.seizure-associated-person-select');
+            if (assocSelect && owner) {
+                let matched = false;
+                const ownerLower = owner.toLowerCase().trim();
+                for (let i = 0; i < assocSelect.options.length; i++) {
+                    const optVal = assocSelect.options[i].value.toLowerCase().trim();
+                    const optText = assocSelect.options[i].text.toLowerCase().trim();
+                    if (optVal === ownerLower || optText.includes(ownerLower) || (ownerLower === 'all suspects' && optVal.includes('all'))) {
+                        assocSelect.selectedIndex = i;
+                        assocSelect.setAttribute('data-user-selected', 'true');
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched && owner) {
+                    const newOpt = document.createElement('option');
+                    newOpt.value = owner;
+                    newOpt.text = owner;
+                    newOpt.selected = true;
+                    assocSelect.appendChild(newOpt);
+                    assocSelect.setAttribute('data-user-selected', 'true');
+                }
+            }
+
+            const cat = data.category || data.exhibit_category || '';
+            if (cat) {
+                const catInput = block.querySelector('#newSeizureCategory');
+                const catSearch = block.querySelector('#exhibitSearchInput');
+                if (catInput) catInput.value = cat;
+                if (catSearch) catSearch.value = cat;
+
+                if (typeof selectExhibitCategory === 'function') {
+                    try {
                         selectExhibitCategory(cat, { target: block });
                     } catch(e) {}
                 }
@@ -6904,22 +6979,6 @@ function setSeizureBlocksCount(val) {
             setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
             setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
             setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
-            if (data.chain_of_custody) {
-                const cocVal = String(data.chain_of_custody).trim();
-                setVal('#newSeizureChainOfCustody', cocVal);
-                if (cocVal.includes('->')) {
-                    const cocParts = cocVal.split('->');
-                    setVal('#newSeizureCustodyFrom', cocParts[0].trim());
-                    setVal('#newSeizureCustodyTo', cocParts.slice(1).join(' -> ').trim());
-                } else {
-                    setVal('#newSeizureCustodyFrom', cocVal);
-                    setVal('#newSeizureCustodyTo', '');
-                }
-            } else {
-                setVal('#newSeizureCustodyFrom', 'Lab Analysis');
-                setVal('#newSeizureCustodyTo', '');
-                setVal('#newSeizureChainOfCustody', 'Lab Analysis');
-            }
 
             const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
             if (officer) {
@@ -7014,30 +7073,6 @@ function setSeizureBlocksCount(val) {
             }
         }
 
-        // Chain of Custody Dynamic Synchronization
-        function updateChainOfCustodyValue(el) {
-            const block = el ? el.closest('.seizure-block') : document;
-            if (!block) return;
-            const fromInput = block.querySelector('#newSeizureCustodyFrom') || block.querySelector('.seizure-custody-from-input');
-            const toInput = block.querySelector('#newSeizureCustodyTo') || block.querySelector('.seizure-custody-to-input');
-            const hiddenInput = block.querySelector('#newSeizureChainOfCustody') || block.querySelector('.seizure-chain-of-custody-input');
-
-            const fromVal = fromInput ? fromInput.value.trim() : '';
-            const toVal = toInput ? toInput.value.trim() : '';
-
-            let combined = '';
-            if (fromVal && toVal) {
-                combined = `${fromVal} -> ${toVal}`;
-            } else if (fromVal) {
-                combined = fromVal;
-            } else if (toVal) {
-                combined = toVal;
-            }
-
-            if (hiddenInput) {
-                hiddenInput.value = combined;
-            }
-        }
 
         function populateExistingManifestSections(savedExhibits) {
             if (!savedExhibits || !Array.isArray(savedExhibits) || savedExhibits.length === 0) return;

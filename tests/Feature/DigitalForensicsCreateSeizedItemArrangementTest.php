@@ -55,8 +55,8 @@ class DigitalForensicsCreateSeizedItemArrangementTest extends TestCase
         $response->assertSee('id="seizurePhotoDropzone"', false);
         $response->assertSee('id="seizurePhotosGrid"', false);
 
-        // Check Add Another Seized Item(s) button is rendered
-        $response->assertSee('Add Another Seized Item(s)', false);
+        // Dynamic seizure manifest controls
+        $response->assertSee('id="seizureCountInput"', false);
     }
 
     public function test_digital_forensics_staff_create_page_renders_well_arranged_seizure_section(): void
@@ -104,8 +104,8 @@ class DigitalForensicsCreateSeizedItemArrangementTest extends TestCase
         $response->assertSee('id="seizurePhotoDropzone"', false);
         $response->assertSee('id="seizurePhotosGrid"', false);
 
-        // Check Add Another Seized Item(s) button is rendered
-        $response->assertSee('Add Another Seized Item(s)', false);
+        // Dynamic seizure manifest controls
+        $response->assertSee('id="seizureCountInput"', false);
     }
 }
 

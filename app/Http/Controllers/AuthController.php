@@ -22,7 +22,19 @@ class AuthController extends Controller
             return '/login';
         }
 
-        $unit = $user->unit ?? '';
+        $unit = (string) ($user->unit ?? '');
+        $unitLower = strtolower(trim($unit));
+
+        if ($user->is_head && (
+            $unitLower === 'office of the director-general' ||
+            $unitLower === 'director general' ||
+            $unitLower === 'dg' ||
+            str_contains($unitLower, 'director general') ||
+            str_contains($unitLower, 'director-general')
+        )) {
+            return '/DG';
+        }
+
         $resolvedUnit = \App\Enums\ForensicUnit::resolve($unit);
 
         if ($user->is_head && ($resolvedUnit === \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE || str_contains($unit, 'Forensic Directorate'))) {
@@ -233,7 +245,60 @@ class AuthController extends Controller
             }
         }
 
-        return view('auth.register', compact('units', 'registeredHeads', 'hasForensicHead', 'forensicHead'));
+        // Check if Director General has registered
+        $directorGeneral = User::where('is_head', true)
+            ->where(function($q) {
+                $q->where('unit', 'Office of the Director-General')
+                  ->orWhere('unit', 'Director General')
+                  ->orWhere('unit', 'DG')
+                  ->orWhere('unit', 'LIKE', '%Director General%')
+                  ->orWhere('unit', 'LIKE', '%Director-General%');
+            })
+            ->first();
+
+        $hasDirectorGeneral = !is_null($directorGeneral);
+
+        if ($hasDirectorGeneral) {
+            // Remove Director General from the units list if already on the system
+            $units = $units->filter(function($u) {
+                $name = is_object($u) ? $u->name : ($u['name'] ?? '');
+                $lower = strtolower(trim($name));
+                return !in_array($lower, [
+                    'director general',
+                    'director-general',
+                    'office of the director-general',
+                    'dg',
+                ], true);
+            })->values();
+            $registeredHeads['Director General'] = $directorGeneral->fullname;
+            $registeredHeads['Office of the Director-General'] = $directorGeneral->fullname;
+        } else {
+            // Include Director General in the units dropdown list
+            $hasDg = $units->contains(function($u) {
+                $name = is_object($u) ? $u->name : ($u['name'] ?? '');
+                $lower = strtolower(trim($name));
+                return in_array($lower, [
+                    'director general',
+                    'director-general',
+                    'office of the director-general',
+                    'dg',
+                ], true);
+            });
+
+            if (!$hasDg) {
+                $dgUnit = (object) [
+                    'id' => 998,
+                    'name' => 'Director General',
+                    'code' => 'DG',
+                    'category' => 'SUPREME COMMAND',
+                    'head_name' => null,
+                    'head_title' => 'Director General of NACOC',
+                ];
+                $units = $units->push($dgUnit);
+            }
+        }
+
+        return view('auth.register', compact('units', 'registeredHeads', 'hasForensicHead', 'forensicHead', 'hasDirectorGeneral', 'directorGeneral'));
     }
 
     /**
@@ -252,12 +317,29 @@ class AuthController extends Controller
             })
             ->exists();
 
+        $directorGeneralExists = User::where('is_head', true)
+            ->where(function($q) {
+                $q->where('unit', 'Office of the Director-General')
+                  ->orWhere('unit', 'Director General')
+                  ->orWhere('unit', 'DG')
+                  ->orWhere('unit', 'LIKE', '%Director General%')
+                  ->orWhere('unit', 'LIKE', '%Director-General%');
+            })
+            ->exists();
+
         $unitInput = trim($request->input('unit', ''));
         $isHeadOfForensic = in_array(strtolower($unitInput), [
             'head of forensic',
             'forensic head',
             'forensic directorate',
             'directorate head',
+        ], true);
+
+        $isDirectorGeneral = in_array(strtolower($unitInput), [
+            'director general',
+            'director-general',
+            'office of the director-general',
+            'dg',
         ], true);
 
         // If Forensic Head already exists, prevent creating another Forensic Head account
@@ -267,9 +349,22 @@ class AuthController extends Controller
             ]);
         }
 
+        // If Director General already exists, prevent creating another Director General account
+        if ($directorGeneralExists && $isDirectorGeneral) {
+            throw ValidationException::withMessages([
+                'unit' => 'The Director-General has already registered. Only one Director-General account is allowed.',
+            ]);
+        }
+
         if ($isHeadOfForensic) {
             $request->merge([
                 'unit' => 'Forensic Directorate',
+                'role' => 'head',
+                'is_staff' => 0,
+            ]);
+        } elseif ($isDirectorGeneral) {
+            $request->merge([
+                'unit' => 'Office of the Director-General',
                 'role' => 'head',
                 'is_staff' => 0,
             ]);
@@ -393,7 +488,9 @@ class AuthController extends Controller
             ]);
         }
 
-        if ($isHead && in_array($validated['unit'], ['Forensic Directorate', 'Forensic Head', 'Directorate Head'])) {
+        if ($isHead && in_array($validated['unit'], ['Office of the Director-General', 'Director General', 'DG'])) {
+            $statusMsg = 'Director-General registration successful! Supreme command established. Please sign in to access your portal.';
+        } elseif ($isHead && in_array($validated['unit'], ['Forensic Directorate', 'Forensic Head', 'Directorate Head'])) {
             $statusMsg = 'Head of Forensic registration successful! Directorate command established. Unit Heads and Staff may now sign up.';
         } elseif ($isStaff) {
             $statusMsg = 'Registration successful! Your staff account requires approval by your Head of Unit before you can sign in.';
@@ -443,6 +540,27 @@ class AuthController extends Controller
     {
         $targetUnit = \App\Enums\ForensicUnit::resolve($unitName);
         $normalizedName = strtolower(trim($unitName));
+
+        $isDg = in_array($normalizedName, [
+            'director general',
+            'director-general',
+            'office of the director-general',
+            'dg',
+        ], true);
+
+        if ($isDg) {
+            foreach ($heads as $head) {
+                $headUnitLower = strtolower(trim((string) $head->unit));
+                if (
+                    in_array($headUnitLower, ['director general', 'director-general', 'office of the director-general', 'dg'], true) ||
+                    str_contains($headUnitLower, 'director general') ||
+                    str_contains($headUnitLower, 'director-general')
+                ) {
+                    return $head;
+                }
+            }
+            return null;
+        }
 
         foreach ($heads as $head) {
             if ($targetUnit !== null) {

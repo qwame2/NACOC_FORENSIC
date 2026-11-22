@@ -83,7 +83,7 @@
                 </div>
 
                 <div class="flex items-center gap-2">
-                    <span class="px-3 py-1 rounded-full text-xs font-mono-code font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                    <span class="px-3 py-1 rounded-full text-xs font-mono-code font-bold bg-green-200 text-green-950 border-none">
                         {{ count($corrections) }} Correction{{ count($corrections) === 1 ? '' : 's' }} Required
                     </span>
                 </div>
@@ -94,33 +94,33 @@
                 @include('partials.flash')
 
                 <!-- ROLLBACK DIRECTIVE CALLOUT -->
-                <div class="rounded-3xl bg-amber-50 border-2 border-amber-300 p-6 sm:p-7 shadow-sm space-y-4">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-amber-200">
+                <div class="rounded-3xl bg-green-100 border-none p-6 sm:p-7 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-green-200/60">
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black shrink-0 shadow-sm">
+                            <div class="w-10 h-10 rounded-2xl bg-green-700 text-white flex items-center justify-center font-black shrink-0 shadow-sm">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
                             </div>
                             <div>
-                                <span class="px-2.5 py-0.5 rounded text-[10px] font-mono-code font-black bg-amber-200 text-amber-950 uppercase tracking-wider">
+                                <span class="px-2.5 py-0.5 rounded text-[10px] font-mono-code font-black bg-green-200 text-green-950 uppercase tracking-wider border-none">
                                     CASE ROLLED BACK BY UNIT HEAD
                                 </span>
-                                <h2 class="text-base font-black text-amber-950 mt-0.5">
+                                <h2 class="text-base font-black text-green-950 mt-0.5">
                                     {{ $submission->reviewed_by_name ?? 'Unit Head' }} requested changes before approval
                                 </h2>
-                                <p class="text-xs text-amber-800">
-                                    Rolled back on {{ optional($submission->rolled_back_at ?? $submission->reviewed_at)->format('d M Y, H:i') }} <span class="text-amber-500 mx-1">|</span> Submitter: {{ $submission->submitted_by_name }}
+                                <p class="text-xs text-green-800">
+                                    Rolled back on {{ optional($submission->rolled_back_at ?? $submission->reviewed_at)->format('d M Y, H:i') }} <span class="text-green-600 mx-1">|</span> Submitter: {{ $submission->submitted_by_name }}
                                 </p>
                             </div>
                         </div>
 
-                        <span class="px-3 py-1 bg-amber-200 text-amber-900 rounded-full font-mono-code font-bold text-xs shrink-0 self-start sm:self-auto">
+                        <span class="px-3 py-1 bg-green-200 text-green-950 rounded-full font-mono-code font-bold text-xs shrink-0 self-start sm:self-auto border-none">
                             Status: Rolled Back
                         </span>
                     </div>
 
                     @if(!empty($submission->review_notes))
-                        <div class="p-3.5 bg-white/90 rounded-2xl border border-amber-200 text-xs">
-                            <span class="text-[10px] font-mono-code font-bold uppercase text-amber-800 block mb-1">Overall Unit Head Feedback:</span>
+                        <div class="p-3.5 bg-white/90 rounded-2xl border-none text-xs">
+                            <span class="text-[10px] font-mono-code font-bold uppercase text-green-800 block mb-1">Overall Unit Head Feedback:</span>
                             <p class="text-slate-900 font-semibold leading-relaxed">{{ $submission->review_notes }}</p>
                         </div>
                     @endif
@@ -128,16 +128,16 @@
                     <!-- CHECKLIST OF REQUESTED CORRECTIONS -->
                     @if(count($corrections) > 0)
                         <div class="space-y-2">
-                            <div class="text-xs font-black text-amber-950 uppercase tracking-wider font-mono-code flex items-center gap-1.5">
-                                <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+                            <div class="text-xs font-black text-green-950 uppercase tracking-wider font-mono-code flex items-center gap-1.5">
+                                <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
                                 <span>Specific Sections Requiring Your Correction:</span>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 @foreach($corrections as $idx => $c)
-                                    <div class="p-3 rounded-xl bg-white border border-amber-300 shadow-2xs space-y-1">
-                                        <div class="flex items-center justify-between font-mono-code text-[11px] font-black text-amber-900">
+                                    <div class="p-3 rounded-xl bg-white border-none shadow-2xs space-y-1">
+                                        <div class="flex items-center justify-between font-mono-code text-[11px] font-black text-green-950">
                                             <span>#{{ $idx + 1 }}. {{ $c['field'] ?? 'Suspect Detail' }}</span>
-                                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">Action Required</span>
+                                            <span class="text-[9px] px-1.5 py-0.5 rounded bg-green-200 text-green-950 border-none font-bold">Action Required</span>
                                         </div>
                                         <p class="text-slate-800 text-xs font-medium leading-relaxed">
                                             {{ $c['note'] ?? 'Please correct and verify this detail.' }}
@@ -168,7 +168,7 @@
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
                             <div class="sm:col-span-2">
                                 @if($note = $getCorrection('case title', 'legal title', 'case name'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -179,7 +179,7 @@
 
                             <div>
                                 @if($note = $getCorrection('priority'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -211,7 +211,7 @@
                             <!-- Suspect Full Name -->
                             <div class="sm:col-span-2">
                                 @if($note = $getCorrection('suspect full name', 'suspect name', 'legal name'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -223,7 +223,7 @@
                             <!-- Alias -->
                             <div>
                                 @if($note = $getCorrection('alias', 'street name'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -235,7 +235,7 @@
                             <!-- Ghana Card -->
                             <div>
                                 @if($note = $getCorrection('ghana card', 'card #', 'national id'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -247,7 +247,7 @@
                             <!-- Nationality -->
                             <div>
                                 @if($note = $getCorrection('nationality', 'citizen'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -259,7 +259,7 @@
                             <!-- Hometown / POB -->
                             <div>
                                 @if($note = $getCorrection('hometown', 'pob', 'place of birth'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -271,7 +271,7 @@
                             <!-- Phone -->
                             <div>
                                 @if($note = $getCorrection('phone', 'contact'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -283,7 +283,7 @@
                             <!-- Address -->
                             <div>
                                 @if($note = $getCorrection('address', 'gps', 'residential'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -295,7 +295,7 @@
                             <!-- Gender -->
                             <div>
                                 @if($note = $getCorrection('gender', 'sex'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -311,7 +311,7 @@
                             <!-- Age / DOB -->
                             <div>
                                 @if($note = $getCorrection('age', 'dob', 'birth'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -323,7 +323,7 @@
                             <!-- Height -->
                             <div>
                                 @if($note = $getCorrection('height', 'stature'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -335,7 +335,7 @@
                             <!-- Complexion -->
                             <div>
                                 @if($note = $getCorrection('complexion', 'skin'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -357,7 +357,7 @@
                             <!-- Location -->
                             <div>
                                 @if($note = $getCorrection('arrest location', 'raid location', 'location'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -369,7 +369,7 @@
                             <!-- Holding Facility -->
                             <div>
                                 @if($note = $getCorrection('facility', 'custody', 'cell', 'holding'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -381,7 +381,7 @@
                             <!-- Arresting Officer -->
                             <div>
                                 @if($note = $getCorrection('arresting officer'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif
@@ -393,7 +393,7 @@
                             <!-- Offense Description -->
                             <div class="sm:col-span-2 lg:col-span-3">
                                 @if($note = $getCorrection('offense', 'charge', 'description of exhibits', 'narrative'))
-                                    <div class="mb-1 p-2 bg-amber-50 border border-amber-300 rounded-lg text-amber-900 text-xs font-semibold">
+                                    <div class="mb-1 p-2 bg-green-100 border-none rounded-lg text-green-950 text-xs font-semibold">
                                         ⚠️ <strong>Head Note:</strong> {{ $note }}
                                     </div>
                                 @endif

@@ -55,7 +55,7 @@ class CaseShowReviewPresenter
             str_contains(strtolower($reqFrom ?? ''), 'digital_register') ||
             $reqFrom === 'Digital_Forensics_Register';
 
-        $isForensicHeadContext = $normalized === 'hof';
+        $isForensicHeadContext = $normalized === 'hof' || $normalized === 'dg';
         $isLabAnalysis = $normalized === 'lab';
         $isLabContext = $normalized === 'lab';
         $isDigitalForensics = $normalized === 'dpf';
@@ -68,6 +68,7 @@ class CaseShowReviewPresenter
             'lab' => 'Lab Analysis',
             'dpf' => 'Digital & Physical Forensics',
             'em' => 'Evidence Management',
+            'dg' => 'Office of the Director-General',
             'hof' => !empty($userUnit) ? $userUnit : ($case->unit_name ?? 'Forensic Directorate'),
             default => (!empty($reqFrom) && !str_contains(strtolower($reqFrom), 'crime') && !str_contains(strtolower($reqFrom), 'field'))
                 ? $reqFrom
@@ -107,6 +108,14 @@ class CaseShowReviewPresenter
         $referer = $request->header('referer') ?? '';
 
         if (
+            $request->is('DG*') ||
+            $request->is('dg*') ||
+            ($referer && str_contains($referer, 'DG'))
+        ) {
+            return 'dg.cases.review';
+        }
+
+        if (
             $request->is('Forensic_Head*') ||
             $request->is('forensic-head*') ||
             ($referer && str_contains($referer, 'Forensic_Head'))
@@ -116,6 +125,9 @@ class CaseShowReviewPresenter
 
         if (!empty($reqFrom)) {
             $fromLower = strtolower((string) $reqFrom);
+            if ($fromLower === 'dg' || str_contains($fromLower, 'director-general') || str_contains($fromLower, 'director general')) {
+                return 'dg.cases.review';
+            }
             if (str_contains($fromLower, 'head') || str_contains($fromLower, 'forensic_head') || str_contains($fromLower, 'forensic head') || $fromLower === 'hof') {
                 return 'forensic_head.cases.review';
             }
@@ -174,6 +186,7 @@ class CaseShowReviewPresenter
             $lower === 'lab' || str_contains($lower, 'lab') => 'lab',
             $lower === 'dpf' || str_contains($lower, 'digital') || str_contains($lower, 'physical') => 'dpf',
             $lower === 'em' || str_contains($lower, 'evidence') => 'em',
+            $lower === 'dg' || str_contains($lower, 'director-general') || str_contains($lower, 'director general') => 'dg',
             $lower === 'hof' || str_contains($lower, 'forensic head') || str_contains($lower, 'forensic directorate') || str_contains($lower, 'directorate head') => 'hof',
             default => 'css',
         };

@@ -24,8 +24,9 @@
     $urgentPendingCount = $pendingSubmissions->filter(function ($s) {
         return in_array(strtoupper((string) $s->priority), ['HIGH', 'CRITICAL'], true);
     })->count();
+    $awaitingReviewCount = $pendingSubmissions->where('status', 'Pending Approval')->count();
+    $rolledBackCount = $pendingSubmissions->where('status', 'Rolled Back')->count();
     $approvedHistoryCount = $reviewedSubmissions->where('status', 'Approved')->count();
-    $rolledBackHistoryCount = $reviewedSubmissions->where('status', 'Rolled Back')->count();
 
     $extractSubmissionMeta = function ($sub) use ($photoResolver) {
         $p = is_array($sub->payload) ? $sub->payload : [];
@@ -232,14 +233,25 @@
 
                     <!-- 4-COLUMN ARCHITECTURAL KPI SUMMARY BAR (CLEAN UNBOXED TYPOGRAPHY) -->
                     <div class="grid grid-cols-2 lg:grid-cols-4 bg-slate-50/50">
-                        <button type="button" onclick="focusPendingFilter('ALL')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
+                        <button type="button" onclick="focusPendingFilter('PENDING')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
                             <div>
                                 <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">Pending Review</div>
-                                <div class="text-2xl font-extrabold text-slate-900 tnum mt-1">{{ $pendingSubmissions->count() }}</div>
+                                <div class="text-2xl font-extrabold text-slate-900 tnum mt-1">{{ $awaitingReviewCount }}</div>
                                 <div class="text-[11px] font-medium text-emerald-700 mt-1">Staged for sign-off</div>
                             </div>
                             <svg class="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                            </svg>
+                        </button>
+
+                        <button type="button" onclick="focusPendingFilter('ROLLED_BACK')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
+                            <div>
+                                <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">Awaiting Corrections</div>
+                                <div class="text-2xl font-extrabold {{ $rolledBackCount > 0 ? 'text-amber-700' : 'text-slate-900' }} tnum mt-1">{{ $rolledBackCount }}</div>
+                                <div class="text-[11px] font-medium text-slate-500 mt-1">Returned to staff</div>
+                            </div>
+                            <svg class="w-5 h-5 {{ $rolledBackCount > 0 ? 'text-amber-600' : 'text-slate-400' }} shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
                             </svg>
                         </button>
 
@@ -254,18 +266,7 @@
                             </svg>
                         </button>
 
-                        <button type="button" onclick="focusHistoryFilter('Rolled Back')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
-                            <div>
-                                <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">Rolled Back</div>
-                                <div class="text-2xl font-extrabold {{ $rolledBackHistoryCount > 0 ? 'text-amber-700' : 'text-slate-900' }} tnum mt-1">{{ $rolledBackHistoryCount }}</div>
-                                <div class="text-[11px] font-medium text-slate-500 mt-1">Returned for correction</div>
-                            </div>
-                            <svg class="w-5 h-5 {{ $rolledBackHistoryCount > 0 ? 'text-amber-600' : 'text-slate-400' }} shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
-                            </svg>
-                        </button>
-
-                        <button type="button" onclick="focusHistoryFilter('Approved')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
+                        <button type="button" onclick="focusHistoryFilter('ALL')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
                             <div>
                                 <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">Approved &amp; Saved</div>
                                 <div class="text-2xl font-extrabold text-emerald-700 tnum mt-1">{{ $approvedHistoryCount }}</div>
@@ -290,15 +291,20 @@
                             </span>
                         </div>
 
-                        <div class="flex items-center gap-5 overflow-x-auto" role="tablist" aria-label="Filter pending queue by priority">
+                        <div class="flex items-center gap-5 overflow-x-auto" role="tablist" aria-label="Filter pending queue by status and priority">
                             <button type="button" class="filter-underline-tab is-active" data-pending-tab="ALL" onclick="setPendingFilter('ALL', this)">
-                                All Priorities
+                                All Submissions ({{ $pendingSubmissions->count() }})
                             </button>
+                            <button type="button" class="filter-underline-tab" data-pending-tab="PENDING" onclick="setPendingFilter('PENDING', this)">
+                                Pending Review ({{ $awaitingReviewCount }})
+                            </button>
+                            @if($rolledBackCount > 0)
+                                <button type="button" class="filter-underline-tab" data-pending-tab="ROLLED_BACK" onclick="setPendingFilter('ROLLED_BACK', this)">
+                                    Awaiting Corrections ({{ $rolledBackCount }})
+                                </button>
+                            @endif
                             <button type="button" class="filter-underline-tab" data-pending-tab="URGENT" onclick="setPendingFilter('URGENT', this)">
                                 High &amp; Critical ({{ $urgentPendingCount }})
-                            </button>
-                            <button type="button" class="filter-underline-tab" data-pending-tab="LOW" onclick="setPendingFilter('LOW', this)">
-                                Low
                             </button>
                         </div>
                     </div>
@@ -346,6 +352,7 @@
                                     class="submission-card rounded-2xl p-4 sm:p-5 pending-item"
                                     data-priority="{{ $prio }}"
                                     data-urgent="{{ $isUrgent ? '1' : '0' }}"
+                                    data-status="{{ $sub->status }}"
                                     data-search="{{ $searchHaystack }}"
                                 >
                                     <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
@@ -357,9 +364,24 @@
                                             <div class="font-mono-code font-extrabold text-[11px] uppercase tracking-wide {{ $prioTextColor }}">
                                                 {{ $prio }} PRIORITY
                                             </div>
-                                            <div class="text-[11px] text-slate-400 font-mono-code">
-                                                {{ optional($sub->created_at)->format('d M Y, H:i') }}
-                                            </div>
+                                            @if($sub->status === 'Rolled Back')
+                                                <div class="mt-1">
+                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-green-100 text-green-950 border-none">
+                                                        Awaiting Corrections
+                                                    </span>
+                                                </div>
+                                            @elseif(!empty($sub->payload['was_corrected']) || !empty($sub->payload['resubmitted_at']))
+                                                <div class="mt-1">
+                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-blue-100 text-blue-950 border-none" title="Staff officer has updated the case and returned it for review">
+                                                        <svg class="w-3 h-3 text-blue-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                                                        <span>Corrections Submitted</span>
+                                                    </span>
+                                                </div>
+                                            @else
+                                                <div class="text-[11px] text-slate-400 font-mono-code">
+                                                    {{ optional($sub->created_at)->format('d M Y, H:i') }}
+                                                </div>
+                                            @endif
                                         </div>
 
                                         <!-- COL 2: SUSPECT PHOTO / IDENTITY & CASE TITLE -->
@@ -432,7 +454,7 @@
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                                 </svg>
-                                                <span>Review Dossier</span>
+                                                <span>{{ (!empty($sub->payload['was_corrected']) || !empty($sub->payload['resubmitted_at'])) ? 'Review Corrections' : 'Review Dossier' }}</span>
                                             </a>
                                         </div>
                                     </div>
@@ -465,13 +487,7 @@
 
                         <div class="flex items-center gap-5 overflow-x-auto" role="tablist" aria-label="Filter history by decision">
                             <button type="button" class="filter-underline-tab is-active" data-history-tab="ALL" onclick="setHistoryFilter('ALL', this)">
-                                All Decisions
-                            </button>
-                            <button type="button" class="filter-underline-tab" data-history-tab="Approved" onclick="setHistoryFilter('Approved', this)">
-                                Approved ({{ $approvedHistoryCount }})
-                            </button>
-                            <button type="button" class="filter-underline-tab" data-history-tab="Rolled Back" onclick="setHistoryFilter('Rolled Back', this)">
-                                Rolled Back ({{ $rolledBackHistoryCount }})
+                                Approved Cases ({{ $approvedHistoryCount }})
                             </button>
                         </div>
                     </div>
@@ -479,7 +495,7 @@
                     <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
                         @if($reviewedSubmissions->isEmpty())
                             <div class="p-10 text-center text-slate-500 text-xs">
-                                No reviewed submissions have been recorded yet for {{ $unitLabel }}.
+                                No approved submissions have been recorded yet for {{ $unitLabel }}.
                             </div>
                         @else
                             <div class="overflow-x-auto">
@@ -668,9 +684,12 @@
             pendingItems.forEach(item => {
                 const prio = (item.dataset.priority || 'MEDIUM').toUpperCase();
                 const isUrgent = item.dataset.urgent === '1';
+                const itemStatus = item.dataset.status || 'Pending Approval';
                 const haystack = item.dataset.search || '';
 
                 const matchesTab = activePendingFilter === 'ALL'
+                    || (activePendingFilter === 'PENDING' && itemStatus === 'Pending Approval')
+                    || (activePendingFilter === 'ROLLED_BACK' && itemStatus === 'Rolled Back')
                     || (activePendingFilter === 'URGENT' && isUrgent)
                     || (activePendingFilter === prio);
                 const matchesSearch = !activeSearchQuery || haystack.includes(activeSearchQuery);

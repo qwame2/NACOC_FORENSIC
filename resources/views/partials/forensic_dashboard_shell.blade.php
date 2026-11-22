@@ -10,20 +10,22 @@
     $pageTitle = $cfg['pageTitle'] ?? 'NACOC FORENSIC | Forensic Directorate Command Dashboard';
     $homeUrl = $cfg['homeUrl'] ?? url('/Forensic_Head');
     $casesUrl = $cfg['casesUrl'] ?? url('/Forensic_Head/cases');
-    $createUrl = $cfg['createUrl'] ?? null;
+    $isDG = ($unitKey === 'dg') || ($authUser && ($authUser->unit === 'Office of the Director-General' || $authUser->unit === 'Director General' || str_contains(strtolower((string) $authUser->unit), 'director general') || str_contains(strtolower((string) $authUser->unit), 'director-general')));
+    $isForensicHead = ($unitKey === 'forensic_head');
+    $createUrl = $isDG ? null : ($cfg['createUrl'] ?? null);
     $createLabel = $cfg['createLabel'] ?? 'New Case Entry';
-    $reportUrl = $cfg['reportUrl'] ?? url('/Report');
+    $reportUrl = ($isDG || (array_key_exists('reportUrl', $cfg) && empty($cfg['reportUrl']))) ? null : ($cfg['reportUrl'] ?? url('/Report'));
     $reviewBaseUrl = $cfg['reviewBaseUrl'] ?? url('/cases');
     $isStaffShell = !empty($cfg['isStaff']);
-    $notificationsUrl = $cfg['notificationsUrl'] ?? url('/Forensic_Head/notifications');
-    $permissionsUrl = match ($unitKey) {
+    $notificationsUrl = ($isDG || (array_key_exists('notificationsUrl', $cfg) && empty($cfg['notificationsUrl']))) ? null : ($cfg['notificationsUrl'] ?? url('/Forensic_Head/notifications'));
+    $permissionsUrl = $isDG ? null : match ($unitKey) {
         'crime_scene_support' => url('/Crime_Scene_Support/permissions'),
         'lab_analysis'        => url('/Lab_Analysis/permissions'),
         'evidence_management' => url('/Evidence_Management/permissions'),
         'digital_forensics'   => url('/Digital_Forensics/permissions'),
         default               => url('/Forensic_Head/permissions'),
     };
-    $approvalsUrl = match ($unitKey) {
+    $approvalsUrl = $isDG ? null : match ($unitKey) {
         'crime_scene_support' => url('/Crime_Scene_Support/reviews-approvals'),
         'lab_analysis'        => url('/Lab_Analysis/reviews-approvals'),
         'evidence_management' => url('/Evidence_Management/reviews-approvals'),
@@ -1494,6 +1496,7 @@
           $canShellGenerateReports = !$isStaffShell || !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('generate_reports', $shellUnitContext) : true);
           $shellLockedReportTooltip = 'Locked: Generate Reports & PDFs permission is disabled by your Head of Unit';
         @endphp
+        @if(!$isDG && !$isForensicHead && $reportUrl)
         <a @if($canShellGenerateReports) href="{{ $reportUrl }}" @endif
            class="nav-link"
            @if($isStaffShell)
@@ -1514,7 +1517,8 @@
             <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1 {{ $canShellGenerateReports ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
           @endif
         </a>
-        @if(!$isStaffShell && $authUser && $authUser->is_head)
+        @endif
+        @if(!$isStaffShell && !$isDG && !$isForensicHead && $authUser && $authUser->is_head && $approvalsUrl)
           <a href="{{ $approvalsUrl }}" class="nav-link">
             <i data-lucide="clipboard-check" style="width:15px;height:15px;"></i>
             <span>Reviews &amp; Approvals</span>
@@ -1522,12 +1526,14 @@
               <span class="nb animate-pulse" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $pendingApprovalsCount }}</span>
             @endif
           </a>
+        @endif
+        @if(!$isStaffShell && !$isDG && !$isForensicHead && $authUser && $authUser->is_head && $permissionsUrl)
           <a href="{{ $permissionsUrl }}" class="nav-link">
             <i data-lucide="shield-check" style="width:15px;height:15px;"></i>
             <span>Permissions</span>
           </a>
         @endif
-        @if(!$isStaffShell && $notificationsUrl)
+        @if(!$isStaffShell && !$isDG && !$isForensicHead && $notificationsUrl)
         <a href="{{ $notificationsUrl }}" class="nav-link">
           <i data-lucide="bell" style="width:15px;height:15px;"></i>
           <span>Notifications</span>
@@ -1547,7 +1553,7 @@
         <i data-lucide="refresh-cw" id="syncSpinner" style="width:15px;height:15px;"></i>
       </button>
 
-      @if($createUrl)
+      @if($createUrl && !$isDG)
         @php
           $shellUnitContext = $cfg['userUnit'] ?? request()->path();
           $canShellCreateCases = !$isStaffShell || !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('create_cases', $shellUnitContext) : true);
@@ -1612,6 +1618,7 @@
           <span>Chain of Custody</span>
         </a>
         @endif
+        @if(!$isDG && !$isForensicHead && $reportUrl)
         <a @if($canShellGenerateReports) href="{{ $reportUrl }}" @endif
            class="mobile-nav-link"
            @if($isStaffShell)
@@ -1632,7 +1639,8 @@
             <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1 {{ $canShellGenerateReports ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
           @endif
         </a>
-        @if(!$isStaffShell && $authUser && $authUser->is_head)
+        @endif
+        @if(!$isStaffShell && !$isDG && !$isForensicHead && $authUser && $authUser->is_head && $approvalsUrl)
           <a href="{{ $approvalsUrl }}" class="mobile-nav-link">
             <i data-lucide="clipboard-check" style="width:16px;height:16px;"></i>
             <span>Reviews &amp; Approvals</span>
@@ -1640,12 +1648,14 @@
               <span class="nb animate-pulse" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $pendingApprovalsCount }}</span>
             @endif
           </a>
+        @endif
+        @if(!$isStaffShell && !$isDG && !$isForensicHead && $authUser && $authUser->is_head && $permissionsUrl)
           <a href="{{ $permissionsUrl }}" class="mobile-nav-link">
             <i data-lucide="shield-check" style="width:16px;height:16px;"></i>
             <span>Permissions</span>
           </a>
         @endif
-        @if(!$isStaffShell && $notificationsUrl)
+        @if(!$isStaffShell && !$isDG && !$isForensicHead && $notificationsUrl)
         <a href="{{ $notificationsUrl }}" class="mobile-nav-link">
           <i data-lucide="bell" style="width:16px;height:16px;"></i>
           <span>Notifications</span>

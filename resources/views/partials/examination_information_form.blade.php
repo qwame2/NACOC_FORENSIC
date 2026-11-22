@@ -1,6 +1,6 @@
 <!-- EXAMINATION INFORMATION CONTAINER (ALWAYS VISIBLE AT LAB ANALYSIS STAGE WHEN UNSAVED) -->
 @php
-    $firstExhibitHasSaved = !empty($drugExhibits[0]['has_saved_lab']);
+    $firstExhibitHasSaved = !empty($drugExhibits[0]['has_saved_lab']) || !empty($activeSuspectHasSavedResult) || !empty($hasAnySavedLabData) || !empty($suspectLabExamSaved);
     $isLabCompleted = $firstExhibitHasSaved;
 @endphp
 <div id="section5FormContainer"
@@ -259,7 +259,7 @@
                         <span
                             class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
                     </label>
-                    <input type="text" id="labExamReferenceInput" name="lab_exam_reference" value="{{ $labExamRef ?? '' }}"
+                    <input type="text" id="labExamReferenceInput" name="lab_exam_reference" value="{{ $isLabCompleted ? '' : ($labExamRef ?? '') }}"
                         readonly
                         class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
                 </div>
@@ -272,14 +272,14 @@
                         <span
                             class="text-[9px] font-mono-code text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Linked</span>
                     </label>
-                    <input type="text" id="labCaseReferenceInput" name="lab_case_reference" value="{{ $labCaseRef ?? ($case->case_number ?? '') }}"
+                    <input type="text" id="labCaseReferenceInput" name="lab_case_reference" value="{{ $isLabCompleted ? '' : ($labCaseRef ?? ($case->case_number ?? '')) }}"
                         readonly
                         class="w-full px-3.5 py-3 bg-blue-50/70 border border-blue-200 rounded-xl text-blue-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
                 </div>
 
                 <!-- Hidden Exhibit Number input synced from active card for form submission -->
                 <input type="hidden" id="labExhibitNumberInput" name="lab_exhibit_no"
-                    value="{{ $drugExhibits[0]['lab_exhibit_no'] ?? '' }}">
+                    value="{{ $isLabCompleted ? '' : ($drugExhibits[0]['lab_exhibit_no'] ?? '') }}">
             </div>
 
             <!-- EXHIBIT DESCRIPTION, LAB NUMBER & ANALYST / EXAMINER -->
@@ -306,7 +306,7 @@
                             class="text-[9px] font-mono-code text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded font-bold uppercase">Auto-Generated</span>
                     </label>
                     <input type="text" id="formLabNumber" name="laboratory_number"
-                        value="{{ $labNumber ?? ($case->laboratory_number ?? '') }}" readonly
+                        value="{{ $isLabCompleted ? '' : ($labNumber ?? ($case->laboratory_number ?? '')) }}" readonly
                         class="w-full px-3.5 py-3 bg-emerald-50/70 border border-emerald-200 rounded-xl text-emerald-900 font-mono-code font-extrabold outline-none shadow-2xs text-xs">
                 </div>
 
@@ -334,7 +334,7 @@
                         class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                         Date Received <span class="text-red-600 font-bold">*</span>
                     </label>
-                    <input type="date" id="labDateReceivedInput" name="lab_date_received" value="{{ $labDateReceived ?? date('Y-m-d') }}"
+                    <input type="date" id="labDateReceivedInput" name="lab_date_received" value="{{ $isLabCompleted ? '' : ($labDateReceived ?? date('Y-m-d')) }}"
                         class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
                 </div>
 
@@ -344,7 +344,7 @@
                         class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                         Date Examination Started <span class="text-red-600 font-bold">*</span>
                     </label>
-                    <input type="date" id="labDateStartedInput" name="lab_date_started" value="{{ $labDateStarted ?? date('Y-m-d') }}"
+                    <input type="date" id="labDateStartedInput" name="lab_date_started" value="{{ $isLabCompleted ? '' : ($labDateStarted ?? date('Y-m-d')) }}"
                         class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
                 </div>
 
@@ -354,7 +354,7 @@
                         class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                         Date Examination Completed <span class="text-red-600 font-bold">*</span>
                     </label>
-                    <input type="date" id="labDateCompletedInput" name="lab_date_completed" value="{{ $labDateCompleted ?? date('Y-m-d') }}"
+                    <input type="date" id="labDateCompletedInput" name="lab_date_completed" value="{{ $isLabCompleted ? '' : ($labDateCompleted ?? date('Y-m-d')) }}"
                         class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold font-mono-code outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs text-xs">
                 </div>
             </div>
@@ -363,10 +363,10 @@
         <!-- LEGACY FALLBACK COMPATIBILITY HIDDEN FIELDS -->
         <div class="hidden" style="display:none;" aria-hidden="true">
             <input type="checkbox" id="presumptiveTestYes" name="presumptive_test_yes" value="YES">
-            <input type="checkbox" id="presumptiveTestNo" name="presumptive_test_no" value="NO" checked>
+            <input type="checkbox" id="presumptiveTestNo" name="presumptive_test_no" value="NO">
             <input type="hidden" id="presumptiveReactionResultInput" name="presumptive_reaction_result_input" value="">
             <input type="checkbox" id="confirmatoryTestYes" name="confirmatory_test_yes" value="YES">
-            <input type="checkbox" id="confirmatoryTestNo" name="confirmatory_test_no" value="NO" checked>
+            <input type="checkbox" id="confirmatoryTestNo" name="confirmatory_test_no" value="NO">
             <input type="hidden" id="confirmatoryTestResultInput" name="confirmatory_test_result" value="NO">
             <input type="text" id="sampleWeightDescription" name="sample_weight_description" value="">
             <input type="text" id="sampleWeightUnits" name="sample_weight_units" value="">
@@ -380,12 +380,12 @@
             <div id="detectedSubstancesListContainer"></div>
             <!-- Review specific legacy aliases -->
             <input type="radio" id="presumptiveTestYesReview" name="form_presumptive_radio" value="YES">
-            <input type="radio" id="presumptiveTestNoReview" name="form_presumptive_radio" value="NO" checked>
+            <input type="radio" id="presumptiveTestNoReview" name="form_presumptive_radio" value="NO">
             <div id="presumptiveReactionDetailsContainerReview"></div>
             <div id="presumptiveTestRowsContainerReview"></div>
             <input type="hidden" id="presumptiveReactionResultInputReview" value="">
             <input type="radio" id="confirmatoryTestYesReview" name="form_confirmatory_radio" value="YES">
-            <input type="radio" id="confirmatoryTestNoReview" name="form_confirmatory_radio" value="NO" checked>
+            <input type="radio" id="confirmatoryTestNoReview" name="form_confirmatory_radio" value="NO">
             <div id="sampleWeightContainerReview" class="hidden"></div>
             <input type="text" id="sampleWeightDescriptionReview" name="sample_weight_description_review" value="">
             <input type="text" id="sampleWeightUnitsReview" name="sample_weight_units_review" value="">
@@ -572,7 +572,7 @@
                             value="{{ $savedLabTestMethods ?: ($labTestMethods ?: ($case->confirmatory_test_methods ?: '')) }}"
                             placeholder="e.g. GSA-SM-T***-A, Clarks analysis of..."
                             class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-mono-code placeholder:text-slate-400">
-                        <input type="hidden" id="confirmatoryTestMethodsReview" value="{{ $savedLabTestMethods ?: ($labTestMethods ?: ($case->confirmatory_test_methods ?: '')) }}">
+                        <input type="hidden" id="confirmatoryTestMethodsReview" value="{{ $isLabCompleted ? '' : ($savedLabTestMethods ?: ($labTestMethods ?: ($case->confirmatory_test_methods ?: ''))) }}">
                     </div>
 
                     <!-- 2. SPECIFICATIONS TEXTAREA INPUT -->
@@ -583,8 +583,8 @@
                         </label>
                         <textarea id="confirmatorySpecifications" name="confirmatory_specifications" rows="2"
                             placeholder="e.g. Analytical reference standards verified against NIST library database. Sample purity meets regulatory specifications."
-                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: '')) }}</textarea>
-                        <textarea id="confirmatorySpecificationsReview" class="hidden">{{ $savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: '')) }}</textarea>
+                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: ''))) }}</textarea>
+                        <textarea id="confirmatorySpecificationsReview" class="hidden">{{ $isLabCompleted ? '' : ($savedLabSpecifications ?: ($labSpecifications ?: ($case->confirmatory_specifications ?: ''))) }}</textarea>
                     </div>
 
                     <!-- 3. REMARK TEXTAREA INPUT -->
@@ -595,8 +595,8 @@
                         </label>
                         <textarea id="confirmatoryRemark" name="confirmatory_remark" rows="2"
                             placeholder="Enter any overall remarks or observations regarding the confirmatory analysis across all exhibits..."
-                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $savedLabRemark ?: ($labRemark ?: ($case->confirmatory_remark ?: '')) }}</textarea>
-                        <textarea id="confirmatoryRemarkReview" class="hidden">{{ $savedLabRemark ?: ($labRemark ?: ($case->confirmatory_remark ?: '')) }}</textarea>
+                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($savedLabRemark ?: ($labRemark ?: ($case->confirmatory_remark ?: ''))) }}</textarea>
+                        <textarea id="confirmatoryRemarkReview" class="hidden">{{ $isLabCompleted ? '' : ($savedLabRemark ?: ($labRemark ?: ($case->confirmatory_remark ?: ''))) }}</textarea>
                     </div>
 
                     <!-- 4. DISPOSITION OF EXHIBIT(S) TEXTAREA INPUT -->
@@ -607,7 +607,7 @@
                         </label>
                         <textarea id="confirmatoryDispositionOfExhibit" name="disposition_of_exhibit" rows="2"
                             placeholder="Enter the disposition of exhibit(s) (e.g. Retained in forensic vault, Returned to seizing agency, Scheduled for destruction)..."
-                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $initialDispositionOfExhibit ?? ($savedLabDispositionOfExhibit ?? ($case->disposition_of_exhibit ?? '')) }}</textarea>
+                            class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-extrabold text-slate-900 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 shadow-2xs font-sans placeholder:text-slate-400">{{ $isLabCompleted ? '' : ($initialDispositionOfExhibit ?? ($savedLabDispositionOfExhibit ?? ($case->disposition_of_exhibit ?? ''))) }}</textarea>
                     </div>
                 </div>
             </div>
@@ -621,7 +621,7 @@
             </label>
             <textarea id="formLabNotes" name="lab_findings" rows="3"
                 class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-slate-900 font-bold text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
-                placeholder="Enter chemical reaction results, purity percentage, spectrometry verification notes, etc.">{{ $labFindings ?? '' }}</textarea>
+                placeholder="Enter chemical reaction results, purity percentage, spectrometry verification notes, etc.">{{ $isLabCompleted ? '' : ($labFindings ?? '') }}</textarea>
         </div>
 
         <!-- SUBMIT BUTTON -->

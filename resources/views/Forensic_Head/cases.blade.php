@@ -127,6 +127,9 @@
             color: #DC2626;
             border: 1px solid #FCA5A5;
         }
+        .hide-case-stat .col-case-stat {
+            display: none !important;
+        }
     </style>
 </head>
 <body class="min-h-screen flex flex-col bg-white text-slate-900 antialiased selection:bg-emerald-600 selection:text-white">
@@ -368,27 +371,74 @@
                     <!-- HEADER & TOOLBAR -->
                     <div class="p-6 bg-slate-50 border-b border-slate-200 space-y-4">
                         
-                        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                             <div>
                                 <span class="text-[10px] font-bold font-mono-code text-blue-600 uppercase tracking-wider">CASE REGISTER</span>
                                 <h3 class="font-black text-slate-900 text-lg">Forensic Department Case Register</h3>
                                 <p class="text-xs text-slate-600 mt-0.5 font-medium">Department oversight of case dossiers, evidence packages, unit workflows, and findings reports</p>
                             </div>
                             
-                            <!-- LIVE SEARCH FIELD -->
-                            <div class="w-full md:w-80 relative">
-                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                            <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-wrap">
+                                <!-- DATE RANGE FILTER -->
+                                <div class="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-3 py-1.5 shadow-2xs">
+                                    <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
                                     </svg>
+                                    <div class="flex items-center gap-1">
+                                        <label for="caseDateFrom" class="text-[10px] font-bold text-slate-500 uppercase font-mono-code">From:</label>
+                                        <input 
+                                            type="date" 
+                                            id="caseDateFrom" 
+                                            name="date_from" 
+                                            value="{{ request('date_from', $dateFrom ?? '') }}" 
+                                            onchange="filterCases()"
+                                            class="text-xs text-slate-800 bg-transparent border-none focus:outline-none focus:ring-0 p-0 font-mono-code cursor-pointer"
+                                            title="Filter from date"
+                                        >
+                                    </div>
+                                    <span class="text-slate-300 mx-0.5">&ndash;</span>
+                                    <div class="flex items-center gap-1">
+                                        <label for="caseDateTo" class="text-[10px] font-bold text-slate-500 uppercase font-mono-code">To:</label>
+                                        <input 
+                                            type="date" 
+                                            id="caseDateTo" 
+                                            name="date_to" 
+                                            value="{{ request('date_to', $dateTo ?? '') }}" 
+                                            onchange="filterCases()"
+                                            class="text-xs text-slate-800 bg-transparent border-none focus:outline-none focus:ring-0 p-0 font-mono-code cursor-pointer"
+                                            title="Filter to date"
+                                        >
+                                    </div>
+                                    <button 
+                                        type="button" 
+                                        onclick="clearDateFilter()" 
+                                        title="Reset date filter" 
+                                        id="clearDateFilterBtn"
+                                        class="ml-1 text-[11px] font-bold text-slate-400 hover:text-rose-600 transition-colors p-0.5"
+                                    >
+                                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                        </svg>
+                                    </button>
                                 </div>
-                                <input 
-                                    type="text" 
-                                    id="caseSearchInput" 
-                                    onkeyup="filterCases()"
-                                    placeholder="Search case ref, evidence, officer, unit..." 
-                                    class="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-mono-code focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs"
-                                >
+
+                                <!-- LIVE SEARCH FIELD -->
+                                <div class="w-full sm:w-64 md:w-72 relative">
+                                    <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                        </svg>
+                                    </div>
+                                    <input 
+                                        type="text" 
+                                        id="caseSearchInput" 
+                                        name="search"
+                                        value="{{ request('search') }}"
+                                        onkeyup="filterCases()"
+                                        placeholder="Search case ref, evidence, officer..." 
+                                        class="w-full pl-10 pr-4 py-2 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 font-mono-code focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition-all shadow-2xs"
+                                    >
+                                </div>
                             </div>
                         </div>
 
@@ -410,7 +460,6 @@
                                 <span class="text-[11px] font-bold text-slate-700 mr-1 uppercase font-mono-code">Status:</span>
                                 <button type="button" onclick="filterStatus('ALL', this)" class="filter-tab-btn active-tab status-tab">All Statuses</button>
                                 <button type="button" onclick="filterStatus('Under Investigation', this)" class="filter-tab-btn status-tab">Under Investigation</button>
-                                <button type="button" onclick="filterStatus('Court Ready', this)" class="filter-tab-btn status-tab">Court Ready</button>
                                 <button type="button" onclick="filterStatus('Vault Storage', this)" class="filter-tab-btn status-tab">Vault Storage</button>
                                 <button type="button" onclick="filterStatus('Lab Analysis', this)" class="filter-tab-btn status-tab">Lab Testing</button>
                             </div>
@@ -420,10 +469,24 @@
                     <!-- SEARCH COUNTER BANNER -->
                     <div class="px-6 py-2.5 bg-slate-100/70 border-b border-slate-200 flex items-center justify-between text-xs text-slate-600 font-mono-code">
                         <div>
-                            Displaying <span id="visibleCaseCount" class="font-extrabold text-slate-900">{{ count($cases) }}</span> of <span id="totalCaseCount" class="font-extrabold text-slate-900">{{ count($datasetCases) }}</span> case register dockets
+                            Displaying <span id="visibleCaseCount" class="font-extrabold text-slate-900">{{ method_exists($cases, 'count') ? $cases->count() : count($cases) }}</span> of <span id="totalCaseCount" class="font-extrabold text-slate-900">{{ method_exists($cases, 'total') ? $cases->total() : count($datasetCases) }}</span> case register dockets
                         </div>
-                        <div id="activeFilterBadge" class="hidden text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-bold">
-                            Filtered Active
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <div id="dateFilterBadge" class="{{ (!empty($dateFrom) || !empty($dateTo)) ? '' : 'hidden' }} text-[10px] text-blue-700 bg-blue-100 border border-blue-200 px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                                <svg class="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                                <span id="dateFilterBadgeText">Date Filter Active</span>
+                            </div>
+                            <div id="vaultFilterBadge" class="hidden text-[10px] text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                                <svg class="w-3 h-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+                                <span>Vault Storage: Displaying All Logged Exhibits in Custody</span>
+                            </div>
+                            <div id="labFilterBadge" class="hidden text-[10px] text-rose-700 bg-rose-100 border border-rose-200 px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                                <svg class="w-3 h-3 text-rose-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+                                <span>Lab Testing: Preliminary Exhibit Analysis Reports Active</span>
+                            </div>
+                            <div id="activeFilterBadge" class="hidden text-[10px] text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded font-bold">
+                                Filtered Active
+                            </div>
                         </div>
                     </div>
 
@@ -506,6 +569,10 @@
             <div class="flex items-center justify-between pt-4 border-t border-slate-200">
                 <button onclick="closeInspectModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold rounded-xl border border-slate-300 transition-all cursor-pointer">Close Review</button>
                 <div class="flex items-center space-x-3">
+                    <a id="modalPreliminaryPdfLink" href="#" target="_blank" class="hidden px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-extrabold rounded-xl border border-rose-300 shadow-sm flex items-center gap-1.5 transition-all text-decoration-none">
+                        <svg class="w-4 h-4 text-rose-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd"/></svg>
+                        Preliminary Report (PDF)
+                    </a>
                     <a id="modalViewDossierLink" href="#" class="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-extrabold rounded-xl shadow-md border-none flex items-center gap-1.5 transition-all text-decoration-none">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                         Open Full Review
@@ -540,6 +607,13 @@
                     columns: 6,
                     rows: 6,
                     onAfterUpdate: (container) => {
+                        const meta = container ? container.querySelector('#ajaxTableMeta') : document.querySelector('#ajaxTableMeta');
+                        if (meta) {
+                            const visEl = document.getElementById('visibleCaseCount');
+                            const totEl = document.getElementById('totalCaseCount');
+                            if (visEl) visEl.innerText = meta.getAttribute('data-page-count') || '0';
+                            if (totEl) totEl.innerText = meta.getAttribute('data-total-count') || '0';
+                        }
                         applyClientRowFilters();
                     }
                 });
@@ -567,7 +641,7 @@
             return u.includes(f);
         }
 
-        function rowMatchesStatus(statusName, filter) {
+        function rowMatchesStatus(statusName, filter, row) {
             if (!filter || filter === 'ALL') return true;
             const s = (statusName || '').toLowerCase();
             const f = filter.toLowerCase();
@@ -578,29 +652,42 @@
                 return s.includes('approv') || s.includes('authoriz') || s.includes('court') || s.includes('completed') || s.includes('certified');
             }
             if (f.includes('vault')) {
-                return s.includes('vault') || s.includes('evidence');
+                return s.includes('vault') || s.includes('evidence') || (row && (row.getAttribute('data-has-exhibits') === '1' || parseInt(row.getAttribute('data-exhibits-count') || '0', 10) > 0));
             }
             if (f.includes('lab')) {
-                return s.includes('lab');
+                return s.includes('lab') || (row && (row.getAttribute('data-is-drug') === '1' || row.getAttribute('data-has-preliminary') === '1'));
             }
             return s.includes(f);
         }
 
         function applyClientRowFilters() {
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').toLowerCase().trim();
+            const dateFrom = (document.getElementById('caseDateFrom')?.value || '').trim();
+            const dateTo = (document.getElementById('caseDateTo')?.value || '').trim();
             const rows = document.querySelectorAll('#casesTableBody tr.case-row');
             let visibleCount = 0;
 
             rows.forEach(row => {
                 const rowUnit = row.getAttribute('data-unit') || '';
                 const rowStatus = row.getAttribute('data-status') || '';
+                const rowDate = (row.getAttribute('data-date') || '').trim();
                 const rowText = row.innerText.toLowerCase();
 
                 const matchSearch = !searchVal || rowText.includes(searchVal);
                 const matchUnit = rowMatchesUnit(rowUnit, currentUnitFilter);
-                const matchStatus = rowMatchesStatus(rowStatus, currentStatusFilter);
+                const matchStatus = rowMatchesStatus(rowStatus, currentStatusFilter, row);
 
-                if (matchSearch && matchUnit && matchStatus) {
+                let matchDate = true;
+                if (dateFrom || dateTo) {
+                    if (rowDate) {
+                        if (dateFrom && rowDate < dateFrom) matchDate = false;
+                        if (dateTo && rowDate > dateTo) matchDate = false;
+                    } else {
+                        matchDate = false;
+                    }
+                }
+
+                if (matchSearch && matchUnit && matchStatus && matchDate) {
                     row.style.display = '';
                     visibleCount++;
                 } else {
@@ -613,17 +700,73 @@
 
             const badge = document.getElementById('activeFilterBadge');
             if (badge) {
-                if (searchVal || currentUnitFilter !== 'ALL' || currentStatusFilter !== 'ALL') {
+                if (searchVal || currentUnitFilter !== 'ALL' || currentStatusFilter !== 'ALL' || dateFrom || dateTo) {
                     badge.classList.remove('hidden');
                 } else {
                     badge.classList.add('hidden');
                 }
+            }
+
+            const dateBadge = document.getElementById('dateFilterBadge');
+            const dateBadgeText = document.getElementById('dateFilterBadgeText');
+            if (dateBadge) {
+                if (dateFrom || dateTo) {
+                    dateBadge.classList.remove('hidden');
+                    if (dateBadgeText) {
+                        let text = 'Date: ';
+                        if (dateFrom && dateTo) text += dateFrom + ' to ' + dateTo;
+                        else if (dateFrom) text += 'From ' + dateFrom;
+                        else if (dateTo) text += 'Until ' + dateTo;
+                        dateBadgeText.innerText = text;
+                    }
+                } else {
+                    dateBadge.classList.add('hidden');
+                }
+            }
+
+            const labBadge = document.getElementById('labFilterBadge');
+            const isLab = (currentStatusFilter || '').toLowerCase().includes('lab');
+            if (labBadge) {
+                if (isLab) {
+                    labBadge.classList.remove('hidden');
+                } else {
+                    labBadge.classList.add('hidden');
+                }
+            }
+
+            const vaultBadge = document.getElementById('vaultFilterBadge');
+            const isVault = (currentStatusFilter || '').toLowerCase().includes('vault');
+            if (vaultBadge) {
+                if (isVault) {
+                    vaultBadge.classList.remove('hidden');
+                } else {
+                    vaultBadge.classList.add('hidden');
+                }
+            }
+
+            const tableEl = document.getElementById('casesTable');
+            if (tableEl) {
+                if (isLab) {
+                    tableEl.classList.add('hide-case-stat');
+                } else {
+                    tableEl.classList.remove('hide-case-stat');
+                }
+            }
+            const caseStatCols = document.querySelectorAll('#casesTable .col-case-stat');
+            caseStatCols.forEach(el => {
+                el.style.display = isLab ? 'none' : '';
+            });
+            const emptyCol = document.querySelector('#casesTable td.empty-cases-col');
+            if (emptyCol) {
+                emptyCol.colSpan = isLab ? 5 : 6;
             }
         }
 
         function filterCases() {
             applyClientRowFilters();
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
+            const dateFrom = (document.getElementById('caseDateFrom')?.value || '').trim();
+            const dateTo = (document.getElementById('caseDateTo')?.value || '').trim();
             if (window.headCasesAjaxTable) {
                 if (window.headCasesAjaxTable.debounceTimer) clearTimeout(window.headCasesAjaxTable.debounceTimer);
                 window.headCasesAjaxTable.debounceTimer = setTimeout(() => {
@@ -631,10 +774,20 @@
                         search: searchVal || null,
                         unit: (currentUnitFilter && currentUnitFilter !== 'ALL') ? currentUnitFilter : null,
                         status: (currentStatusFilter && currentStatusFilter !== 'ALL') ? currentStatusFilter : null,
+                        date_from: dateFrom || null,
+                        date_to: dateTo || null,
                         page: null
                     });
                 }, 350);
             }
+        }
+
+        function clearDateFilter() {
+            const dateFromEl = document.getElementById('caseDateFrom');
+            const dateToEl = document.getElementById('caseDateTo');
+            if (dateFromEl) dateFromEl.value = '';
+            if (dateToEl) dateToEl.value = '';
+            filterCases();
         }
 
         function goToPage(page) {
@@ -648,12 +801,25 @@
         }
 
         function changePerPage(val) {
+            const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
+            const dateFrom = (document.getElementById('caseDateFrom')?.value || '').trim();
+            const dateTo = (document.getElementById('caseDateTo')?.value || '').trim();
             if (window.headCasesAjaxTable) {
-                window.headCasesAjaxTable.applyFilters({ per_page: val, page: 1 });
+                window.headCasesAjaxTable.applyFilters({
+                    per_page: val,
+                    page: 1,
+                    search: searchVal || null,
+                    unit: (currentUnitFilter && currentUnitFilter !== 'ALL') ? currentUnitFilter : null,
+                    status: (currentStatusFilter && currentStatusFilter !== 'ALL') ? currentStatusFilter : null,
+                    date_from: dateFrom || null,
+                    date_to: dateTo || null
+                });
             } else {
                 const url = new URL(window.location.href);
                 url.searchParams.set('per_page', val);
                 url.searchParams.set('page', '1');
+                if (dateFrom) url.searchParams.set('date_from', dateFrom);
+                if (dateTo) url.searchParams.set('date_to', dateTo);
                 window.location.href = url.toString();
             }
         }
@@ -666,11 +832,15 @@
             applyClientRowFilters();
 
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
+            const dateFrom = (document.getElementById('caseDateFrom')?.value || '').trim();
+            const dateTo = (document.getElementById('caseDateTo')?.value || '').trim();
             if (window.headCasesAjaxTable) {
                 window.headCasesAjaxTable.applyFilters({
                     unit: unitName === 'ALL' ? null : unitName,
                     status: currentStatusFilter === 'ALL' ? null : currentStatusFilter,
                     search: searchVal || null,
+                    date_from: dateFrom || null,
+                    date_to: dateTo || null,
                     page: null
                 });
             }
@@ -684,11 +854,15 @@
             applyClientRowFilters();
 
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
+            const dateFrom = (document.getElementById('caseDateFrom')?.value || '').trim();
+            const dateTo = (document.getElementById('caseDateTo')?.value || '').trim();
             if (window.headCasesAjaxTable) {
                 window.headCasesAjaxTable.applyFilters({
                     status: statusName === 'ALL' ? null : statusName,
                     unit: currentUnitFilter === 'ALL' ? null : currentUnitFilter,
                     search: searchVal || null,
+                    date_from: dateFrom || null,
+                    date_to: dateTo || null,
                     page: null
                 });
             }
@@ -712,6 +886,17 @@
             const dossierLink = document.getElementById('modalViewDossierLink');
             if (dossierLink) {
                 dossierLink.href = `/Forensic_Head/cases/${ref}/review`;
+            }
+
+            const modalPrelim = document.getElementById('modalPreliminaryPdfLink');
+            if (modalPrelim) {
+                modalPrelim.href = `/Lab_Analysis/preliminary-report-pdf/${ref}`;
+                const rowEl = document.querySelector(`tr.case-row[data-ref="${ref}"]`);
+                if (rowEl && rowEl.getAttribute('data-is-drug') === '1') {
+                    modalPrelim.classList.remove('hidden');
+                } else {
+                    modalPrelim.classList.add('hidden');
+                }
             }
 
             const badgeEl = document.getElementById('modalCaseStatusBadge');
@@ -1102,5 +1287,7 @@
 
         setInterval(pollForensicHeadCasesTable, 15000);
     </script>
+
+    @include('partials.vault_exhibit_modal')
 </body>
 </html>

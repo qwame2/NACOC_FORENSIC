@@ -26,7 +26,6 @@
     if (str_contains($rawCtx, 'lab')) {
         $unitKey = 'lab';
         $unitTitle = 'LAB ANALYSIS UNIT';
-        $roleLabel = 'Forensic Chemist / Staff';
         $homeUrl = url('/Lab_Analysis/staff/dashboard');
         $caseUrl = url('/Lab_Analysis/staff/case');
         $createUrl = url('/Lab_Analysis/staff/create');
@@ -39,7 +38,6 @@
     } elseif (str_contains($rawCtx, 'digital') || str_contains($rawCtx, 'physical') || str_contains($rawCtx, 'cyber')) {
         $unitKey = 'digital';
         $unitTitle = 'DIGITAL FORENSICS';
-        $roleLabel = 'Cyber Analyst / Staff';
         $homeUrl = url('/Digital_Forensics/staff/dashboard');
         $caseUrl = url('/Digital_Forensics/staff/case');
         $createUrl = url('/Digital_Forensics/staff/create');
@@ -52,7 +50,6 @@
     } elseif (str_contains($rawCtx, 'evidence') || str_contains($rawCtx, 'vault')) {
         $unitKey = 'evidence';
         $unitTitle = 'EVIDENCE MANAGEMENT';
-        $roleLabel = 'Vault Custodian / Staff';
         $homeUrl = url('/Evidence_Management/staff/dashboard');
         $caseUrl = url('/Evidence_Management/staff/case');
         $createUrl = url('/Evidence_Management/staff/create');
@@ -65,7 +62,6 @@
     } elseif (str_contains($rawCtx, 'directorate') || str_contains($rawCtx, 'head')) {
         $unitKey = 'directorate';
         $unitTitle = 'FORENSIC DIRECTORATE';
-        $roleLabel = 'Directorate Officer / Staff';
         $homeUrl = url('/Forensic_Head/staff/dashboard');
         $caseUrl = url('/Forensic_Head/staff/case');
         $createUrl = url('/Forensic_Head/staff/create');
@@ -78,7 +74,6 @@
     } else {
         $unitKey = 'crime';
         $unitTitle = 'CRIME SCENE SUPPORT';
-        $roleLabel = 'Field Investigator / Staff';
         $homeUrl = url('/Crime_Scene_Support/staff/dashboard');
         $caseUrl = url('/Crime_Scene_Support/staff/case');
         $createUrl = url('/Crime_Scene_Support/staff/create');
@@ -129,21 +124,21 @@
 @endphp
 
 <!-- MODERN EXECUTIVE GREY STAFF OFFICERS SIDEBAR -->
-<aside class="w-64 bg-slate-100 text-slate-800 flex flex-col shrink-0 border-r border-slate-200/90 shadow-xl select-none z-30 relative overflow-x-hidden font-sans">
+<aside class="w-64 bg-slate-50/95 text-slate-800 flex flex-col shrink-0 border-r border-slate-200/90 shadow-xl select-none z-30 relative overflow-x-hidden font-sans">
 
     <!-- BRAND / SYSTEM HEADER -->
-    <div class="px-4 pt-4 pb-3.5 bg-slate-100 border-b border-slate-200/80">
-        <div class="flex items-center justify-between gap-2 bg-white/90 backdrop-blur-xs px-3 py-2.5 rounded-2xl border border-slate-200/80 shadow-xs">
-            <a href="{{ $homeUrl }}" class="flex items-center space-x-2.5 group min-w-0">
-                <div class="w-9 h-9 rounded-xl bg-white p-0.5 border border-slate-200 flex items-center justify-center shadow-xs overflow-hidden transition-all group-hover:scale-105 shrink-0">
+    <div class="px-3.5 pt-4 pb-3 border-b border-slate-200/80 bg-white/70 backdrop-blur-md">
+        <div class="flex items-center justify-between gap-2.5 bg-white px-3 py-2.5 rounded-2xl border border-slate-200/90 shadow-xs hover:border-slate-300 transition-all">
+            <a href="{{ $homeUrl }}" class="flex items-center space-x-2.5 group min-w-0" title="Go to Dashboard">
+                <div class="w-9 h-9 rounded-xl bg-white p-0.5 border border-slate-200/90 flex items-center justify-center shadow-xs overflow-hidden transition-all group-hover:scale-105 shrink-0">
                     <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Logo" class="w-full h-full object-contain">
                 </div>
                 <div class="min-w-0">
-                    <div class="font-extrabold text-slate-900 tracking-tight text-[11px] font-mono-code leading-tight truncate">{{ $unitTitle }}</div>
-                    <div class="text-[9.5px] {{ $accentText }} font-bold tracking-wider uppercase mt-0.5">STAFF WORKSTATION</div>
+                    <div class="font-extrabold text-slate-900 tracking-tight text-[11px] font-mono-code leading-tight truncate group-hover:text-emerald-700 transition-colors">{{ $unitTitle }}</div>
+                    <div class="text-[9.5px] {{ $accentText }} font-extrabold tracking-wider uppercase mt-0.5">STAFF WORKSTATION</div>
                 </div>
             </a>
-            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-extrabold font-mono-code border {{ $accentBadge }} shrink-0">
+            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black font-mono-code border {{ $accentBadge }} shrink-0 shadow-2xs">
                 STAFF
             </span>
         </div>
@@ -154,15 +149,17 @@
 
         <!-- STAFF WORKSPACE -->
         <div>
-            <div class="px-3 text-[10px] font-extrabold font-mono-code uppercase text-slate-500 tracking-widest mb-2.5">Staff Workspace</div>
+            <div class="px-3 text-[10px] font-black font-mono-code uppercase text-slate-400 tracking-wider mb-2.5 flex items-center justify-between">
+                <span>Staff Workspace</span>
+            </div>
             <nav class="space-y-1.5 text-xs font-semibold">
-                <a href="{{ $homeUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffHomeActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
+                <a href="{{ $homeUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffHomeActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white hover:shadow-2xs' }}">
                     <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffHomeActive ? 'text-white' : $accentText }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
                     <span>Dashboard</span>
                 </a>
 
-                <a href="{{ $caseUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffCaseActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffCaseActive ? 'text-white' : $accentText }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+                <a href="{{ $caseUrl }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffCaseActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white hover:shadow-2xs' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffCaseActive ? 'text-white' : 'text-blue-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
                     <span>Case Register</span>
                 </a>
 
@@ -171,7 +168,7 @@
                     $canStaffDrugScreening = !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('record_lab_analysis', request()->path()) : true);
                     $lockedDrugScreeningTooltip = 'Locked: Lab & Drug Screening permission is disabled by your Head of Unit';
                     $drugScreeningUrl = url('/Lab_Analysis/staff/drug-screening');
-                    $drugScreeningEnabledClasses = $isStaffDrugScreeningActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs';
+                    $drugScreeningEnabledClasses = $isStaffDrugScreeningActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white hover:shadow-2xs';
                     $drugScreeningDisabledClasses = 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none';
                 @endphp
                 <a @if($canStaffDrugScreening) href="{{ $drugScreeningUrl }}" @endif
@@ -203,7 +200,7 @@
                     $canStaffManageExhibits = !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('manage_exhibits', request()->path()) : true);
                     $lockedVaultTooltip = 'Locked: Manage Exhibit Vault permission is disabled by your Head of Unit';
                     $vaultUrl = url('/Evidence_Management/vault');
-                    $vaultEnabledClasses = $isStaffVaultActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs';
+                    $vaultEnabledClasses = $isStaffVaultActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white hover:shadow-2xs';
                     $vaultDisabledClasses = 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none';
                 @endphp
                 <a @if($canStaffManageExhibits) href="{{ $vaultUrl }}" @endif
@@ -245,7 +242,7 @@
                     $canStaffGenerateReports = !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('generate_reports', request()->path()) : true);
                     $lockedReportsTooltip = 'Locked: Generate Reports & PDFs permission is disabled by your Head of Unit';
                     $forensicStatusUrl = url('/Digital_Forensics/staff/forensic-status');
-                    $statusEnabledClasses = $isStaffForensicStatusActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs';
+                    $statusEnabledClasses = $isStaffForensicStatusActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white hover:shadow-2xs';
                     $statusDisabledClasses = 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none';
                 @endphp
                 <a @if($canStaffGenerateReports) href="{{ $forensicStatusUrl }}" @endif
@@ -279,7 +276,9 @@
             $lockedCreateTooltip = 'Locked: Create New Cases permission is disabled by your Head of Unit';
         @endphp
         <div>
-            <div class="px-3 text-[10px] font-extrabold font-mono-code uppercase text-slate-500 tracking-widest mb-2.5">Officer Actions</div>
+            <div class="px-3 text-[10px] font-black font-mono-code uppercase text-slate-400 tracking-wider mb-2.5 flex items-center justify-between">
+                <span>Officer Actions</span>
+            </div>
             <nav class="space-y-1.5 text-xs font-semibold">
                 <a @if($canStaffCreateCases) href="{{ $createUrl }}" @endif
                    data-staff-create-btn="sidebar"
@@ -292,7 +291,7 @@
                        onclick="event.preventDefault(); event.stopPropagation(); return false;"
                        style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
                    @endif
-                   class="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ !$canStaffCreateCases ? 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none' : ($isStaffCreateActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs') }}">
+                   class="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ !$canStaffCreateCases ? 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none' : ($isStaffCreateActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white hover:shadow-2xs') }}">
                     <span class="flex items-center min-w-0">
                         <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ !$canStaffCreateCases ? 'text-slate-400' : ($isStaffCreateActive ? 'text-white' : $accentText) }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
                         <span class="truncate">{{ $createLabel }}</span>
@@ -309,7 +308,7 @@
                         default => url('/Crime_Scene_Support/staff/case-rollback'),
                     };
                 @endphp
-                <a href="{{ $staffRollbackUrl }}" class="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ $isStaffRollbackActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
+                <a href="{{ $staffRollbackUrl }}" class="flex items-center justify-between px-3 py-2.5 rounded-xl transition-all {{ $isStaffRollbackActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white hover:shadow-2xs' }}">
                     <span class="flex items-center min-w-0">
                         <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffRollbackActive ? 'text-white' : 'text-rose-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
                         <span>Case Rollback</span>
@@ -332,7 +331,7 @@
                     $isStaffReportActive = request()->is('*/staff/report*') || request()->is('staff/report*');
                     $canStaffGenerateReports = !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('generate_reports', request()->path()) : true);
                     $lockedReportsTooltip = 'Locked: Generate Reports & PDFs permission is disabled by your Head of Unit';
-                    $reportEnabledClasses = $isStaffReportActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs';
+                    $reportEnabledClasses = $isStaffReportActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white hover:shadow-2xs';
                     $reportDisabledClasses = 'bg-slate-200/80 text-slate-400 border border-slate-300/70 select-none';
                 @endphp
                 <a @if($canStaffGenerateReports) href="{{ $staffReportUrl }}" @endif
@@ -350,15 +349,15 @@
                    data-enabled-class="{{ $reportEnabledClasses }}"
                    data-disabled-class="{{ $reportDisabledClasses }}">
                     <span class="flex items-center min-w-0">
-                        <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ !$canStaffGenerateReports ? 'text-slate-400' : ($isStaffReportActive ? 'text-white' : 'text-cyan-600') }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                        <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ !$canStaffGenerateReports ? 'text-slate-400' : ($isStaffReportActive ? 'text-white' : 'text-indigo-600') }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                         <span class="truncate">Unit Sitrep &amp; Reports</span>
                     </span>
                     <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 ml-1.5 {{ $canStaffGenerateReports ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                 </a>
                 @endif
 
-                <a href="{{ url('/profile') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffProfileActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white/90 hover:shadow-2xs' }}">
-                    <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffProfileActive ? 'text-white' : $accentText }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                <a href="{{ url('/profile') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ $isStaffProfileActive ? 'text-white ' . $accentBg . ' shadow-md ' . $accentShadow . ' font-bold' : 'text-slate-700 hover:text-slate-950 hover:bg-white hover:shadow-2xs' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffProfileActive ? 'text-white' : 'text-slate-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
                     <span>My Profile</span>
                 </a>
             </nav>
@@ -367,20 +366,26 @@
     </div>
 
     <!-- STAFF OFFICER PROFILE CARD -->
-    <div class="p-3.5 bg-slate-100 border-t border-slate-200/80">
-        <div class="flex items-center justify-between gap-2 bg-white px-3 py-2.5 rounded-2xl border border-slate-200/90 shadow-xs">
-            <div class="flex items-center space-x-2.5 min-w-0">
-                <div class="w-9 h-9 rounded-xl {{ $accentBg }} flex items-center justify-center font-extrabold text-xs text-white shadow-sm {{ $accentShadow }} shrink-0">
-                    {{ $staffInitials }}
-                </div>
+    @php
+        $userAvatar = $authUser->avatar ?? null;
+    @endphp
+    <div class="p-3 bg-white/80 border-t border-slate-200/80 backdrop-blur-xs mt-auto">
+        <div class="flex items-center justify-between gap-2.5 bg-slate-50/90 hover:bg-slate-100/90 px-3 py-2.5 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-all">
+            <a href="{{ url('/profile') }}" class="flex items-center space-x-2.5 min-w-0 flex-1 group" title="View Profile ({{ $staffName }})">
+                @if(!empty($userAvatar))
+                    <img src="{{ $userAvatar }}" alt="{{ $staffName }}" class="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-2xs shrink-0 group-hover:scale-105 transition-transform">
+                @else
+                    <div class="w-9 h-9 rounded-xl {{ $accentBg }} flex items-center justify-center font-extrabold text-xs text-white shadow-xs {{ $accentShadow }} shrink-0 group-hover:scale-105 transition-transform">
+                        {{ $staffInitials }}
+                    </div>
+                @endif
                 <div class="flex-1 min-w-0">
-                    <div class="text-xs font-extrabold text-slate-900 truncate">{{ $staffName }}</div>
-                    <div class="text-[10px] {{ $accentText }} font-mono-code font-bold truncate">{{ $roleLabel }}</div>
+                    <div class="text-xs font-black text-slate-900 truncate group-hover:text-emerald-700 transition-colors tracking-tight" title="{{ $staffName }}">{{ $staffName }}</div>
                 </div>
-            </div>
+            </a>
             <form action="{{ route('logout') }}" method="POST" class="shrink-0">
                 @csrf
-                <button type="submit" title="Sign Out" class="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer">
+                <button type="submit" title="Sign Out" class="p-1.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer flex items-center justify-center">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
                 </button>
             </form>

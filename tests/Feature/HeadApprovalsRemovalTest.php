@@ -70,5 +70,42 @@ class HeadApprovalsRemovalTest extends TestCase
         $this->actingAs($this->headUser)->post('/Forensic_Head/users/' . $this->headUser->id . '/approve')->assertStatus(404);
         $this->actingAs($this->headUser)->post('/Forensic_Head/users/' . $this->headUser->id . '/deactivate')->assertStatus(404);
     }
+
+    #[Test]
+    public function forensic_head_dashboard_navbar_does_not_contain_reports_reviews_approvals_permissions_and_notifications_buttons(): void
+    {
+        $dashResp = $this->actingAs($this->headUser)->get('/Forensic_Head');
+        $dashResp->assertStatus(200);
+
+        // Reports button removed from navbar
+        $dashResp->assertDontSee('/Report', false);
+        $dashResp->assertDontSee('<span>Reports</span>', false);
+
+        // Reviews & Approvals button removed from navbar
+        $dashResp->assertDontSee('/Forensic_Head/reviews-approvals', false);
+        $dashResp->assertDontSee('<span>Reviews &amp; Approvals</span>', false);
+
+        // Permissions button removed from navbar
+        $dashResp->assertDontSee('/Forensic_Head/permissions', false);
+        $dashResp->assertDontSee('<span>Permissions</span>', false);
+
+        // Notifications button removed from navbar
+        $dashResp->assertDontSee('/Forensic_Head/notifications', false);
+        $dashResp->assertDontSee('<span>Notifications</span>', false);
+    }
+
+    #[Test]
+    public function forensic_head_sidebar_does_not_contain_staff_audit_logs(): void
+    {
+        $casesResp = $this->actingAs($this->headUser)->get('/Forensic_Head/cases');
+        $casesResp->assertStatus(200);
+        $casesResp->assertDontSee('/Forensic_Head/staff-audit-logs', false);
+        $casesResp->assertDontSee('Staff Audit Logs');
+
+        $courtResp = $this->actingAs($this->headUser)->get('/court-evidence');
+        $courtResp->assertStatus(200);
+        $courtResp->assertDontSee('/Forensic_Head/staff-audit-logs', false);
+        $courtResp->assertDontSee('Staff Audit Logs');
+    }
 }
 

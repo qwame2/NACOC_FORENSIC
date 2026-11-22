@@ -60,13 +60,25 @@ class CaseController extends Controller
      */
     public function store(Request $request)
     {
+        $authUser = auth()->user();
+        $isDG = ($authUser && ($authUser->unit === 'Office of the Director-General' || $authUser->unit === 'Director General' || str_contains(strtolower((string) $authUser->unit), 'director general') || str_contains(strtolower((string) $authUser->unit), 'director-general')))
+            || in_array(strtolower((string) $request->input('from')), ['dg', 'director general', 'director-general', 'office of the director-general']);
+
+        if ($isDG) {
+            return $request->wantsJson() || $request->ajax()
+                ? response()->json(['success' => false, 'message' => 'Director-General is not permitted to create cases. Cases originate from operational units.'], 403)
+                : redirect('/DG/cases')->with('error', 'Director-General is not permitted to create cases. Cases originate from operational units.');
+        }
+
         if ($request->input('from') === 'Forensic_Head' || $request->input('from') === 'Forensic Head') {
             return $request->wantsJson() || $request->ajax()
                 ? response()->json(['success' => false, 'message' => 'Directorate Head is not permitted to create cases.'], 403)
                 : redirect('/Forensic_Head/cases')->with('error', 'Directorate Head is not permitted to create cases.');
         }
 
-        $authUser = auth()->user();
+        if ($request->filled('rollback_id')) {
+            return app(\App\Http\Controllers\StaffCaseSubmissionController::class)->staffRollbackResubmit($request, $request->input('rollback_id'));
+        }
         if ($authUser && !$authUser->is_head && !$request->boolean('approved_by_head')) {
             if ($validationError = $this->validateStaffSubmissionPayload($request)) {
                 return $validationError;

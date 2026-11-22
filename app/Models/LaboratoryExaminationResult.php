@@ -37,6 +37,7 @@ class LaboratoryExaminationResult extends Model
         'sample_weight_gross',
         'sample_weight_taken',
         'sample_weight_reserved',
+        'substance_identification',
         'detected_substances',
         'detected_subtances_percentage',
         'test_methods',

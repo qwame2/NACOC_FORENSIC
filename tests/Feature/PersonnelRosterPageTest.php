@@ -220,5 +220,42 @@ class PersonnelRosterPageTest extends TestCase
         $page2->assertStatus(200);
         $page2->assertSee('id="personnelTableMeta"', false);
     }
+
+    #[Test]
+    public function personnel_roster_displays_all_users_including_staff_accounts_and_director_general(): void
+    {
+        // 1. Create a staff member in staff_accounts table
+        \App\Models\StaffAccount::create([
+            'fullname' => 'Staff Officer Kwabena Darko',
+            'username' => 'kwabena.darko',
+            'service_id' => 'NAC-STAFF-888',
+            'phone_number' => '0244111222',
+            'email' => 'kwabena.darko@nacoc.gov.gh',
+            'unit' => 'Digital & Physical Forensics',
+            'is_approved' => true,
+        ]);
+
+        // 2. Create Director General in users table
+        User::factory()->create([
+            'fullname' => 'Director General Dr. Yaw Mensah',
+            'username' => 'dg.mensah',
+            'service_id' => 'NAC-DG-001',
+            'phone_number' => '0244999999',
+            'email' => 'dg@nacoc.gov.gh',
+            'unit' => 'Director General',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $response = $this->actingAs($this->headUser)->get('/Forensic_Head/personnel-roster');
+        $response->assertStatus(200);
+
+        // All users from both tables are present
+        $response->assertSee('Staff Officer Kwabena Darko');
+        $response->assertSee('NAC-STAFF-888');
+        $response->assertSee('Director General Dr. Yaw Mensah');
+        $response->assertSee('NAC-DG-001');
+        $response->assertSee('Director-General');
+    }
 }
 

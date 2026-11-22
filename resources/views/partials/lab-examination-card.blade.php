@@ -76,7 +76,7 @@
                         <td
                             class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                             Purpose of Examination:</td>
-                        <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
+                        <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPurposeOfExamination">
                             {{ $labExam['purpose_of_examination'] }}
                         </td>
                     </tr>

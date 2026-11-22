@@ -71,6 +71,11 @@ class StaffCaseViewsTest extends TestCase
             $response->assertDontSee('Unit Permissions');
             $response->assertDontSee('/Forensic_Head/cases"', false);
             $response->assertDontSee('href="/Digital_Forensics/cases"', false);
+            $response->assertDontSee('Cyber Analyst / Staff', false);
+            $response->assertDontSee('Forensic Chemist / Staff', false);
+            $response->assertDontSee('Vault Custodian / Staff', false);
+            $response->assertDontSee('Field Investigator / Staff', false);
+            $response->assertDontSee('Directorate Officer / Staff', false);
         }
     }
 
@@ -485,13 +490,17 @@ class StaffCaseViewsTest extends TestCase
             '/Lab_Analysis' => '/Lab_Analysis/reviews-approvals',
             '/Evidence_Management' => '/Evidence_Management/reviews-approvals',
             '/Digital_Forensics' => '/Digital_Forensics/reviews-approvals',
-            '/Forensic_Head' => '/Forensic_Head/reviews-approvals',
         ] as $dashUrl => $approvalUrl) {
             $dashRes = $this->actingAs($headUser)->get($dashUrl);
             $dashRes->assertStatus(200);
             $dashRes->assertSee('Reviews &amp; Approvals', false);
             $dashRes->assertSee($approvalUrl, false);
         }
+
+        // Forensic Head dashboard navbar has Reviews & Approvals removed
+        $fhRes = $this->actingAs($headUser)->get('/Forensic_Head');
+        $fhRes->assertStatus(200);
+        $fhRes->assertDontSee('/Forensic_Head/reviews-approvals', false);
 
         // 2. Staff submits a case: staged in staff_case_submissions, NOT yet in main cases tables
         $payload = [
@@ -812,7 +821,13 @@ class StaffCaseViewsTest extends TestCase
         $staffPostCheck->assertSee('bg-red-600 rounded-full animate-pulse', false);
         $staffPostCheck->assertSee('1 Case(s) awaiting corrections', false);
 
-        // 2. Head opens the rolled-back case in Decision History: Rollback & Approve buttons are GREYED OUT (disabled)
+        // On reviews-approvals index: rolled-back case remains in Pending Queue (awaiting corrections), NOT in Decision History table
+        $indexAfterRollback = $this->actingAs($headUser)->get('/Digital_Forensics/reviews-approvals');
+        $indexAfterRollback->assertStatus(200);
+        $indexAfterRollback->assertSee('Awaiting Corrections');
+        $indexAfterRollback->assertSee('No approved submissions have been recorded yet');
+
+        // 2. Head opens the rolled-back case: Rollback & Approve buttons are GREYED OUT (disabled)
         $historyViewRes = $this->actingAs($headUser)->get("/Digital_Forensics/reviews-approvals/{$submission->id}");
         $historyViewRes->assertStatus(200);
         $historyViewRes->assertSee('Awaiting Staff Corrections');
@@ -850,6 +865,347 @@ class StaffCaseViewsTest extends TestCase
 
         $submission->refresh();
         $this->assertEquals('Approved', $submission->status);
+
+        // Once approved, the case moves into the Decision History table
+        $indexAfterApprove = $this->actingAs($headUser)->get('/Digital_Forensics/reviews-approvals');
+        $indexAfterApprove->assertStatus(200);
+        $indexAfterApprove->assertSee('Decision History');
+        $indexAfterApprove->assertSee('Approved Cases (1)');
+        $indexAfterApprove->assertSee('SUB-' . str_pad((string) $submission->id, 4, '0', STR_PAD_LEFT));
+    }
+
+    #[Test]
+    public function clicking_open_and_fix_corrections_opens_create_blade_with_prefilled_readonly_details(): void
+    {
+        $staffUser = User::factory()->create([
+            'fullname' => 'Test Staff Investigator',
+            'unit' => 'Digital Forensics',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        $submission = StaffCaseSubmission::create([
+            'submitted_by' => $staffUser->id,
+            'submitted_by_name' => $staffUser->fullname,
+            'unit_name' => 'Digital Forensics',
+            'case_number_preview' => 'NCC-2026-9901',
+            'title' => 'Republic vs Akwasi Boakye',
+            'suspect_name' => 'Akwasi Boakye',
+            'priority' => 'HIGH',
+            'status' => 'Rolled Back',
+            'review_notes' => 'Please provide exact residential street address for suspect Akwasi Boakye.',
+            'rollback_corrections' => [
+                ['field' => 'Suspect Bio-Data', 'note' => 'Please update suspect residential address'],
+            ],
+            'rolled_back_at' => now(),
+            'payload' => [
+                'title' => 'Republic vs Akwasi Boakye',
+                'suspect_name' => 'Akwasi Boakye',
+                'suspect_alias' => 'CYBER COBRA',
+                'ghana_card' => 'GHA-990011223-0',
+                'gender' => 'Male',
+                'dob' => '1992-05-14',
+                'age' => '33',
+                'height' => '180',
+                'eye_color' => 'Brown',
+                'nationality' => 'Ghanaian',
+                'pob' => 'Accra',
+                'address' => 'House No 12 Airport Residential Area',
+                'phone' => '0244112233',
+                'marital_status' => 'Single',
+                'has_children' => false,
+                'children_count' => '0',
+                'offense_description' => 'Cyber Fraud & Money Laundering',
+                'raid_location' => 'Airport Residential, Accra',
+                'latitude' => '5.6037',
+                'longitude' => '-0.1870',
+                'arrest_date' => '2026-11-19',
+                'arrest_time' => '14:30',
+                'holding_facility' => 'NACOC Headquarters Cell 4',
+                'has_seizures' => true,
+                'exhibit_category' => 'Electronic Devices',
+                'commodity_name' => 'Apple MacBook Pro',
+                'dev_model' => 'MacBook Pro M2',
+                'dev_serial_no' => 'C02G1234MD6R',
+                'seizure_quantity' => '1',
+                'unit_name' => 'Digital Forensics',
+                'priority' => 'HIGH',
+            ],
+        ]);
+
+        // 1. Rollback index displays "Open & Fix Corrections" button linking to rollback show
+        $rollbackIndexRes = $this->actingAs($staffUser)->get('/Digital_Forensics/staff/case-rollback');
+        $rollbackIndexRes->assertStatus(200);
+        $rollbackIndexRes->assertSee('Open &amp; Fix Corrections', false);
+        $rollbackIndexRes->assertSee("/Digital_Forensics/staff/case-rollback/{$submission->id}", false);
+
+        // 2. Clicking Open & Fix Corrections opens create.blade page populated in rollback mode
+        $createPageRes = $this->actingAs($staffUser)->get("/Digital_Forensics/staff/case-rollback/{$submission->id}");
+        $createPageRes->assertStatus(200);
+
+        // Verify it is the create.blade page with arrest docket form
+        $createPageRes->assertSee('id="arrestDocketForm"', false);
+        $createPageRes->assertSee('Section 1: Case Title', false);
+        $createPageRes->assertSee('Section 2: Mugshot', false);
+        $createPageRes->assertSee('Section 3: Suspect Personal Details', false);
+        $createPageRes->assertSee('Section 4: Seizures (Commodities)', false);
+        $createPageRes->assertSee('id="hasSeizuresCheckbox"', false);
+        $createPageRes->assertSee('id="seizuresDetailsContainer"', false);
+
+        // Verify rollback banner and directives are rendered
+        $createPageRes->assertSee('Active Case Rollback &mdash; Fix Requested Corrections', false);
+        $createPageRes->assertSee('Please provide exact residential street address for suspect Akwasi Boakye.');
+        $createPageRes->assertSee('Suspect Bio-Data');
+        $createPageRes->assertSee('Please update suspect residential address');
+
+        // Verify script config is embedded for client-side readonly enforcement and prefill
+        $createPageRes->assertSee('window.IS_ROLLBACK_MODE = true;', false);
+        $createPageRes->assertSee('window.ROLLBACK_SUBMISSION_ID = ' . $submission->id . ';', false);
+        $createPageRes->assertSee('Send for Review and Approval', false);
+        $createPageRes->assertSee('CYBER COBRA');
+        $createPageRes->assertSee('GHA-990011223-0');
+        $createPageRes->assertSee('Cyber Fraud \u0026 Money Laundering', false);
+        $createPageRes->assertSee('NACOC Headquarters Cell 4');
+        $createPageRes->assertSee('Apple MacBook Pro');
+        $createPageRes->assertSee('MacBook Pro M2');
+        $createPageRes->assertSee('C02G1234MD6R');
+
+        // 3. Opening directly with ?rollback_id query param on staff/create also loads create.blade in rollback mode
+        $createWithParamRes = $this->actingAs($staffUser)->get("/Digital_Forensics/staff/create?rollback_id={$submission->id}");
+        $createWithParamRes->assertStatus(200);
+        $createWithParamRes->assertSee('id="arrestDocketForm"', false);
+        $createWithParamRes->assertSee('Active Case Rollback &mdash; Fix Requested Corrections', false);
+        $createWithParamRes->assertSee('window.IS_ROLLBACK_MODE = true;', false);
+        $createWithParamRes->assertSee('Send for Review and Approval', false);
+
+        // 4. Staff submits changes with "Send for Review and Approval", which sends it back to Head
+        $resubmitRes = $this->actingAs($staffUser)->postJson("/Digital_Forensics/staff/case-rollback/{$submission->id}/resubmit", [
+            'suspect_name' => 'Akwasi Boakye Corrected',
+            'address' => 'H/No 44 Airport Residential Area, Accra',
+            'phone' => '0244112233',
+        ]);
+        $resubmitRes->assertStatus(200);
+        $resubmitRes->assertJson([
+            'success' => true,
+        ]);
+
+        $submission->refresh();
+        $this->assertEquals('Pending Approval', $submission->status);
+        $this->assertEquals('Akwasi Boakye Corrected', $submission->suspect_name);
+        $this->assertNull($submission->rollback_corrections);
+        $this->assertNull($submission->review_notes);
+        $this->assertNull($submission->rolled_back_at);
+        $this->assertEquals('H/No 44 Airport Residential Area, Accra', $submission->payload['address']);
+
+        // Case rollback queue no longer lists it
+        $queueRes = $this->actingAs($staffUser)->get('/Digital_Forensics/staff/case-rollback');
+        $queueRes->assertDontSee('SUB-' . str_pad((string)$submission->id, 4, '0', STR_PAD_LEFT));
+
+        // 5. In Head's Reviews & Approvals, "Awaiting Corrections" has changed to "Corrections Submitted"
+        $headUser = User::where('unit', 'Digital Forensics')->where('is_head', true)->first();
+        if ($headUser) {
+            $headRes = $this->actingAs($headUser)->get('/Digital_Forensics/reviews-approvals');
+            $headRes->assertStatus(200);
+            $headRes->assertSee('Corrections Submitted');
+            $headRes->assertSee('Review Corrections');
+        }
+    }
+
+    #[Test]
+    public function staff_rollback_mode_prefills_seizures_with_photos_and_locks_unrequested_fields(): void
+    {
+        $staffUser = User::factory()->create([
+            'fullname' => 'Mark Appiah',
+            'unit' => 'Digital Forensics',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        $submission = StaffCaseSubmission::create([
+            'user_id' => $staffUser->id,
+            'unit_name' => 'Digital Forensics',
+            'submitted_by' => 'Mark Appiah',
+            'title' => 'Republic vs HANNAH',
+            'case_number_preview' => 'NCC-2026-3949',
+            'status' => 'Rolled Back',
+            'review_notes' => 'Please correct suspect name and case title.',
+            'rollback_corrections' => [
+                ['field' => 'CASE NAME / LEGAL TITLE', 'note' => 'IT SHOULD HANNA'],
+                ['field' => 'SUSPECT FULL NAME', 'note' => 'HANNA NOT HANNAH'],
+            ],
+            'payload' => [
+                'title' => 'Republic vs HANNAH',
+                'suspect_name' => 'HANNAH BOATENG',
+                'suspect_alias' => 'BOOKEY',
+                'ghana_card' => 'GHA-254356434-3',
+                'gender' => 'Female',
+                'dob' => '1990-11-19',
+                'age' => '36',
+                'height' => '234',
+                'eye_color' => 'BLACK',
+                'nationality' => 'Ghanaian',
+                'pob' => 'ACCRA',
+                'phone' => '055343245345',
+                'address' => 'GA-45-5345',
+                'marital_status' => 'Single',
+                'raid_location' => 'Pokuase',
+                'latitude' => '5.6892131',
+                'longitude' => '-0.2826359',
+                'offense_description' => 'JHKJFGFVGHKGHGJG',
+                'arrest_date' => '2026-11-19',
+                'arrest_time' => '11:52',
+                'holding_facility' => 'NACOC HQ',
+                'has_seizures' => true,
+                'exhibit_category' => 'Electronic Devices',
+                'commodity_name' => 'Apple iPhone (iOS Smartphone)',
+                'dev_model' => 'IPHONE 12',
+                'dev_serial_no' => '897098H9Y87',
+                'dev_imei1' => '807897678678967679',
+                'dev_imei2' => '7697676907690786',
+                'dev_mac_address' => '00:456:ER5::34534',
+                'dev_storage' => '125GB',
+                'dev_colour' => 'BLACK',
+                'dev_marks' => 'CRACKED',
+                'seizure_quantity' => '1',
+                'seizure_value' => '899',
+                'seizure_concealment' => 'HGKHHFGVKJ',
+                'seizure_date' => '2026-11-19',
+                'seizure_time' => '11:53',
+                'seizure_location' => 'PORT',
+                'seizure_officer' => 'Atta Budo (7867687)',
+                'seizure_reason' => 'KGHLDGHJLGSHFJGH;FGSHHFDGLDHJH',
+                'exhibit_type' => 'Non-Drug Exhibit',
+                'drug_classification' => 'N/A',
+                'evidence_photos' => [],
+                'docket_data' => [
+                    'seizures' => [
+                        [
+                            'exhibit_category' => 'Electronic Devices',
+                            'commodity_name' => 'Apple iPhone (iOS Smartphone)',
+                            'dev_model' => 'IPHONE 12',
+                            'dev_serial_no' => '897098H9Y87',
+                            'dev_imei1' => '807897678678967679',
+                            'dev_imei2' => '7697676907690786',
+                            'dev_mac_address' => '00:456:ER5::34534',
+                            'dev_storage' => '125GB',
+                            'dev_colour' => 'BLACK',
+                            'dev_marks' => 'CRACKED',
+                            'seizure_concealment' => 'HGKHHFGVKJ',
+                            'seizure_reason' => 'KGHLDGHJLGSHFJGH;FGSHHFDGLDHJH',
+                            'evidence_photos' => [
+                                'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wCEAA==',
+                                'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAE/2wCEAA==',
+                                'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAL/2wCEAA==',
+                                'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAQ/2wCEAA==',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $res = $this->actingAs($staffUser)->get("/Digital_Forensics/staff/case-rollback/{$submission->id}");
+        $res->assertStatus(200);
+
+        // Verify HTML contains the necessary rollback script functions and elements
+        $res->assertSee('window.IS_ROLLBACK_MODE = true;', false);
+        $res->assertSee('getCorrectionFieldKey', false);
+        $res->assertSee('getElementKey', false);
+        $res->assertSee('isInputMatchingCorrections', false);
+        $res->assertSee('populateFieldValues', false);
+        $res->assertSee('applyRollbackDocketMode', false);
+
+        // Verify prefilled values from payload and docket_data are present in the response
+        $res->assertSee('Republic vs HANNAH');
+        $res->assertSee('HANNAH BOATENG');
+        $res->assertSee('IPHONE 12');
+        $res->assertSee('897098H9Y87');
+        $res->assertSee('807897678678967679');
+        $res->assertSee('CRACKED');
+        $res->assertSee('HGKHHFGVKJ');
+        $res->assertSee('KGHLDGHJLGSHFJGH;FGSHHFDGLDHJH');
+        $res->assertSee('JHKJFGFVGHKGHGJG');
+        $res->assertSee('evidence_photos', false);
+        $res->assertSee('9j', false);
+
+        // Verify active corrections are listed in the banner
+        $res->assertSee('CASE NAME / LEGAL TITLE');
+        $res->assertSee('IT SHOULD HANNA');
+        $res->assertSee('SUSPECT FULL NAME');
+        $res->assertSee('HANNA NOT HANNAH');
+    }
+
+    #[Test]
+    public function chain_of_custody_input_is_safely_removed_from_digital_forensics_and_lab_analysis_only(): void
+    {
+        $case = ForensicCase::create([
+            'case_number' => 'CAS-COC-TEST-001',
+            'title' => 'Chain of Custody Test Case',
+            'unit_name' => 'Digital Forensics',
+            'submitting_officer' => 'Insp. Test',
+            'suspect_name' => 'Test Suspect',
+            'status' => 'Active',
+            'priority' => 'HIGH',
+        ]);
+
+        $headUser = User::factory()->create([
+            'fullname' => 'Test Head Officer',
+            'unit' => 'Digital Forensics',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $staffUser = User::factory()->create([
+            'fullname' => 'Test Staff Officer',
+            'unit' => 'Digital Forensics',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        // 1. Digital Forensics show review & staff review should NOT have chain of custody inputs
+        $res = $this->actingAs($headUser)->get("/Digital_Forensics/cases/{$case->case_number}/review");
+        $res->assertStatus(200);
+        $res->assertDontSee('id="newSeizureCustodyFrom"', false);
+        $res->assertDontSee('id="newSeizureCustodyTo"', false);
+        $res->assertDontSee('id="newSeizureChainOfCustody"', false);
+        $res->assertDontSee('updateChainOfCustodyValue', false);
+
+        $res = $this->actingAs($staffUser)->get("/Digital_Forensics/staff/cases/{$case->case_number}/review");
+        $res->assertStatus(200);
+        $res->assertDontSee('id="newSeizureCustodyFrom"', false);
+        $res->assertDontSee('id="newSeizureCustodyTo"', false);
+        $res->assertDontSee('id="newSeizureChainOfCustody"', false);
+        $res->assertDontSee('updateChainOfCustodyValue', false);
+
+        // 2. Lab Analysis show review & staff review should NOT have chain of custody inputs
+        $headUser->update(['unit' => 'Lab Analysis']);
+        $staffUser->update(['unit' => 'Lab Analysis']);
+        $case->update(['unit_name' => 'Lab Analysis']);
+
+        $res = $this->actingAs($headUser)->get("/Lab_Analysis/cases/{$case->case_number}/review");
+        $res->assertStatus(200);
+        $res->assertDontSee('id="newSeizureCustodyFrom"', false);
+        $res->assertDontSee('id="newSeizureCustodyTo"', false);
+        $res->assertDontSee('id="newSeizureChainOfCustody"', false);
+        $res->assertDontSee('updateChainOfCustodyValue', false);
+
+        $res = $this->actingAs($staffUser)->get("/Lab_Analysis/staff/cases/{$case->case_number}/review");
+        $res->assertStatus(200);
+        $res->assertDontSee('id="newSeizureCustodyFrom"', false);
+        $res->assertDontSee('id="newSeizureCustodyTo"', false);
+        $res->assertDontSee('id="newSeizureChainOfCustody"', false);
+        $res->assertDontSee('updateChainOfCustodyValue', false);
+
+        // 3. Crime Scene Support & Evidence Management SHOULD still retain chain of custody inputs
+        $headUser->update(['unit' => 'Crime Scene Support']);
+        $case->update(['unit_name' => 'Crime Scene Support']);
+
+        $res = $this->actingAs($headUser)->get("/Crime_Scene_Support/cases/{$case->case_number}/review");
+        $res->assertStatus(200);
+        $res->assertSee('id="newSeizureCustodyFrom"', false);
+        $res->assertSee('id="newSeizureCustodyTo"', false);
+        $res->assertSee('id="newSeizureChainOfCustody"', false);
+        $res->assertSee('updateChainOfCustodyValue', false);
     }
 }
 
