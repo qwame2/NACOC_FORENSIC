@@ -58,6 +58,61 @@ class SidebarRealtimeBadgeSyncTest extends TestCase
             ]);
 
         $this->assertArrayHasKey('notifications', $response->json());
+        $this->assertArrayHasKey('case_rollback', $response->json());
+    }
+
+    public function test_sidebar_badge_counts_returns_correct_rollback_count_for_staff(): void
+    {
+        $staff = StaffAccount::create([
+            'service_id' => 'STAFF-RB-1',
+            'username' => 'staffrb1',
+            'fullname' => 'Staff Rollback Tester',
+            'email' => 'staffrb1@example.com',
+            'unit' => ForensicUnit::CRIME_SCENE_SUPPORT->value,
+            'password' => bcrypt('secret123'),
+            'status' => 'approved',
+            'is_approved' => true,
+        ]);
+
+        StaffCaseSubmission::create([
+            'case_number_preview' => 'CSS-RB-001',
+            'unit_name' => ForensicUnit::CRIME_SCENE_SUPPORT->value,
+            'title' => 'Rolled Back Case 1',
+            'status' => 'Rolled Back',
+            'submitted_by' => $staff->id,
+            'submitted_by_name' => $staff->fullname,
+            'payload' => ['sample' => true],
+        ]);
+
+        $response = $this->actingAs($staff)->getJson('/api/sidebar/badge-counts?unit=' . urlencode(ForensicUnit::CRIME_SCENE_SUPPORT->value));
+
+        $response->assertOk()
+            ->assertJson([
+                'success' => true,
+                'case_rollback' => 1,
+                'staff_rollback' => 1,
+            ]);
+    }
+
+    public function test_staff_sidebar_renders_case_rollback_badge_and_poller_script(): void
+    {
+        $staff = StaffAccount::create([
+            'service_id' => 'STAFF-RB-2',
+            'username' => 'staffrb2',
+            'fullname' => 'Staff View Tester',
+            'email' => 'staffrb2@example.com',
+            'unit' => ForensicUnit::CRIME_SCENE_SUPPORT->value,
+            'password' => bcrypt('secret123'),
+            'status' => 'approved',
+            'is_approved' => true,
+        ]);
+
+        $response = $this->actingAs($staff)->get('/Crime_Scene_Support/staff/case');
+        $response->assertOk();
+        $response->assertSee('sidebarStaffRollbackBadge', false);
+        $response->assertSee('data-rollback-badge="sidebar"', false);
+        $response->assertSee('window.__nacocSidebarBadgePollerInitialized', false);
+        $response->assertSee('/api/sidebar/badge-counts', false);
     }
 
     public function test_unit_head_sidebar_renders_realtime_badge_elements_and_poller_script(): void

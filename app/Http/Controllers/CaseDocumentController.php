@@ -206,11 +206,11 @@ class CaseDocumentController extends Controller
     public function uploadEvidencePhotos(Request $request)
     {
         $request->validate([
-            'photos'   => ['required', 'array', 'min:1'],
+            'photos'   => ['required', 'array', 'min:1', 'max:15'],
             'photos.*' => [
                 'required', 'file', 'image',
                 'mimes:jpeg,jpg,png,gif,webp',
-                'max:10240',
+                'max:5120',
                 function ($attribute, $file, $fail) {
                     // WHY Fix Issue 27: 'image' + 'mimes' checks MIME, but polyglot files can sneak through.
                     // Verify with getimagesize + finfo as defense-in-depth.
@@ -221,6 +221,9 @@ class CaseDocumentController extends Controller
                     }
                 },
             ],
+        ], [
+            'photos.max'   => 'You can upload a maximum of 15 exhibit photos per batch to ensure fast uploads.',
+            'photos.*.max' => 'Each exhibit photo must not exceed 5 MB (5,120 KB).',
         ]);
 
         $stored = [];

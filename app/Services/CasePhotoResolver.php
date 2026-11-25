@@ -98,23 +98,42 @@ class CasePhotoResolver
      */
     public function formatMugshotUrl(mixed $src): ?string
     {
+        if (empty($src)) {
+            return null;
+        }
+        if (is_array($src)) {
+            $src = $src['url'] ?? ($src['front'] ?? ($src['photo'] ?? ($src['front-profile'] ?? ($src['path'] ?? ($src[0] ?? null)))));
+        }
         if (empty($src) || !is_string($src)) {
             return null;
         }
         $src = trim($src);
-        if ($src === '' || $src === 'null' || $src === 'undefined') {
+        if ($src === '' || $src === 'null' || $src === 'undefined' || $src === '#' || str_ends_with($src, '#')) {
             return null;
         }
-        if (str_starts_with($src, 'data:image/') || str_starts_with($src, 'http://') || str_starts_with($src, 'https://')) {
+        if (str_starts_with($src, 'data:image/') || str_starts_with($src, 'data:') || str_starts_with($src, 'http://') || str_starts_with($src, 'https://')) {
             return $src;
         }
-        if (str_starts_with($src, '/storage/')) {
-            return asset(ltrim($src, '/'));
+        $clean = ltrim($src, '/');
+        try {
+            if (str_starts_with($clean, 'storage/')) {
+                return asset($clean);
+            }
+            if (file_exists(public_path($clean))) {
+                return asset($clean);
+            }
+            return asset('storage/' . $clean);
+        } catch (\Throwable) {
+            return str_starts_with($clean, 'storage/') ? '/' . $clean : '/storage/' . $clean;
         }
-        if (str_starts_with($src, 'storage/')) {
-            return asset($src);
-        }
-        return asset('storage/' . ltrim($src, '/'));
+    }
+
+    /**
+     * Static convenience helper to format a suspect mugshot source string into a full URL or null.
+     */
+    public static function resolveMugshotUrl(mixed $src): ?string
+    {
+        return (new self())->formatMugshotUrl($src);
     }
 
     /**

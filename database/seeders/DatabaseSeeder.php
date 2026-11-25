@@ -13,6 +13,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RealtimeIncidentMapCaseSeeder::class,
+            DigitalForensicsCaseSeeder::class,
         ]);
     }
 }

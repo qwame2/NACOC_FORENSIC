@@ -89,7 +89,7 @@
             'age'            => $case->age ?? 34,
             'role'           => 'Primary Suspect',
             'arrest_date'    => $case->incident_date ? date('Y-m-d', strtotime($case->incident_date)) : date('Y-m-d'),
-            'mugshot_front'  => $case->mugshot_front ?? asset('images/default-suspect.png'),
+            'mugshot_front'  => \App\Services\CasePhotoResolver::resolveMugshotUrl($case->mugshot_front ?? ($case->photo ?? null)) ?? asset('images/default-suspect.png'),
         ];
     }
 
@@ -380,6 +380,8 @@
             'specifications' => $specificationsText,
             'remark' => $remarkText,
             'findings' => $findingsText,
+            'purpose_of_examination' => $labExamData['purpose_of_examination'] ?? ($case->purpose_of_examination ?? ($docketData['lab_examination']['purpose_of_examination'] ?? 'N/A')),
+            'preliminary_exam_procedure' => $labExamData['preliminary_exam_procedure'] ?? ($case->preliminary_exam_procedure ?? ($docketData['lab_examination']['preliminary_exam_procedure'] ?? 'N/A')),
         ];
     }
 
@@ -561,7 +563,10 @@
                 @endphp
                 <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-start space-x-4">
                     <div class="relative shrink-0">
-                        <img src="{{ $s['mugshot_front'] ?? asset('images/default-suspect.png') }}" 
+                        @php
+                            $certMug = \App\Services\CasePhotoResolver::resolveMugshotUrl($s['mugshot_front'] ?? null) ?? asset('images/default-suspect.png');
+                        @endphp
+                        <img src="{{ $certMug }}" 
                              alt="{{ $s['suspect_name'] ?? 'Suspect' }} Mugshot" 
                              class="w-20 h-20 rounded-2xl object-cover border-2 border-emerald-600 shadow-sm bg-slate-200">
                     </div>
@@ -663,6 +668,16 @@
                                 </td>
                             </tr>
 
+                            <!-- ROW 2B: PURPOSE OF EXAMINATION -->
+                            <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-900 uppercase border-r border-slate-300 bg-slate-100">
+                                    Purpose of Examination:
+                                </td>
+                                <td class="p-3 font-bold text-slate-900 bg-white" colspan="3">
+                                    {{ !empty($res['purpose_of_examination']) ? $res['purpose_of_examination'] : 'N/A' }}
+                                </td>
+                            </tr>
+
                             <!-- ROW 3: ANALYST & TIMELINE -->
                             <tr class="bg-slate-100/90 border-b border-slate-300">
                                 <td class="p-3 font-mono-code font-black text-slate-900 uppercase border-r border-slate-300 bg-slate-100">
@@ -682,6 +697,16 @@
                                         <span>|</span>
                                         <span>Completed: <strong class="text-emerald-900">{{ $res['date_completed'] }}</strong></span>
                                     </div>
+                                </td>
+                            </tr>
+
+                            <!-- ROW 3B: PRELIMINARY EXAMINATION PROCEDURE -->
+                            <tr class="border-b border-slate-300">
+                                <td class="p-3 font-mono-code font-black text-slate-900 uppercase border-r border-slate-300 bg-slate-100">
+                                    PRELIMINARY EXAMINATION PROCEDURE:
+                                </td>
+                                <td class="p-3 font-bold text-slate-900 bg-white" colspan="3">
+                                    {{ !empty($res['preliminary_exam_procedure']) ? $res['preliminary_exam_procedure'] : 'N/A' }}
                                 </td>
                             </tr>
 

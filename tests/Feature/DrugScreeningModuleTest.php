@@ -146,6 +146,55 @@ class DrugScreeningModuleTest extends TestCase
     }
 
     #[Test]
+    public function suspect_dropdown_fetches_mugshot_from_correct_storage_location(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Forensic Laboratory',
+            'is_head' => true,
+        ]);
+
+        $mCase = MultipleSuspectCase::create([
+            'case_number' => 'LAB-MULTI-' . uniqid(),
+            'title' => 'State vs Suspect Mugshot Case',
+            'unit_name' => 'Forensic Laboratory',
+            'controller_user_id' => $user->id,
+        ]);
+
+        $suspectWithMugshot = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 1,
+            'suspect_name' => 'Kofi Image Test',
+            'role' => 'Primary Suspect',
+            'mugshot_front' => 'suspects/2026/11/test_mugshot_front.jpg',
+        ]);
+
+        $sCaseWithMugshot = \App\Models\SingleSuspectCase::create([
+            'case_number' => 'LAB-SNGL-' . uniqid(),
+            'title' => 'State vs Solo Suspect with Mugshot',
+            'unit_name' => 'Forensic Laboratory',
+            'suspect_name' => 'Abena Single Image Test',
+            'mugshot_front' => 'suspects/2026/11/abena_mugshot_front.jpg',
+            'user_id' => $user->id,
+        ]);
+
+        $response = $this->actingAs($user)->get('/Lab_Analysis/drug-screening/create');
+        $response->assertStatus(200);
+
+        $html = $response->getContent();
+
+        // 1. CaseSuspect model accessor test
+        $this->assertStringContainsString('storage/suspects/2026/11/test_mugshot_front.jpg', $suspectWithMugshot->mugshot_front_url);
+
+        // 2. HTML output must contain the full asset storage URL in data-mugshot attribute
+        $this->assertStringContainsString('data-mugshot="' . asset('storage/suspects/2026/11/test_mugshot_front.jpg') . '"', $html);
+        $this->assertStringContainsString('data-mugshot="' . asset('storage/suspects/2026/11/abena_mugshot_front.jpg') . '"', $html);
+
+        // 3. Must not output raw un-prefixed relative paths
+        $this->assertStringNotContainsString('data-mugshot="suspects/2026/11/test_mugshot_front.jpg"', $html);
+        $this->assertStringNotContainsString('data-mugshot="suspects/2026/11/abena_mugshot_front.jpg"', $html);
+    }
+
+    #[Test]
     public function user_can_submit_drug_screening_form_and_persist_to_database(): void
     {
         $user = User::factory()->create([

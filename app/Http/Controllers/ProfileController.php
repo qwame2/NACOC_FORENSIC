@@ -109,16 +109,18 @@ class ProfileController extends Controller
             $user->avatar = $validated['avatar_data'];
         }
 
-        // If a signature file or drawn signature data URI was provided
-        if ($request->hasFile('signature_file')) {
-            $sigFile = $request->file('signature_file');
-            if ($sigFile->isValid()) {
-                $sigData = file_get_contents($sigFile->getRealPath());
-                $sigMime = $sigFile->getMimeType();
-                $user->signature = 'data:' . $sigMime . ';base64,' . base64_encode($sigData);
+        // If a signature file or drawn signature data URI was provided (Only for Unit Heads / Directorate Heads)
+        if ($user->is_head) {
+            if ($request->hasFile('signature_file')) {
+                $sigFile = $request->file('signature_file');
+                if ($sigFile->isValid()) {
+                    $sigData = file_get_contents($sigFile->getRealPath());
+                    $sigMime = $sigFile->getMimeType();
+                    $user->signature = 'data:' . $sigMime . ';base64,' . base64_encode($sigData);
+                }
+            } elseif (!empty($validated['signature_data']) && str_starts_with($validated['signature_data'], 'data:image')) {
+                $user->signature = $validated['signature_data'];
             }
-        } elseif (!empty($validated['signature_data']) && str_starts_with($validated['signature_data'], 'data:image')) {
-            $user->signature = $validated['signature_data'];
         }
 
         $user->save();
@@ -235,6 +237,16 @@ class ProfileController extends Controller
         $user = Auth::user();
         if (!$user) {
             return redirect()->route('login');
+        }
+
+        if (!$user->is_head) {
+            if ($request->wantsJson() || $request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Only Unit Heads can manage official digital signatures.',
+                ], 403);
+            }
+            return back()->with('error', 'Only Unit Heads can manage official digital signatures.');
         }
 
         $user->signature = null;

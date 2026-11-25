@@ -166,10 +166,10 @@ class LabSitrepReportService
 
         $resolveMugshot = function ($mug, $genderStr, $idx) {
             if (!empty($mug)) {
-                if (str_starts_with($mug, 'data:image') || str_starts_with($mug, 'http://') || str_starts_with($mug, 'https://') || str_starts_with($mug, '/')) {
-                    return $mug;
+                $formatted = \App\Services\CasePhotoResolver::resolveMugshotUrl($mug);
+                if (!empty($formatted)) {
+                    return $formatted;
                 }
-                return asset($mug);
             }
             $g = strtolower(trim($genderStr ?? 'male'));
             if ($g === 'female' || $g === 'f') {
@@ -247,7 +247,7 @@ class LabSitrepReportService
                     'phone'         => $c->phone ?? 'N/A',
                     'address'       => $c->address ?? 'N/A',
                     'role'          => 'Primary Suspect',
-                    'mugshot_front' => $c->mugshot_front ?? null,
+                    'mugshot_front' => \App\Services\CasePhotoResolver::resolveMugshotUrl($c->mugshot_front ?? ($c->photo ?? null)),
                 ]];
             }
 
@@ -346,7 +346,11 @@ class LabSitrepReportService
                         continue;
                     }
 
-                    $rawMug = $s['mugshot_front'] ?? ($c->mugshot_front ?? null);
+                    $rawMug = $s['mugshot_front']
+                        ?? ($s['photo']
+                        ?? ($s['mugshots']['front']
+                        ?? ($s['mugshots']['front-profile']
+                        ?? ($sIdx === 0 ? ($c->mugshot_front ?? ($c->photo ?? null)) : null))));
                     $genderVal = $s['gender'] ?? ($c->gender ?? 'Male');
                     $resolvedMug = $resolveMugshot($rawMug, $genderVal, $sIdx);
 
@@ -602,8 +606,8 @@ class LabSitrepReportService
                     'role'                => 'Primary Suspect',
                     'status'              => $dCase->status ?? 'Active',
                     'suspect_disposition' => $dCase->status ?? 'Active',
-                    'mugshot'             => $dCase->mugshot_front ?? null,
-                    'mugshot_front'       => $dCase->mugshot_front ?? null,
+                    'mugshot'             => \App\Services\CasePhotoResolver::resolveMugshotUrl($dCase->mugshot_front ?? ($dCase->photo ?? null)),
+                    'mugshot_front'       => \App\Services\CasePhotoResolver::resolveMugshotUrl($dCase->mugshot_front ?? ($dCase->photo ?? null)),
                     'nationality'         => $dCase->nationality ?? 'N/A',
                     'gender'              => $dCase->gender ?? null,
                     'age'                 => $dCase->age ?? null,
@@ -628,8 +632,8 @@ class LabSitrepReportService
                         'suspect_disposition' => $disp,
                         'role'                => $role,
                         'is_associate'        => $isAssoc,
-                        'mugshot'             => $s['mugshot_front'] ?? ($s['mugshot'] ?? null),
-                        'mugshot_front'       => $s['mugshot_front'] ?? ($s['mugshot'] ?? null),
+                        'mugshot'             => \App\Services\CasePhotoResolver::resolveMugshotUrl($s['mugshot_front'] ?? ($s['mugshot'] ?? ($s['photo'] ?? null))),
+                        'mugshot_front'       => \App\Services\CasePhotoResolver::resolveMugshotUrl($s['mugshot_front'] ?? ($s['mugshot'] ?? ($s['photo'] ?? null))),
                         'alias'               => $s['suspect_alias'] ?? ($s['alias'] ?? null),
                         'gender'              => $s['gender'] ?? null,
                         'age'                 => $s['age'] ?? null,

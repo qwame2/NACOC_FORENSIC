@@ -134,6 +134,21 @@
         }
     }
 
+    .auth-logo--login {
+        width: 350px;
+        height: 350px;
+        max-width: 100%;
+        margin: -6px auto 10px;
+    }
+
+    @media (min-width: 640px) {
+        .auth-logo--login {
+            width: 350px;
+            height: 350px;
+            margin: -10px auto 12px;
+        }
+    }
+
     /* Prominent switch between sign in and register */
     .auth-switch {
         display: inline-flex;
@@ -301,10 +316,30 @@
         padding: 12px 0 28px;
     }
 
+    .auth-panel--login {
+        padding-top: 18px;
+    }
+
+    .auth-panel__inner--login {
+        margin-top: 0;
+        padding-top: 0;
+    }
+
+    @media (min-width: 640px) {
+        .auth-panel--login {
+            padding-top: 20px;
+        }
+    }
+
     @media (min-width: 1024px) {
         .auth-panel__inner {
             margin: 2vh auto auto;
             padding: 8px 0 24px;
+        }
+
+        .auth-panel__inner--login {
+            margin-top: 0;
+            padding-top: 0;
         }
     }
 

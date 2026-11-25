@@ -76,21 +76,33 @@ class ForensicCase extends Model
 
         $instance->id = $record->id;
         $instance->case_number = $record->case_number;
-        $rawLabNo = $record->laboratory_number ?? null;
-        if (empty($rawLabNo) || (!str_starts_with(trim($rawLabNo), 'Lab No.'))) {
-            $normalizedLabNo = app(\App\Services\CaseReferenceService::class)->generateLabNumber();
-            $instance->laboratory_number = $normalizedLabNo;
-            try {
-                $record->laboratory_number = $normalizedLabNo;
-                $record->save();
-            } catch (\Throwable $e) {}
-        } else {
-            $instance->laboratory_number = $rawLabNo;
-        }
         $instance->title = $record->title;
         $instance->unit_name = $record->unit_name;
         $instance->unit_id = $record->unit_id;
         $instance->user_id = $record->user_id;
+
+        $isDrugCase = $instance->isDrugCase() || str_contains(strtolower($instance->unit_name ?? ''), 'lab');
+        $rawLabNo = $record->laboratory_number ?? null;
+        if ($isDrugCase) {
+            if (empty($rawLabNo) || (!str_starts_with(trim($rawLabNo), 'Lab No.'))) {
+                $normalizedLabNo = app(\App\Services\CaseReferenceService::class)->generateLabNumber();
+                $instance->laboratory_number = $normalizedLabNo;
+                try {
+                    $record->laboratory_number = $normalizedLabNo;
+                    $record->save();
+                } catch (\Throwable $e) {}
+            } else {
+                $instance->laboratory_number = $rawLabNo;
+            }
+        } else {
+            $instance->laboratory_number = null;
+            if (!empty($rawLabNo)) {
+                try {
+                    $record->laboratory_number = null;
+                    $record->save();
+                } catch (\Throwable $e) {}
+            }
+        }
         $instance->arresting_officer = $record->arresting_officer ?? ($record->submitting_officer ?? null);
         $instance->submitting_officer = $instance->arresting_officer;
         $instance->operation_code = $record->operation_code ?? null;
@@ -1234,7 +1246,62 @@ class ForensicCase extends Model
             $attributes['dev_model'] ?? null,
         ]) !== null;
 
-        return $hasDeviceDetails ? 'Electronic Devices' : 'Drugs';
+        if ($hasDeviceDetails) {
+            return 'Electronic Devices';
+        }
+
+        $texts = array_filter([
+            $sz['commodity_name'] ?? null,
+            $sz['seizure_name'] ?? null,
+            $sz['name'] ?? null,
+            $sz['description'] ?? null,
+            $attributes['commodity_name'] ?? null,
+            $attributes['seizure_name'] ?? null,
+        ]);
+
+        foreach ($texts as $text) {
+            if (!is_string($text) || trim($text) === '') {
+                continue;
+            }
+            $lower = strtolower($text);
+
+            foreach (self::$ELECTRONIC_KEYWORDS as $kw) {
+                if (str_contains($lower, $kw)) {
+                    return 'Electronic Devices';
+                }
+            }
+
+            foreach (self::$WEAPON_OR_VEHICLE_KEYWORDS as $kw) {
+                if (str_contains($lower, $kw)) {
+                    return 'Weapons & Ammunition';
+                }
+            }
+
+            foreach (self::$MONEY_OR_GOLD_KEYWORDS as $kw) {
+                if (str_contains($lower, $kw)) {
+                    return 'Cash & Valuables';
+                }
+            }
+
+            if (!empty($sz['seizure_name_drug'])) {
+                return 'Drugs';
+            }
+            foreach (self::$DRUG_KEYWORDS as $dkw) {
+                if (str_contains($lower, $dkw)) {
+                    return 'Drugs';
+                }
+            }
+        }
+
+        $unitName = strtolower((string)($attributes['unit_name'] ?? ''));
+        if (str_contains($unitName, 'digital') || str_contains($unitName, 'cyber')) {
+            return 'Electronic Devices';
+        }
+        if (str_contains($unitName, 'ballistics') || str_contains($unitName, 'weapon')) {
+            return 'Weapons & Ammunition';
+        }
+
+        return 'Drugs';
     }
 
     /**
@@ -1362,7 +1429,7 @@ class ForensicCase extends Model
                         'source_requesting_unit'   => $attributes['source_requesting_unit'] ?? null,
                         'seizure_reason'          => $attributes['seizure_reason'] ?? null,
                         'source_of_exhibits'      => $attributes['source_of_exhibits'] ?? null,
-                        'exhibit_remark'          => $attributes['exhibit_remark'] ?? null,
+                        'exhibit_remark'          => $attributes['exhibit_remark'] ?? ($attributes['remark'] ?? ($attributes['remarks'] ?? null)),
                         'chain_of_custody'        => $attributes['chain_of_custody'] ?? null,
                         'lab_remark'              => $attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null)),
                         'veh_make'                => $attributes['veh_make'] ?? ($attributes['vehicle_make'] ?? ($attributes['vehicle_make_model'] ?? null)),
@@ -1476,7 +1543,7 @@ class ForensicCase extends Model
                         'source_requesting_unit'   => $sz['source_requesting_unit'] ?? ($attributes['source_requesting_unit'] ?? null),
                         'seizure_reason'          => $sz['seizure_reason'] ?? ($attributes['seizure_reason'] ?? null),
                         'source_of_exhibits'      => $sz['source_of_exhibits'] ?? ($attributes['source_of_exhibits'] ?? null),
-                        'exhibit_remark'          => $sz['exhibit_remark'] ?? ($attributes['exhibit_remark'] ?? null),
+                        'exhibit_remark'          => $sz['exhibit_remark'] ?? ($sz['remark'] ?? ($sz['remarks'] ?? ($attributes['exhibit_remark'] ?? ($attributes['remark'] ?? ($attributes['remarks'] ?? null))))),
                         'chain_of_custody'        => $sz['chain_of_custody'] ?? ($attributes['chain_of_custody'] ?? null),
                         'lab_remark'              => $sz['lab_remark'] ?? ($sz['confirmatory_remark'] ?? (!empty($sz['has_saved_lab']) ? ($sz['remark'] ?? null) : ($sIdx === 0 ? ($attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null))) : null))),
                         'veh_make'                => $sz['veh_make'] ?? ($sz['veh']['make'] ?? ($sz['vehicle_make'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_make'] ?? null)))),
@@ -1803,7 +1870,7 @@ class ForensicCase extends Model
                     'source_requesting_unit' => $attributes['source_requesting_unit'] ?? null,
                     'seizure_reason'        => $attributes['seizure_reason'] ?? null,
                     'source_of_exhibits'    => $attributes['source_of_exhibits'] ?? null,
-                    'exhibit_remark'        => $attributes['exhibit_remark'] ?? null,
+                    'exhibit_remark'        => $attributes['exhibit_remark'] ?? ($attributes['remark'] ?? ($attributes['remarks'] ?? null)),
                     'chain_of_custody'      => $attributes['chain_of_custody'] ?? null,
                     'lab_remark'            => $attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null)),
                     'veh_make'              => $attributes['veh_make'] ?? ($attributes['vehicle_make'] ?? ($attributes['vehicle_make_model'] ?? null)),
@@ -1898,7 +1965,7 @@ class ForensicCase extends Model
                     'source_requesting_unit' => $sz['source_requesting_unit'] ?? ($attributes['source_requesting_unit'] ?? null),
                     'seizure_reason'        => $sz['seizure_reason'] ?? ($attributes['seizure_reason'] ?? null),
                     'source_of_exhibits'    => $sz['source_of_exhibits'] ?? ($attributes['source_of_exhibits'] ?? null),
-                    'exhibit_remark'        => $sz['exhibit_remark'] ?? ($attributes['exhibit_remark'] ?? null),
+                    'exhibit_remark'        => $sz['exhibit_remark'] ?? ($sz['remark'] ?? ($sz['remarks'] ?? ($attributes['exhibit_remark'] ?? ($attributes['remark'] ?? ($attributes['remarks'] ?? null))))),
                     'chain_of_custody'      => $sz['chain_of_custody'] ?? ($attributes['chain_of_custody'] ?? null),
                     'lab_remark'            => $sz['lab_remark'] ?? ($sz['confirmatory_remark'] ?? (!empty($sz['has_saved_lab']) ? ($sz['remark'] ?? null) : ($sIdx === 0 ? ($attributes['confirmatory_remark'] ?? ($attributes['lab_remark'] ?? ($attributes['docket_data']['lab_examination']['remark'] ?? null))) : null))),
                     'veh_make'              => $sz['veh_make'] ?? ($sz['veh']['make'] ?? ($sz['vehicle_make'] ?? ($sz['vehicle_make_model'] ?? ($attributes['veh_make'] ?? null)))),
@@ -2503,7 +2570,8 @@ class ForensicCase extends Model
         'mobile', 'phone', 'smartphone', 'laptop', 'computer', 'tablet', 'ipad',
         'hard drive', 'harddrive', 'hdd', 'ssd', 'usb', 'flash drive', 'flashdrive',
         'memory card', 'memorycard', 'electronic', 'digital device', 'device',
-        'iphone', 'android', 'pc', 'desktop',
+        'iphone', 'android', 'pc', 'desktop', 'adapter', 'wi-fi', 'wifi', 'router',
+        'modem', 'smartwatch', 'macbook', 'sim card',
     ];
 
     private static array $WEAPON_OR_VEHICLE_KEYWORDS = [
@@ -3018,35 +3086,39 @@ class ForensicCase extends Model
                         'Marks / Condition' => $ex->dev_marks,
                     ]);
 
-                    // Chemical & Lab specs
-                    $detSub = $lab ? $lab->detected_substances : null;
-                    if (is_array($detSub)) $detSub = implode(', ', $detSub);
-                    $testMeth = $lab ? $lab->test_methods : null;
-                    if (is_array($testMeth)) $testMeth = implode(', ', $testMeth);
+                    // Chemical & Lab specs (ONLY for drug-related cases or when actual lab examination exists)
+                    $labDetails = [];
+                    $caseIsDrug = $this->isDrugCase() || str_contains(strtolower($this->unit_name ?? ''), 'lab') || !empty($ex->drug_classification) || !empty($ex->seizure_name_drug);
+                    if ($caseIsDrug || $lab) {
+                        $detSub = $lab ? $lab->detected_substances : null;
+                        if (is_array($detSub)) $detSub = implode(', ', $detSub);
+                        $testMeth = $lab ? $lab->test_methods : null;
+                        if (is_array($testMeth)) $testMeth = implode(', ', $testMeth);
 
-                    $labDetails = array_filter([
-                        'Drug Classification' => $ex->drug_classification ?: ($lab->substance_identification ?? null),
-                        'Presumptive Test Result' => $lab ? $lab->presumptive_result : ($this->presumptive_test_result ?? null),
-                        'Confirmatory Test Result' => $lab ? $lab->confirmatory_result : ($this->confirmatory_test_result ?? null),
-                        'Detected Substances' => $detSub ?: ($this->detected_substances ?? null),
-                        'Substance Identification' => $lab ? $lab->substance_identification : null,
-                        'Test Methods' => $testMeth ?: ($this->confirmatory_test_methods ?? null),
-                        'Screening Method' => $lab ? $lab->screening_method : ($this->screening_method ?? null),
-                        'Gross Weight' => $lab ? $lab->sample_weight_gross : null,
-                        'Sample Taken for Lab' => $lab ? $lab->sample_weight_taken : null,
-                        'Reserved Sample' => $lab ? $lab->sample_weight_reserved : null,
-                        'Laboratory #' => $lab ? ($lab->laboratory_number ?: $lab->gsa_lab_number) : ($this->laboratory_number ?? null),
-                        'Exam Reference #' => $lab ? $lab->exam_reference : ($ex->lab_exhibit_no ?? null),
-                        'Forensic Analyst' => $lab ? $lab->analyst : null,
-                        'Purpose of Examination' => $lab ? $lab->purpose_of_examination : ($this->purpose_of_examination ?? null),
-                        'Exhibit Disposition' => $lab ? $lab->disposition_of_exhibit : ($this->disposition_of_exhibit ?? null),
-                    ]);
+                        $labDetails = array_filter([
+                            'Drug Classification' => $ex->drug_classification ?: ($lab->substance_identification ?? null),
+                            'Presumptive Test Result' => $lab ? $lab->presumptive_result : ($this->presumptive_test_result ?? null),
+                            'Confirmatory Test Result' => $lab ? $lab->confirmatory_result : ($this->confirmatory_test_result ?? null),
+                            'Detected Substances' => $detSub ?: ($this->detected_substances ?? null),
+                            'Substance Identification' => $lab ? $lab->substance_identification : null,
+                            'Test Methods' => $testMeth ?: ($this->confirmatory_test_methods ?? null),
+                            'Screening Method' => $lab ? $lab->screening_method : ($this->screening_method ?? null),
+                            'Gross Weight' => $lab ? $lab->sample_weight_gross : null,
+                            'Sample Taken for Lab' => $lab ? $lab->sample_weight_taken : null,
+                            'Reserved Sample' => $lab ? $lab->sample_weight_reserved : null,
+                            'Laboratory #' => $lab ? ($lab->laboratory_number ?: $lab->gsa_lab_number) : ($this->laboratory_number ?? null),
+                            'Exam Reference #' => $lab ? $lab->exam_reference : ($ex->lab_exhibit_no ?? null),
+                            'Forensic Analyst' => $lab ? $lab->analyst : null,
+                            'Purpose of Examination' => $lab ? $lab->purpose_of_examination : ($this->purpose_of_examination ?? null),
+                            'Exhibit Disposition' => $lab ? $lab->disposition_of_exhibit : ($this->disposition_of_exhibit ?? null),
+                        ]);
+                    }
 
                     $packaging = $ex->seizure_packaging ?: ($matchedDocketSz['seizure_packaging'] ?? ($matchedDocketSz['packaging'] ?? ($this->seizure_packaging ?? 'Official Sealed Evidence Bag')));
                     $concealment = $ex->seizure_concealment ?: ($matchedDocketSz['seizure_concealment'] ?? ($matchedDocketSz['concealment'] ?? ($this->seizure_concealment ?? 'N/A')));
                     $seizLoc = $ex->seizure_location ?: ($matchedDocketSz['seizure_location'] ?? ($this->raid_location ?? 'Location Undisclosed'));
                     $seizOff = $ex->seizure_officer ?: ($matchedDocketSz['seizure_officer'] ?? ($this->submitting_officer ?? 'Forensic Evidence Officer'));
-                    $invOff = $ex->investigating_officer ?: ($matchedDocketSz['investigating_officer'] ?? null);
+                    $invOff = $ex->investigating_officer ?: ($matchedDocketSz['investigating_officer'] ?? ($this->investigating_officer ?? null));
 
                     // General attributes
                     $details = [];
@@ -3224,28 +3296,33 @@ class ForensicCase extends Model
                 ]);
 
                 // Chemical & Lab specs from docket
-                $detSub = $sz['detected_substances'] ?? null;
-                if (is_array($detSub)) $detSub = implode(', ', $detSub);
-                $testMeth = $sz['test_methods'] ?? null;
-                if (is_array($testMeth)) $testMeth = implode(', ', $testMeth);
+                // Chemical & Lab specs (ONLY for drug-related cases or when actual lab examination exists)
+                $labDetails = [];
+                $caseIsDrug = $this->isDrugCase() || str_contains(strtolower($this->unit_name ?? ''), 'lab') || !empty($sz['drug_classification']) || !empty($sz['seizure_name_drug']);
+                if ($caseIsDrug || !empty($sz['substance_identification']) || !empty($sz['presumptive_result'])) {
+                    $detSub = $sz['detected_substances'] ?? null;
+                    if (is_array($detSub)) $detSub = implode(', ', $detSub);
+                    $testMeth = $sz['test_methods'] ?? null;
+                    if (is_array($testMeth)) $testMeth = implode(', ', $testMeth);
 
-                $labDetails = array_filter([
-                    'Drug Classification' => $sz['drug_classification'] ?? ($sz['substance_identification'] ?? null),
-                    'Presumptive Test Result' => $sz['presumptive_result'] ?? ($this->presumptive_test_result ?? null),
-                    'Confirmatory Test Result' => $sz['confirmatory_result'] ?? ($this->confirmatory_test_result ?? null),
-                    'Detected Substances' => $detSub ?: ($this->detected_substances ?? null),
-                    'Substance Identification' => $sz['substance_identification'] ?? null,
-                    'Test Methods' => $testMeth ?: ($this->confirmatory_test_methods ?? null),
-                    'Screening Method' => $sz['screening_method'] ?? ($this->screening_method ?? null),
-                    'Gross Weight' => $sz['sample_gross'] ?? null,
-                    'Sample Taken for Lab' => $sz['sample_taken'] ?? null,
-                    'Reserved Sample' => $sz['sample_reserved'] ?? null,
-                    'Laboratory #' => $sz['laboratory_number'] ?? ($this->laboratory_number ?? null),
-                    'Exam Reference #' => $sz['exam_reference'] ?? ($sz['lab_exhibit_no'] ?? null),
-                    'Forensic Analyst' => $sz['analyst'] ?? null,
-                    'Purpose of Examination' => $sz['purpose_of_examination'] ?? ($this->purpose_of_examination ?? null),
-                    'Exhibit Disposition' => $sz['disposition_of_exhibit'] ?? ($this->disposition_of_exhibit ?? null),
-                ]);
+                    $labDetails = array_filter([
+                        'Drug Classification' => $sz['drug_classification'] ?? ($sz['substance_identification'] ?? null),
+                        'Presumptive Test Result' => $sz['presumptive_result'] ?? ($this->presumptive_test_result ?? null),
+                        'Confirmatory Test Result' => $sz['confirmatory_result'] ?? ($this->confirmatory_test_result ?? null),
+                        'Detected Substances' => $detSub ?: ($this->detected_substances ?? null),
+                        'Substance Identification' => $sz['substance_identification'] ?? null,
+                        'Test Methods' => $testMeth ?: ($this->confirmatory_test_methods ?? null),
+                        'Screening Method' => $sz['screening_method'] ?? ($this->screening_method ?? null),
+                        'Gross Weight' => $sz['sample_gross'] ?? null,
+                        'Sample Taken for Lab' => $sz['sample_taken'] ?? null,
+                        'Reserved Sample' => $sz['sample_reserved'] ?? null,
+                        'Laboratory #' => $sz['laboratory_number'] ?? ($this->laboratory_number ?? null),
+                        'Exam Reference #' => $sz['exam_reference'] ?? ($sz['lab_exhibit_no'] ?? null),
+                        'Forensic Analyst' => $sz['analyst'] ?? null,
+                        'Purpose of Examination' => $sz['purpose_of_examination'] ?? ($this->purpose_of_examination ?? null),
+                        'Exhibit Disposition' => $sz['disposition_of_exhibit'] ?? ($this->disposition_of_exhibit ?? null),
+                    ]);
+                }
 
                 // General key-values
                 $details = [];
@@ -3264,6 +3341,30 @@ class ForensicCase extends Model
                 $from = $sz['source_of_exhibits'] ?? ($sz['seizure_location'] ?? 'Seizure Site');
                 $to = $this->holding_facility ?? 'NACOC Central Vault Safe B-04';
                 $chain = $sz['chain_of_custody'] ?? "{$from} ➔ {$to}";
+
+                $invOffDocket = $sz['investigating_officer'] ?? null;
+                if (empty($invOffDocket) && !empty($sz['id'])) {
+                    try { $invOffDocket = Exhibit::where('id', $sz['id'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                }
+                if (empty($invOffDocket) && !empty($exNo)) {
+                    try { $invOffDocket = Exhibit::where('exhibit_number', $exNo)->value('investigating_officer'); } catch (\Throwable $e) {}
+                }
+                if (empty($invOffDocket) && !empty($this->id)) {
+                    $uId = isset($this->underlyingRecord) ? $this->underlyingRecord->id : $this->id;
+                    try {
+                        $invOffDocket = Exhibit::where(function($q) use ($uId) {
+                            $q->where('single_suspect_case_id', $this->id)
+                                ->orWhere('multiple_suspect_case_id', $this->id)
+                                ->orWhere('single_suspect_case_id', $uId)
+                                ->orWhere('multiple_suspect_case_id', $uId);
+                        })->whereNotNull('investigating_officer')->value('investigating_officer');
+                    } catch (\Throwable $e) {}
+                }
+                if (empty($invOffDocket)) {
+                    $invOffDocket = $this->investigating_officer ?? null;
+                }
+
+                if ($invOffDocket) $details['Investigating Officer'] = $invOffDocket;
 
                 $exhibits[] = [
                     'id' => null,
@@ -3287,7 +3388,7 @@ class ForensicCase extends Model
                     'seizure_time' => $sz['seizure_time'] ?? null,
                     'seizure_location' => $sz['seizure_location'] ?? ($this->raid_location ?? 'Location Undisclosed'),
                     'seizure_officer' => $sz['seizure_officer'] ?? ($this->submitting_officer ?? 'Forensic Evidence Officer'),
-                    'investigating_officer' => $sz['investigating_officer'] ?? null,
+                    'investigating_officer' => $invOffDocket,
                     'requesting_unit' => $sz['source_requesting_unit'] ?? ($this->unit_name ?? 'Forensic Directorate'),
                     'source_of_exhibits' => $sz['source_of_exhibits'] ?? null,
                     'seizure_reason' => $sz['seizure_reason'] ?? null,
@@ -3358,11 +3459,11 @@ class ForensicCase extends Model
                 'vehicle' => [],
                 'weapon' => [],
                 'device' => [],
-                'lab' => array_filter([
+                'lab' => ($this->isDrugCase() || str_contains(strtolower($this->unit_name ?? ''), 'lab')) ? array_filter([
                     'Presumptive Test Result' => $this->presumptive_test_result,
                     'Confirmatory Test Result' => $this->confirmatory_test_result,
                     'Laboratory #' => $this->laboratory_number,
-                ]),
+                ]) : [],
             ];
         }
 
@@ -3440,9 +3541,15 @@ class ForensicCase extends Model
         }
 
         $uName = strtolower($this->unit_name ?? ($this->unit->name ?? ''));
-        if (str_contains($uName, 'digital') || str_contains($uName, 'cyber') || str_contains($uName, 'physical')) {
+        if (str_contains($uName, 'digital') || str_contains($uName, 'cyber') || str_contains($uName, 'physical') || str_contains($uName, 'dpf')) {
             return true;
         }
+
+        try {
+            if (\App\Models\DpfReport::forCase($this->id, $this->case_number)) {
+                return true;
+            }
+        } catch (\Throwable $e) {}
 
         $exCat   = strtolower($this->exhibit_category ?? '');
         $title   = strtolower($this->title ?? '');
@@ -3453,7 +3560,8 @@ class ForensicCase extends Model
         $digitalKws = [
             'digital', 'mobile', 'phone', 'laptop', 'computer', 'tablet', 'ipad',
             'hard drive', 'harddrive', 'hdd', 'ssd', 'usb', 'flash drive', 'memory card',
-            'electronic', 'device', 'iphone', 'android', 'pc', 'desktop', 'camera', 'cyber'
+            'electronic', 'device', 'iphone', 'android', 'pc', 'desktop', 'camera', 'cyber',
+            'sim card', 'pendrive', 'pen drive', 'modem', 'router', 'cctv', 'dvr', 'nvr'
         ];
 
         foreach ($digitalKws as $kw) {
@@ -3540,9 +3648,27 @@ class ForensicCase extends Model
                     $pobVal = $s->pob ?? ($docketSp['pob'] ?? ($docketSp['place_of_birth'] ?? ($docketSp['hometown'] ?? null)));
                     $addrVal = $s->address ?? ($docketSp['address'] ?? ($docketSp['residential_address'] ?? ($docketSp['gps'] ?? null)));
                     $maritalVal = $s->marital_status ?? ($docketSp['marital_status'] ?? null);
-                    $mFront = $s->mugshot_front ?? ($docketSp['mugshot_front'] ?? ($docketSp['mugshots']['front'] ?? null));
-                    $mLeft  = $s->mugshot_left  ?? ($docketSp['mugshot_left']  ?? ($docketSp['mugshots']['left'] ?? null));
-                    $mRight = $s->mugshot_right ?? ($docketSp['mugshot_right'] ?? ($docketSp['mugshots']['right'] ?? null));
+                    $mFront = $s->mugshot_front
+                        ?? $s->photo
+                        ?? ($docketSp['mugshot_front'] ?? null)
+                        ?? ($docketSp['photo'] ?? null)
+                        ?? ($docketSp['mugshots']['front'] ?? null)
+                        ?? ($docketSp['mugshots']['front-profile'] ?? null)
+                        ?? ($idx === 0 ? ($this->mugshot_front ?? $this->photo ?? ($docketData['mugshot_front'] ?? null) ?? ($docketData['photo'] ?? null) ?? ($docketData['mugshots']['front'] ?? null)) : null);
+                    $mLeft = $s->mugshot_left
+                        ?? ($docketSp['mugshot_left'] ?? null)
+                        ?? ($docketSp['mugshots']['left'] ?? null)
+                        ?? ($docketSp['mugshots']['left-profile'] ?? null)
+                        ?? ($idx === 0 ? ($this->mugshot_left ?? ($docketData['mugshot_left'] ?? null) ?? ($docketData['mugshots']['left'] ?? null)) : null);
+                    $mRight = $s->mugshot_right
+                        ?? ($docketSp['mugshot_right'] ?? null)
+                        ?? ($docketSp['mugshots']['right'] ?? null)
+                        ?? ($docketSp['mugshots']['right-profile'] ?? null)
+                        ?? ($idx === 0 ? ($this->mugshot_right ?? ($docketData['mugshot_right'] ?? null) ?? ($docketData['mugshots']['right'] ?? null)) : null);
+
+                    $formattedFront = \App\Services\CasePhotoResolver::resolveMugshotUrl($mFront);
+                    $formattedLeft  = \App\Services\CasePhotoResolver::resolveMugshotUrl($mLeft);
+                    $formattedRight = \App\Services\CasePhotoResolver::resolveMugshotUrl($mRight);
 
                     $isUnassignedRow = $this->isNoSuspectCase() || self::isUnassignedSuspectName($s->suspect_name ?? '');
                     $natCandidate = $s->nationality ?? ($docketSp['nationality'] ?? null);
@@ -3595,9 +3721,15 @@ class ForensicCase extends Model
                         'arrest_date'            => $s->arrest_date ?? ($docketSp['arrest_date'] ?? ($docketSp['date_of_arrest'] ?? ($this->arrest_date ?? null))),
                         'time_of_arrest'         => $s->arrest_time ?? ($docketSp['time_of_arrest'] ?? ($docketSp['arrest_time'] ?? ($this->arrest_time ?? null))),
                         'arrest_time'            => $s->arrest_time ?? ($docketSp['arrest_time'] ?? ($docketSp['time_of_arrest'] ?? ($this->arrest_time ?? null))),
-                        'mugshot_front'          => $mFront,
-                        'mugshot_left'           => $mLeft,
-                        'mugshot_right'          => $mRight,
+                        'mugshot_front'          => $formattedFront ?? $mFront,
+                        'mugshot_left'           => $formattedLeft ?? $mLeft,
+                        'mugshot_right'          => $formattedRight ?? $mRight,
+                        'raw_mugshot_front'      => $mFront,
+                        'raw_mugshot_left'       => $mLeft,
+                        'raw_mugshot_right'      => $mRight,
+                        'mugshot_front_url'      => $formattedFront,
+                        'mugshot_left_url'       => $formattedLeft,
+                        'mugshot_right_url'      => $formattedRight,
                         'extra_mugshots'         => $s->extra_mugshots ?? ($docketSp['extra_mugshots'] ?? null),
                         'is_associate'           => !empty($s->associate_id) || strtolower($s->role ?? '') === 'associate suspect' || strtolower($s->role ?? '') === 'co-suspect',
                     ];
@@ -3615,9 +3747,23 @@ class ForensicCase extends Model
                 $pobVal = $s['pob'] ?? ($s['place_of_birth'] ?? ($s['hometown'] ?? null));
                 $addrVal = $s['address'] ?? ($s['residential_address'] ?? ($s['gps'] ?? null));
                 $maritalVal = $s['marital_status'] ?? null;
-                $mFront = $s['mugshot_front'] ?? ($s['mugshots']['front'] ?? null);
-                $mLeft  = $s['mugshot_left']  ?? ($s['mugshots']['left'] ?? null);
-                $mRight = $s['mugshot_right'] ?? ($s['mugshots']['right'] ?? null);
+                $mFront = ($s['mugshot_front'] ?? null)
+                    ?? ($s['photo'] ?? null)
+                    ?? ($s['mugshots']['front'] ?? null)
+                    ?? ($s['mugshots']['front-profile'] ?? null)
+                    ?? ($idx === 0 ? ($this->mugshot_front ?? $this->photo ?? ($docketData['mugshot_front'] ?? null) ?? ($docketData['photo'] ?? null) ?? ($docketData['mugshots']['front'] ?? null)) : null);
+                $mLeft = ($s['mugshot_left'] ?? null)
+                    ?? ($s['mugshots']['left'] ?? null)
+                    ?? ($s['mugshots']['left-profile'] ?? null)
+                    ?? ($idx === 0 ? ($this->mugshot_left ?? ($docketData['mugshot_left'] ?? null) ?? ($docketData['mugshots']['left'] ?? null)) : null);
+                $mRight = ($s['mugshot_right'] ?? null)
+                    ?? ($s['mugshots']['right'] ?? null)
+                    ?? ($s['mugshots']['right-profile'] ?? null)
+                    ?? ($idx === 0 ? ($this->mugshot_right ?? ($docketData['mugshot_right'] ?? null) ?? ($docketData['mugshots']['right'] ?? null)) : null);
+
+                $formattedFront = \App\Services\CasePhotoResolver::resolveMugshotUrl($mFront);
+                $formattedLeft  = \App\Services\CasePhotoResolver::resolveMugshotUrl($mLeft);
+                $formattedRight = \App\Services\CasePhotoResolver::resolveMugshotUrl($mRight);
 
                 $isUnassignedRow = $this->isNoSuspectCase() || self::isUnassignedSuspectName($s['suspect_name'] ?? '');
                 $natValue = $isUnassignedRow
@@ -3669,9 +3815,15 @@ class ForensicCase extends Model
                     'arrest_date'            => $s['arrest_date'] ?? ($s['date_of_arrest'] ?? ($this->arrest_date ?? null)),
                     'time_of_arrest'         => $s['time_of_arrest'] ?? ($s['arrest_time'] ?? ($this->arrest_time ?? null)),
                     'arrest_time'            => $s['arrest_time'] ?? ($s['time_of_arrest'] ?? ($this->arrest_time ?? null)),
-                    'mugshot_front'          => $mFront,
-                    'mugshot_left'           => $mLeft,
-                    'mugshot_right'          => $mRight,
+                    'mugshot_front'          => $formattedFront ?? $mFront,
+                    'mugshot_left'           => $formattedLeft ?? $mLeft,
+                    'mugshot_right'          => $formattedRight ?? $mRight,
+                    'raw_mugshot_front'      => $mFront,
+                    'raw_mugshot_left'       => $mLeft,
+                    'raw_mugshot_right'      => $mRight,
+                    'mugshot_front_url'      => $formattedFront,
+                    'mugshot_left_url'       => $formattedLeft,
+                    'mugshot_right_url'      => $formattedRight,
                     'extra_mugshots'         => $s['extra_mugshots'] ?? null,
                     'is_associate'           => !empty($s['associate_id']) || (!empty($s['is_associate']) && $s['is_associate'] !== false) || strtolower($role) !== 'primary suspect',
                 ];
@@ -3684,6 +3836,25 @@ class ForensicCase extends Model
         $primaryPob = $this->pob ?? ($docketData['pob'] ?? ($docketData['hometown'] ?? null));
         $primaryAddr = $this->address ?? ($docketData['address'] ?? ($docketData['residential_address'] ?? null));
         $primaryMarital = $this->marital_status ?? ($docketData['marital_status'] ?? null);
+
+        $mFront = $this->mugshot_front
+            ?? $this->photo
+            ?? ($docketData['mugshot_front'] ?? null)
+            ?? ($docketData['photo'] ?? null)
+            ?? ($docketData['mugshots']['front'] ?? null)
+            ?? ($docketData['mugshots']['front-profile'] ?? null);
+        $mLeft = $this->mugshot_left
+            ?? ($docketData['mugshot_left'] ?? null)
+            ?? ($docketData['mugshots']['left'] ?? null)
+            ?? ($docketData['mugshots']['left-profile'] ?? null);
+        $mRight = $this->mugshot_right
+            ?? ($docketData['mugshot_right'] ?? null)
+            ?? ($docketData['mugshots']['right'] ?? null)
+            ?? ($docketData['mugshots']['right-profile'] ?? null);
+
+        $formattedFront = \App\Services\CasePhotoResolver::resolveMugshotUrl($mFront);
+        $formattedLeft  = \App\Services\CasePhotoResolver::resolveMugshotUrl($mLeft);
+        $formattedRight = \App\Services\CasePhotoResolver::resolveMugshotUrl($mRight);
 
         $list[] = [
             'id'                     => $this->id,
@@ -3732,9 +3903,15 @@ class ForensicCase extends Model
             'arrest_date'            => $this->arrest_date ?? null,
             'time_of_arrest'         => $this->arrest_time ?? null,
             'arrest_time'            => $this->arrest_time ?? null,
-            'mugshot_front'          => $this->mugshot_front ?? ($docketData['mugshot_front'] ?? null),
-            'mugshot_left'           => $this->mugshot_left ?? ($docketData['mugshot_left'] ?? null),
-            'mugshot_right'          => $this->mugshot_right ?? ($docketData['mugshot_right'] ?? null),
+            'mugshot_front'          => $formattedFront ?? $mFront,
+            'mugshot_left'           => $formattedLeft ?? $mLeft,
+            'mugshot_right'          => $formattedRight ?? $mRight,
+            'raw_mugshot_front'      => $mFront,
+            'raw_mugshot_left'       => $mLeft,
+            'raw_mugshot_right'      => $mRight,
+            'mugshot_front_url'      => $formattedFront,
+            'mugshot_left_url'       => $formattedLeft,
+            'mugshot_right_url'      => $formattedRight,
             'is_associate'           => false,
         ];
 
@@ -4076,7 +4253,10 @@ class ForensicCase extends Model
         );
 
         // 1. Relational Exhibit records from 'exhibits' DB table
-        if (!empty($this->id)) {
+        $dbExhibits = collect();
+        if ($this->relationLoaded('exhibits') && $this->exhibits) {
+            $dbExhibits = $this->exhibits instanceof Collection ? $this->exhibits : collect($this->exhibits);
+        } elseif (!empty($this->id)) {
             $isMultiCase = $this->isMultipleSuspect();
             $uId = isset($this->underlyingRecord) ? $this->underlyingRecord->id : $this->id;
             $dbExhibits = Exhibit::where(function ($q) use ($uId, $isMultiCase) {
@@ -4088,6 +4268,15 @@ class ForensicCase extends Model
                         ->orWhere('single_suspect_case_id', $uId);
                 }
             })->get();
+        } elseif (!empty($this->case_number) && empty($this->is_staff_submission)) {
+            try {
+                $dbExhibits = Exhibit::whereHas('singleSuspectCase', fn($q) => $q->where('case_number', $this->case_number))
+                    ->orWhereHas('multipleSuspectCase', fn($q) => $q->where('case_number', $this->case_number))
+                    ->get();
+            } catch (\Throwable $e) {
+                $dbExhibits = collect();
+            }
+        }
 
             foreach ($dbExhibits as $ex) {
                 $exSuspectId = $ex->suspect_id;
@@ -4347,11 +4536,23 @@ class ForensicCase extends Model
                         $arr['device_model']  = $arr['dev_model'];
                         $arr['device_serial'] = $arr['dev_serial_no'];
 
+                        // Ensure custody & investigating officer attributes are mapped from DB model
+                        $arr['investigating_officer']  = $ex->investigating_officer;
+                        $arr['source_requesting_unit'] = $ex->source_requesting_unit;
+                        $arr['seizure_reason']         = $ex->seizure_reason;
+                        $arr['source_of_exhibits']     = $ex->source_of_exhibits ?? $ex->source_of_exhibit;
+                        $arr['exhibit_remark']         = $ex->exhibit_remark ?? $ex->lab_remark;
+                        $arr['seizure_location']       = $ex->seizure_location;
+                        $arr['seizure_officer']        = $ex->seizure_officer;
+                        $arr['seizure_packaging']      = $ex->seizure_packaging;
+                        $arr['seizure_concealment']    = $ex->seizure_concealment;
+                        $arr['seizure_date']           = $ex->seizure_date;
+                        $arr['seizure_time']           = $ex->seizure_time;
+
                         $matchedExhibits[] = $arr;
                     }
                 }
             }
-        }
 
         // 2. JSON Docket Data exhibit arrays
         // $dData and $allDocketExhibits prepared above
@@ -4478,6 +4679,25 @@ class ForensicCase extends Model
                     ];
                     $dArr['device_model']  = $dArr['dev_model'];
                     $dArr['device_serial'] = $dArr['dev_serial_no'];
+
+                    if (empty($dArr['investigating_officer'])) {
+                        $dbMatch = ($dbExhibits instanceof Collection && $dbExhibits->isNotEmpty()) ? $dbExhibits->first(function ($dbE) use ($sz, $exNo, $name) {
+                            if (!empty($sz['id']) && (int)$dbE->id === (int)$sz['id']) return true;
+                            if (!empty($exNo) && (string)$dbE->exhibit_number === (string)$exNo) return true;
+                            if (!empty($name) && strtolower(trim((string)$dbE->commodity_name)) === strtolower(trim((string)$name))) return true;
+                            return false;
+                        }) : null;
+                        if ($dbMatch && !empty($dbMatch->investigating_officer)) {
+                            $dArr['investigating_officer'] = $dbMatch->investigating_officer;
+                        } elseif (!empty($sz['id'])) {
+                            try { $dArr['investigating_officer'] = Exhibit::where('id', $sz['id'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                        } elseif (!empty($exNo)) {
+                            try { $dArr['investigating_officer'] = Exhibit::where('exhibit_number', $exNo)->value('investigating_officer'); } catch (\Throwable $e) {}
+                        } elseif (!empty($this->investigating_officer)) {
+                            $dArr['investigating_officer'] = $this->investigating_officer;
+                        }
+                    }
+
                     $matchedExhibits[] = $dArr;
                 }
             }
@@ -4791,10 +5011,11 @@ class ForensicCase extends Model
                         $sDossierHasSavedLab = true;
                         $sDossierLabExam = [
                             'exhibit_owner_name' => $szItem['associated_person'] ?? ($szItem['suspect_name'] ?? ($szItem['owner_name'] ?? $suspectName)),
-                            'laboratory_number' => $szItem['laboratory_number'] ?? null,
-                            'exam_reference' => $szItem['exam_reference'] ?? null,
-                            'exhibit_number' => $szItem['exhibit_number'] ?? null,
-                            'analyst' => $szItem['analyst'] ?? null,
+                            'laboratory_number' => $szItem['laboratory_number'] ?? ($this->laboratory_number ?? ($docketData['lab_examination']['laboratory_number'] ?? ($docketData['laboratory_number'] ?? null))),
+                            'exam_reference' => $szItem['exam_reference'] ?? ($this->lab_exam_reference ?: ($this->exam_reference ?: ($docketData['lab_examination']['exam_reference'] ?? null))),
+                            'exhibit_number' => $szItem['exhibit_number'] ?? ($szItem['lab_exhibit_no'] ?? ($szItem['lab_exhibit_number'] ?? ($szItem['exhibit_no'] ?? ($docketData['lab_examination']['exhibit_number'] ?? ($docketData['lab_examination']['lab_exhibit_no'] ?? null))))),
+                            'lab_exhibit_no' => $szItem['lab_exhibit_no'] ?? ($szItem['lab_exhibit_number'] ?? ($docketData['lab_examination']['lab_exhibit_no'] ?? null)),
+                            'analyst' => $szItem['analyst'] ?? ($docketData['lab_examination']['analyst'] ?? ($this->submitting_officer ?? null)),
                             'date_received' => $szItem['date_received'] ?? null,
                             'date_started' => $szItem['date_started'] ?? null,
                             'date_completed' => $szItem['date_completed'] ?? null,
@@ -4841,16 +5062,28 @@ class ForensicCase extends Model
         } else {
             // Normalize structure for valid saved record
             if (empty($sDossierLabExam['exhibit_number']) || $sDossierLabExam['exhibit_number'] === 'N/A') {
-                $sDossierLabExam['exhibit_number'] = $sDossierLabExam['exhibit_no'] ?? 'N/A';
+                $sDossierLabExam['exhibit_number'] = $sDossierLabExam['lab_exhibit_no']
+                    ?? ($sDossierLabExam['lab_exhibit_number']
+                    ?? ($sDossierLabExam['exhibit_no']
+                    ?? ($docketData['lab_examination']['exhibit_number']
+                    ?? ($docketData['lab_examination']['lab_exhibit_no']
+                    ?? ($docketData['lab_examination']['lab_exhibit_number'] ?? 'N/A')))));
+            }
+            if (empty($sDossierLabExam['lab_exhibit_no']) || $sDossierLabExam['lab_exhibit_no'] === 'N/A') {
+                $sDossierLabExam['lab_exhibit_no'] = $sDossierLabExam['exhibit_number']
+                    ?? ($docketData['lab_examination']['lab_exhibit_no'] ?? null);
             }
             if (empty($sDossierLabExam['exam_reference']) || $sDossierLabExam['exam_reference'] === 'N/A') {
-                $sDossierLabExam['exam_reference'] = $this->lab_exam_reference ?: ($this->exam_reference ?: 'N/A');
+                $sDossierLabExam['exam_reference'] = $this->lab_exam_reference ?: ($this->exam_reference ?: ($docketData['lab_examination']['exam_reference'] ?? 'N/A'));
             }
-            if (empty($sDossierLabExam['laboratory_number'])) {
-                $sDossierLabExam['laboratory_number'] = 'N/A';
+            if (empty($sDossierLabExam['laboratory_number']) || $sDossierLabExam['laboratory_number'] === 'N/A') {
+                $sDossierLabExam['laboratory_number'] = $this->laboratory_number
+                    ?? ($docketData['lab_examination']['laboratory_number']
+                    ?? ($docketData['laboratory_number'] ?? 'N/A'));
             }
-            if (empty($sDossierLabExam['analyst'])) {
-                $sDossierLabExam['analyst'] = 'N/A';
+            if (empty($sDossierLabExam['analyst']) || $sDossierLabExam['analyst'] === 'N/A') {
+                $sDossierLabExam['analyst'] = $docketData['lab_examination']['analyst']
+                    ?? ($this->submitting_officer ?? 'N/A');
             }
 
             $caseIncDate = !empty($this->incident_date)
@@ -5287,12 +5520,12 @@ class ForensicCase extends Model
                 'exhibit_id' => $r->exhibit_id,
                 'exhibit_owner_name' => $r->suspect_name ?? ($suspectName ?? 'Primary Suspect'),
                 'exam_reference' => $r->exam_reference,
-                'exhibit_number' => $exModel->exhibit_number ?? ($r->exhibit_number ?? ('EXH-' . str_pad($idx + 1, 5, '0', STR_PAD_LEFT))),
+                'exhibit_number' => $exModel->exhibit_number ?? ($r->exhibit_number ?? ($r->lab_exhibit_no ?? ('EXH-' . str_pad($idx + 1, 5, '0', STR_PAD_LEFT)))),
                 'lab_exhibit_no' => $exModel->lab_exhibit_no ?? ($r->lab_exhibit_no ?? null),
                 'exhibit_description' => !empty($r->sample_weight_description) ? $r->sample_weight_description : ($exModel->commodity_name ?? null),
                 'commodity_name' => $exModel->commodity_name ?? null,
                 'contents' => $exModel->contents ?? null,
-                'laboratory_number' => $r->laboratory_number ?? ($primaryExam['laboratory_number'] ?? 'N/A'),
+                'laboratory_number' => $r->laboratory_number ?? ($primaryExam['laboratory_number'] ?? ($this->laboratory_number ?? ($docketData['lab_examination']['laboratory_number'] ?? ($docketData['laboratory_number'] ?? 'N/A')))),
                 'analyst' => $r->analyst ?? ($primaryExam['analyst'] ?? 'N/A'),
                 'date_received' => is_object($r->date_received) ? $r->date_received->format('Y-m-d') : substr((string)$r->date_received, 0, 10),
                 'date_started' => is_object($r->date_started) ? $r->date_started->format('Y-m-d') : substr((string)$r->date_started, 0, 10),
@@ -5370,11 +5603,11 @@ class ForensicCase extends Model
                         'exhibit_id' => null,
                         'exhibit_owner_name' => $sz['associated_person'] ?? ($suspectName ?? 'Primary Suspect'),
                         'exam_reference' => $sz['exam_reference'] ?? ($primaryExam['exam_reference'] ?? null),
-                        'exhibit_number' => $sz['exhibit_number'] ?? ('EXH-' . str_pad(count($allExams) + 1, 5, '0', STR_PAD_LEFT)),
-                        'lab_exhibit_no' => $sz['lab_exhibit_no'] ?? chr(65 + count($allExams)),
+                        'exhibit_number' => $sz['exhibit_number'] ?? ($sz['lab_exhibit_no'] ?? ($sz['lab_exhibit_number'] ?? ($sz['exhibit_no'] ?? ($primaryExam['exhibit_number'] ?? ('EXH-' . str_pad(count($allExams) + 1, 5, '0', STR_PAD_LEFT)))))),
+                        'lab_exhibit_no' => $sz['lab_exhibit_no'] ?? ($sz['lab_exhibit_number'] ?? ($primaryExam['lab_exhibit_no'] ?? chr(65 + count($allExams)))),
                         'commodity_name' => $sz['commodity_name'] ?? ($sz['seizure_name_drug'] ?? ($sz['seizure_name'] ?? null)),
                         'contents' => $sz['contents'] ?? ($sz['seizure_contents'] ?? null),
-                        'laboratory_number' => $sz['laboratory_number'] ?? ($primaryExam['laboratory_number'] ?? 'N/A'),
+                        'laboratory_number' => $sz['laboratory_number'] ?? ($primaryExam['laboratory_number'] ?? ($this->laboratory_number ?? ($docketData['lab_examination']['laboratory_number'] ?? ($docketData['laboratory_number'] ?? 'N/A')))),
                         'analyst' => $sz['analyst'] ?? ($primaryExam['analyst'] ?? 'N/A'),
                         'date_received' => $sz['date_received'] ?? ($primaryExam['date_received'] ?? date('Y-m-d')),
                         'date_started' => $sz['date_started'] ?? ($primaryExam['date_started'] ?? date('Y-m-d')),

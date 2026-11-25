@@ -9,8 +9,6 @@
 
     $editUserUnit = strtolower(trim($authUser->unit ?? ''));
     $editIsHead = !empty($authUser->is_head);
-    $canEditCrimeScene = $editIsHead || str_contains($editUserUnit, 'crime') || str_contains($editUserUnit, 'scene') || str_contains($editUserUnit, 'support') || empty($editUserUnit);
-    $canEditLab = $editIsHead || str_contains($editUserUnit, 'lab') || str_contains($editUserUnit, 'chemistry') || str_contains($editUserUnit, 'narcotics');
 
     $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
     $isForensicHeadContext = request()->is('Forensic_Head*') || session('user_role') === 'HOF';
@@ -19,6 +17,29 @@
     $fromParam = request()->query('from') ?? request()->query('unit') ?? '';
     $fromLower = strtolower(trim((string)$fromParam));
     $userUnit = strtolower(trim($authUser->unit ?? ''));
+
+    $permContext = $fromParam ?: ($case->unit_name ?: null);
+    $hasEditCasePermission = $editIsHead
+        || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('edit_cases', $permContext) : true);
+    $hasManageExhibitsPermission = $editIsHead
+        || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('manage_exhibits', $permContext) : true);
+    $hasLabPermission = $editIsHead
+        || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('record_lab_analysis', $permContext) : true);
+
+    $canEditCrimeScene = $editIsHead 
+        || $hasEditCasePermission 
+        || $hasManageExhibitsPermission 
+        || str_contains($editUserUnit, 'crime') 
+        || str_contains($editUserUnit, 'scene') 
+        || str_contains($editUserUnit, 'support') 
+        || empty($editUserUnit);
+
+    $canEditLab = $editIsHead 
+        || $hasLabPermission 
+        || $hasEditCasePermission
+        || str_contains($editUserUnit, 'lab') 
+        || str_contains($editUserUnit, 'chemistry') 
+        || str_contains($editUserUnit, 'narcotics');
 
     if ($fromLower !== '') {
         $isLabAnalysis = str_contains($fromLower, 'lab') || str_contains($fromLower, 'chemistry') || str_contains($fromLower, 'narcotics');
@@ -39,7 +60,8 @@
         : ('/cases/' . ($case->case_number ?: $case->id) . '/review' . ($fromParam ? '?from=' . urlencode($fromParam) : ''));
 
     // MULTI-SUSPECT & EXHIBIT EXTRACTION & MATCHING
-    $rawSuspects = $docketData['suspects'] ?? [];
+    $caseSuspectsList = method_exists($case, 'getSuspectsList') ? $case->getSuspectsList() : [];
+    $rawSuspects = !empty($caseSuspectsList) ? $caseSuspectsList : ($docketData['suspects'] ?? []);
     if (empty($rawSuspects) && !empty($case->suspect_name)) {
         $names = array_map('trim', explode(',', $case->suspect_name));
         foreach ($names as $idx => $n) {
@@ -53,57 +75,136 @@
         $rawSuspects = [['suspect_name' => $case->suspect_name ?: 'Primary Suspect', 'association_role' => 'Primary Suspect']];
     }
 
+    // Fetch DB exhibits for this case if available
+    $dbCaseExhibits = collect();
+    if (isset($case->underlyingRecord) && isset($case->underlyingRecord->exhibits)) {
+        $dbCaseExhibits = collect($case->underlyingRecord->exhibits);
+    } elseif (isset($case->underlyingRecord) && method_exists($case->underlyingRecord, 'exhibits')) {
+        $dbCaseExhibits = $case->underlyingRecord->exhibits()->get();
+    }
+
+    if ($dbCaseExhibits->isEmpty() && !empty($case->id)) {
+        $isMulti = method_exists($case, 'isMultipleSuspect') ? $case->isMultipleSuspect() : !empty($case->is_multiple);
+        $fk = $isMulti ? 'multiple_suspect_case_id' : 'single_suspect_case_id';
+        $dbCaseExhibits = \App\Models\Exhibit::where($fk, $case->id)->get();
+    }
+
+    if ($dbCaseExhibits->isEmpty() && !empty($case->id)) {
+        $dbCaseExhibits = \App\Models\Exhibit::where('single_suspect_case_id', $case->id)
+            ->orWhere('multiple_suspect_case_id', $case->id)
+            ->get();
+    }
+
+    if ($dbCaseExhibits->isEmpty() && !empty($case->case_number)) {
+        $dbCaseExhibits = \App\Models\Exhibit::whereHas('singleCase', function($q) use ($case) {
+            $q->where('case_number', $case->case_number);
+        })->orWhereHas('multipleCase', function($q) use ($case) {
+            $q->where('case_number', $case->case_number);
+        })->get();
+    }
+
+    // Extract case photos array safely
+    $photoResolver = new \App\Services\CasePhotoResolver();
+    $casePhotos = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: ($docketData['evidence_photos'] ?? []));
+    if (!is_array($casePhotos)) $casePhotos = [];
+
+    $mappedDbExhibits = [];
+    foreach ($dbCaseExhibits as $dbEx) {
+        $pArr = $dbEx->evidence_photos;
+        if (is_string($pArr)) {
+            $pArr = json_decode($pArr, true) ?: [];
+        }
+        if (!is_array($pArr)) $pArr = [];
+        $resolvedPhotos = array_map(function($p) use ($photoResolver) {
+            return $photoResolver->formatPhotoUrl($p);
+        }, array_values($pArr));
+
+        $mappedDbExhibits[] = [
+            'id'                 => $dbEx->id,
+            'exhibit_number'     => $dbEx->exhibit_number,
+            'associated_person'  => $dbEx->associated_person,
+            'seizure_name_drug'  => $dbEx->commodity_name ?: ($dbEx->seizure_name_drug ?? ''),
+            'commodity_name'     => $dbEx->commodity_name ?: ($dbEx->seizure_name_drug ?? ''),
+            'exhibit_category'   => $dbEx->exhibit_category,
+            'seizure_quantity'   => $dbEx->seizure_quantity,
+            'seizure_weight'     => $dbEx->seizure_weight,
+            'seizure_unit'       => $dbEx->seizure_unit,
+            'seizure_packaging'  => $dbEx->seizure_packaging,
+            'seizure_reason'     => $dbEx->seizure_reason,
+            'presumptive_result' => $dbEx->presumptive_test_result,
+            'ammunition_details' => $dbEx->ammunition_details,
+            'evidence_photos'    => array_values($resolvedPhotos),
+        ];
+    }
+
     $seizures = $docketData['seizures'] ?? [];
     $associateExhibits = $docketData['associate_exhibits'] ?? [];
-    $allExhibits = array_merge($seizures, $associateExhibits);
+    $allExhibits = array_merge($mappedDbExhibits, $seizures, $associateExhibits);
 
     $labExamList = $docketData['lab_examinations_list'] ?? [];
     $mainLabExam = $docketData['lab_examination'] ?? [];
     $dbAssociateLabExams = \App\Models\AssociateLabExamination::where('case_id', $case->id)->get();
 
-    // Extract case photos array safely
-    $casePhotos = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: ($docketData['evidence_photos'] ?? []));
-    if (!is_array($casePhotos)) $casePhotos = [];
-
     // Build unique Exhibits List
     $exhibitsList = [];
+    $seenExhibitKeys = [];
     foreach ($allExhibits as $exIdx => $ex) {
-        $exName = $ex['seizure_name_drug'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ($exIdx === 0 ? ($case->seizure_name_drug ?: $case->seizure_name) : '')));
+        $exName = $ex['seizure_name_drug'] ?? ($ex['commodity_name'] ?? ($ex['seizure_name'] ?? ($ex['name'] ?? ($exIdx === 0 ? ($case->seizure_name_drug ?: $case->seizure_name) : ''))));
+        $exPerson = $ex['associated_person'] ?? ($ex['suspect_name'] ?? ($ex['owner_name'] ?? ''));
+        $exNo = $ex['exhibit_number'] ?? ($ex['id'] ?? '');
+        $dedupKey = $exNo ? ('num_' . $exNo) : ('name_' . strtolower(trim((string)$exName)) . '_' . strtolower(trim((string)$exPerson)));
+        
+        if (!empty($exName) && isset($seenExhibitKeys[$dedupKey])) {
+            continue;
+        }
+        $seenExhibitKeys[$dedupKey] = true;
+
         $exPhotos = $ex['evidence_photos'] ?? ($ex['photos'] ?? ($exIdx === 0 ? $casePhotos : []));
         if (is_string($exPhotos)) {
             $exPhotos = json_decode($exPhotos, true) ?: [];
         }
         if (!is_array($exPhotos)) $exPhotos = [];
+        $resolvedPhotos = array_map(function($p) use ($photoResolver) {
+            return $photoResolver->formatPhotoUrl($p);
+        }, array_values($exPhotos));
 
         $exhibitsList[] = [
-            'exhibit_index'      => $exIdx,
-            'associated_person'  => $ex['associated_person'] ?? ($ex['suspect_name'] ?? ($ex['owner_name'] ?? '')),
+            'exhibit_index'      => count($exhibitsList),
+            'id'                 => $ex['id'] ?? null,
+            'exhibit_number'     => $ex['exhibit_number'] ?? null,
+            'associated_person'  => $exPerson,
             'seizure_name_drug'  => $exName,
-            'exhibit_category'   => $ex['category'] ?? ($ex['exhibit_category'] ?? ($exIdx === 0 ? $case->exhibit_category : '')),
+            'exhibit_category'   => $ex['category'] ?? ($ex['exhibit_category'] ?? ($exIdx === 0 ? ($case->exhibit_category ?: 'Drugs / Narcotics') : 'Drugs / Narcotics')),
             'seizure_quantity'   => $ex['seizure_quantity'] ?? ($ex['quantity'] ?? ($ex['units'] ?? ($exIdx === 0 ? $case->seizure_quantity : ''))),
             'seizure_weight'     => $ex['seizure_weight'] ?? ($ex['weight'] ?? ($exIdx === 0 ? $case->seizure_weight : '')),
-            'seizure_unit'       => $ex['seizure_unit'] ?? ($ex['unit'] ?? ($exIdx === 0 ? $case->seizure_unit : '')),
+            'seizure_unit'       => $ex['seizure_unit'] ?? ($ex['unit'] ?? ($exIdx === 0 ? ($case->seizure_unit ?: 'Kilograms (kg)') : 'Kilograms (kg)')),
             'seizure_packaging'  => $ex['seizure_packaging'] ?? ($ex['packaging'] ?? ($exIdx === 0 ? $case->seizure_packaging : '')),
             'seizure_reason'     => $ex['seizure_reason'] ?? ($ex['reason'] ?? ($exIdx === 0 ? $case->seizure_reason : '')),
             'presumptive_result' => $ex['presumptive_result'] ?? ($exIdx === 0 ? $case->presumptive_test_result : ''),
             'ammunition_details' => $ex['ammunition_details'] ?? ($exIdx === 0 ? $case->ammunition_details : null),
-            'evidence_photos'    => array_values($exPhotos),
+            'evidence_photos'    => array_values($resolvedPhotos),
         ];
     }
     if (empty($exhibitsList)) {
+        $resolvedCasePhotos = array_map(function($p) use ($photoResolver) {
+            return $photoResolver->formatPhotoUrl($p);
+        }, array_values($casePhotos));
+
         $exhibitsList[] = [
             'exhibit_index'      => 0,
+            'id'                 => null,
+            'exhibit_number'     => null,
             'associated_person'  => $case->suspect_name ?? '',
-            'seizure_name_drug'  => $case->seizure_name_drug ?: $case->seizure_name,
-            'exhibit_category'   => $case->exhibit_category,
+            'seizure_name_drug'  => $case->seizure_name_drug ?: ($case->seizure_name ?: ''),
+            'exhibit_category'   => $case->exhibit_category ?: 'Drugs / Narcotics',
             'seizure_quantity'   => $case->seizure_quantity,
             'seizure_weight'     => $case->seizure_weight,
-            'seizure_unit'       => $case->seizure_unit,
+            'seizure_unit'       => $case->seizure_unit ?: 'Kilograms (kg)',
             'seizure_packaging'  => $case->seizure_packaging,
             'seizure_reason'     => $case->seizure_reason,
             'presumptive_result' => $case->presumptive_test_result,
             'ammunition_details' => $case->ammunition_details,
-            'evidence_photos'    => array_values($casePhotos),
+            'evidence_photos'    => array_values($resolvedCasePhotos),
         ];
     }
 
@@ -212,45 +313,59 @@
         $isAssoc = str_contains($roleRaw, 'associate') || str_contains($roleRaw, 'accomplice') || ($idx > 1 && !$isCo);
         $role = $isCo ? 'Co-Suspect' : ($isAssoc ? 'Associate Suspect' : 'Primary Suspect');
 
-        $suspectData = [
-            'index'               => $idx,
-            'suspect_name'        => $sName,
-            'suspect_alias'       => $s['suspect_alias'] ?? ($s['alias'] ?? ($idx === 0 ? ($case->suspect_alias ?? '') : '')),
-            'ghana_card'          => $s['ghana_card'] ?? ($idx === 0 ? ($case->ghana_card ?? '') : ''),
-            'gender'              => $s['gender'] ?? ($idx === 0 ? ($case->gender ?? 'Male') : 'Male'),
-            'age'                 => $s['age'] ?? ($idx === 0 ? ($case->age ?? '') : ''),
-            'phone'               => $s['phone'] ?? ($idx === 0 ? ($case->phone ?? '') : ''),
-            'address'             => $s['address'] ?? ($idx === 0 ? ($case->address ?? '') : ''),
-            'offense_description' => $s['offense'] ?? ($s['offense_description'] ?? ($idx === 0 ? ($case->offense_description ?? '') : '')),
-            'arrest_date'         => $s['date_of_arrest'] ?? ($s['arrest_date'] ?? ($idx === 0 ? ($case->arrest_date ?? '') : '')),
-            'arrest_time'         => $s['time_of_arrest'] ?? ($s['arrest_time'] ?? ($idx === 0 ? ($case->arrest_time ?? '') : '')),
-            'raid_location'       => $s['raid_location'] ?? ($s['location_of_arrest'] ?? ($idx === 0 ? ($case->raid_location ?? '') : '')),
-            'holding_facility'    => $s['holding_facility'] ?? ($idx === 0 ? ($case->holding_facility ?? '') : ''),
-            'dob'                 => $s['dob'] ?? ($idx === 0 ? ($case->dob ?? '') : ''),
-            'height'              => $s['height'] ?? ($idx === 0 ? ($case->height ?? '') : ''),
-            'height_unit'         => $s['height_unit'] ?? ($idx === 0 ? ($case->height_unit ?? 'CM') : 'CM'),
-            'eye_color'           => $s['eye_color'] ?? ($idx === 0 ? ($case->eye_color ?? '') : ''),
-            'nationality'         => $s['nationality'] ?? ($idx === 0 ? ($case->nationality ?? '') : ''),
-            'place_of_birth'      => $s['place_of_birth'] ?? ($s['pob'] ?? ($idx === 0 ? ($case->place_of_birth ?: ($case->pob ?: ($docketData['place_of_birth'] ?? ($docketData['pob'] ?? '')))) : '')),
-            'pob'                 => $s['place_of_birth'] ?? ($s['pob'] ?? ($idx === 0 ? ($case->place_of_birth ?: ($case->pob ?: ($docketData['place_of_birth'] ?? ($docketData['pob'] ?? '')))) : '')),
-            'hometown'            => $s['hometown'] ?? ($idx === 0 ? ($case->hometown ?: ($docketData['hometown'] ?? '')) : ''),
-            'marital_status'      => $s['marital_status'] ?? ($s['marital'] ?? ($s['relationship_status'] ?? ($idx === 0 ? ($case->marital_status ?: ($docketData['marital_status'] ?? '')) : ''))),
-            'children_count'      => $s['children_count'] ?? ($s['children'] ?? ($s['kids'] ?? ($idx === 0 ? ($case->children_count ?: ($docketData['children_count'] ?? ($docketData['dependents'] ?? ''))) : ''))),
-            'has_children'        => !empty($s['has_children']) || (!empty($s['children_count']) && $s['children_count'] !== '0'),
-            'spouse_name'         => $s['spouse_name'] ?? ($s['partner_name'] ?? ($idx === 0 ? ($case->spouse_name ?: ($case->partner_name ?: ($docketData['spouse_name'] ?? ($docketData['partner_name'] ?? '')))) : '')),
-            'spouse_phone'        => $s['spouse_phone'] ?? ($s['partner_phone'] ?? ($idx === 0 ? ($case->spouse_phone ?: ($case->partner_phone ?: ($docketData['spouse_phone'] ?? ($docketData['partner_phone'] ?? '')))) : '')),
-            'spouse_info'         => $s['spouse_info'] ?? ($s['partner_info'] ?? ($idx === 0 ? ($case->spouse_info ?: ($case->partner_info ?: ($docketData['spouse_info'] ?? ($docketData['partner_info'] ?? '')))) : '')),
-            'spouse_summary'      => $s['spouse_summary'] ?? ($idx === 0 ? ($case->spouse_summary ?: ($docketData['spouse_summary'] ?? '')) : ''),
-            'dependents'          => $s['dependents'] ?? ($idx === 0 ? ($case->dependents ?: ($docketData['dependents'] ?? '')) : ''),
-            'mugshots'            => [
-                'front'         => isset($s['mugshots']['front']) ? $s['mugshots']['front'] : (isset($s['mugshots']['front-profile']) ? $s['mugshots']['front-profile'] : (isset($s['mugshot_front']) ? $s['mugshot_front'] : ($idx === 0 ? ($case->mugshot_front ?? '') : ''))),
-                'left-profile'  => isset($s['mugshots']['left-profile']) ? $s['mugshots']['left-profile'] : (isset($s['mugshots']['left']) ? $s['mugshots']['left'] : (isset($s['mugshot_left']) ? $s['mugshot_left'] : ($idx === 0 ? ($case->mugshot_left ?? '') : ''))),
-                'right-profile' => isset($s['mugshots']['right-profile']) ? $s['mugshots']['right-profile'] : (isset($s['mugshots']['right']) ? $s['mugshots']['right'] : (isset($s['mugshot_right']) ? $s['mugshot_right'] : ($idx === 0 ? ($case->mugshot_right ?? '') : ''))),
-            ],
-            'role'                => $role,
-            'is_associate'        => $isAssoc,
-            'associate_id'        => $s['associate_id'] ?? ($s['suspect_id'] ?? ''),
-        ];
+            $rawFront = isset($s['mugshots']['front']) ? $s['mugshots']['front'] : (isset($s['mugshots']['front-profile']) ? $s['mugshots']['front-profile'] : (isset($s['mugshot_front']) ? $s['mugshot_front'] : (isset($s['photo']) ? $s['photo'] : ($idx === 0 ? ($case->mugshot_front ?? ($case->photo ?? '')) : ''))));
+            $rawLeft = isset($s['mugshots']['left-profile']) ? $s['mugshots']['left-profile'] : (isset($s['mugshots']['left']) ? $s['mugshots']['left'] : (isset($s['mugshot_left']) ? $s['mugshot_left'] : ($idx === 0 ? ($case->mugshot_left ?? '') : '')));
+            $rawRight = isset($s['mugshots']['right-profile']) ? $s['mugshots']['right-profile'] : (isset($s['mugshots']['right']) ? $s['mugshots']['right'] : (isset($s['mugshot_right']) ? $s['mugshot_right'] : ($idx === 0 ? ($case->mugshot_right ?? '') : '')));
+
+            $resFront = \App\Services\CasePhotoResolver::resolveMugshotUrl($rawFront) ?? ($rawFront ?: '');
+            $resLeft  = \App\Services\CasePhotoResolver::resolveMugshotUrl($rawLeft) ?? ($rawLeft ?: '');
+            $resRight = \App\Services\CasePhotoResolver::resolveMugshotUrl($rawRight) ?? ($rawRight ?: '');
+
+            $suspectData = [
+                'index'               => $idx,
+                'suspect_name'        => $sName,
+                'suspect_alias'       => $s['suspect_alias'] ?? ($s['alias'] ?? ($idx === 0 ? ($case->suspect_alias ?? '') : '')),
+                'ghana_card'          => $s['ghana_card'] ?? ($idx === 0 ? ($case->ghana_card ?? '') : ''),
+                'gender'              => $s['gender'] ?? ($idx === 0 ? ($case->gender ?? 'Male') : 'Male'),
+                'age'                 => $s['age'] ?? ($idx === 0 ? ($case->age ?? '') : ''),
+                'phone'               => $s['phone'] ?? ($idx === 0 ? ($case->phone ?? '') : ''),
+                'address'             => $s['address'] ?? ($idx === 0 ? ($case->address ?? '') : ''),
+                'offense_description' => $s['offense'] ?? ($s['offense_description'] ?? ($idx === 0 ? ($case->offense_description ?? '') : '')),
+                'arrest_date'         => $s['date_of_arrest'] ?? ($s['arrest_date'] ?? ($idx === 0 ? ($case->arrest_date ?? '') : '')),
+                'arrest_time'         => $s['time_of_arrest'] ?? ($s['arrest_time'] ?? ($idx === 0 ? ($case->arrest_time ?? '') : '')),
+                'raid_location'       => $s['raid_location'] ?? ($s['location_of_arrest'] ?? ($idx === 0 ? ($case->raid_location ?? '') : '')),
+                'holding_facility'    => $s['holding_facility'] ?? ($idx === 0 ? ($case->holding_facility ?? '') : ''),
+                'dob'                 => $s['dob'] ?? ($idx === 0 ? ($case->dob ?? '') : ''),
+                'height'              => $s['height'] ?? ($idx === 0 ? ($case->height ?? '') : ''),
+                'height_unit'         => $s['height_unit'] ?? ($idx === 0 ? ($case->height_unit ?? 'CM') : 'CM'),
+                'eye_color'           => $s['eye_color'] ?? ($idx === 0 ? ($case->eye_color ?? '') : ''),
+                'nationality'         => $s['nationality'] ?? ($idx === 0 ? ($case->nationality ?? '') : ''),
+                'place_of_birth'      => $s['place_of_birth'] ?? ($s['pob'] ?? ($idx === 0 ? ($case->place_of_birth ?: ($case->pob ?: ($docketData['place_of_birth'] ?? ($docketData['pob'] ?? '')))) : '')),
+                'pob'                 => $s['place_of_birth'] ?? ($s['pob'] ?? ($idx === 0 ? ($case->place_of_birth ?: ($case->pob ?: ($docketData['place_of_birth'] ?? ($docketData['pob'] ?? '')))) : '')),
+                'hometown'            => $s['hometown'] ?? ($idx === 0 ? ($case->hometown ?: ($docketData['hometown'] ?? '')) : ''),
+                'marital_status'      => $s['marital_status'] ?? ($s['marital'] ?? ($s['relationship_status'] ?? ($idx === 0 ? ($case->marital_status ?: ($docketData['marital_status'] ?? '')) : ''))),
+                'children_count'      => $s['children_count'] ?? ($s['children'] ?? ($s['kids'] ?? ($idx === 0 ? ($case->children_count ?: ($docketData['children_count'] ?? ($docketData['dependents'] ?? ''))) : ''))),
+                'has_children'        => !empty($s['has_children']) || (!empty($s['children_count']) && $s['children_count'] !== '0'),
+                'spouse_name'         => $s['spouse_name'] ?? ($s['partner_name'] ?? ($idx === 0 ? ($case->spouse_name ?: ($case->partner_name ?: ($docketData['spouse_name'] ?? ($docketData['partner_name'] ?? '')))) : '')),
+                'spouse_phone'        => $s['spouse_phone'] ?? ($s['partner_phone'] ?? ($idx === 0 ? ($case->spouse_phone ?: ($case->partner_phone ?: ($docketData['spouse_phone'] ?? ($docketData['partner_phone'] ?? '')))) : '')),
+                'spouse_info'         => $s['spouse_info'] ?? ($s['partner_info'] ?? ($idx === 0 ? ($case->spouse_info ?: ($case->partner_info ?: ($docketData['spouse_info'] ?? ($docketData['partner_info'] ?? '')))) : '')),
+                'spouse_summary'      => $s['spouse_summary'] ?? ($idx === 0 ? ($case->spouse_summary ?: ($docketData['spouse_summary'] ?? '')) : ''),
+                'dependents'          => $s['dependents'] ?? ($idx === 0 ? ($case->dependents ?: ($docketData['dependents'] ?? '')) : ''),
+                'mugshots'            => [
+                    'front'         => $resFront,
+                    'front-profile' => $resFront,
+                    'left'          => $resLeft,
+                    'left-profile'  => $resLeft,
+                    'right'         => $resRight,
+                    'right-profile' => $resRight,
+                ],
+                'mugshot_front'       => $resFront,
+                'mugshot_left'        => $resLeft,
+                'mugshot_right'       => $resRight,
+                'role'                => $role,
+                'is_associate'        => $isAssoc,
+                'associate_id'        => $s['associate_id'] ?? ($s['suspect_id'] ?? ''),
+            ];
 
         // Linked Exhibit Index
         $matchedExIdx = null;
@@ -291,9 +406,9 @@
     }
 
     $suspectObj = $suspectsList[0] ?? [];
-    $mugshotFront = isset($suspectObj['mugshots']['front']) ? $suspectObj['mugshots']['front'] : ($case->mugshot_front ?? '');
-    $mugshotLeft = isset($suspectObj['mugshots']['left-profile']) ? $suspectObj['mugshots']['left-profile'] : (isset($suspectObj['mugshots']['left']) ? $suspectObj['mugshots']['left'] : ($case->mugshot_left ?? ''));
-    $mugshotRight = isset($suspectObj['mugshots']['right-profile']) ? $suspectObj['mugshots']['right-profile'] : (isset($suspectObj['mugshots']['right']) ? $suspectObj['mugshots']['right'] : ($case->mugshot_right ?? ''));
+    $mugshotFront = \App\Services\CasePhotoResolver::resolveMugshotUrl($suspectObj['mugshots']['front'] ?? ($case->mugshot_front ?? ($case->photo ?? ''))) ?: ($suspectObj['mugshots']['front'] ?? ($case->mugshot_front ?? ($case->photo ?? '')));
+    $mugshotLeft = \App\Services\CasePhotoResolver::resolveMugshotUrl($suspectObj['mugshots']['left-profile'] ?? ($suspectObj['mugshots']['left'] ?? ($case->mugshot_left ?? ''))) ?: ($suspectObj['mugshots']['left-profile'] ?? ($suspectObj['mugshots']['left'] ?? ($case->mugshot_left ?? '')));
+    $mugshotRight = \App\Services\CasePhotoResolver::resolveMugshotUrl($suspectObj['mugshots']['right-profile'] ?? ($suspectObj['mugshots']['right'] ?? ($case->mugshot_right ?? ''))) ?: ($suspectObj['mugshots']['right-profile'] ?? ($suspectObj['mugshots']['right'] ?? ($case->mugshot_right ?? '')));
 
     $suspectDob = $suspectObj['dob'] ?? ($case->dob ?: ($docketData['dob'] ?? ''));
     $calcAgeFromDob = null;
@@ -444,8 +559,8 @@
         }
 
         .hero-banner {
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
-            border-bottom: 1px solid rgba(245, 158, 11, 0.2);
+            background: #e2e8f0;
+            border-bottom: 1px solid #cbd5e1;
         }
     </style>
 </head>
@@ -465,17 +580,18 @@
     <div class="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-100">
 
         <!-- STICKY TOP TOOLBAR & ACTION BAR -->
-        <header class="hero-banner text-white h-16 px-6 flex items-center justify-between shrink-0 z-30 shadow-lg">
+        <header class="hero-banner text-slate-900 h-16 px-6 flex items-center justify-between shrink-0 z-30 shadow-xs">
             <div class="flex items-center gap-4 min-w-0">
-                <a href="{{ $backReviewUrl }}" class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-slate-800/80 hover:bg-slate-700 text-slate-200 hover:text-white text-xs font-bold rounded-xl border border-slate-700 transition-all text-decoration-none shadow-sm">
+                <a href="{{ $backReviewUrl }}" class="inline-flex items-center gap-2 px-3.5 py-1.5 bg-white hover:bg-slate-100 text-slate-700 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-300 hover:border-slate-400 transition-all text-decoration-none shadow-xs">
+                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
                     <span>Back to Case Review</span>
                 </a>
-                <div class="h-5 w-px bg-slate-700/80 hidden sm:block"></div>
+                <div class="h-5 w-px bg-slate-300 hidden sm:block"></div>
                 <div class="flex items-center gap-2.5 min-w-0">
-                    <span class="px-2.5 py-0.5 rounded-lg text-xs font-mono-code font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    <span class="px-2.5 py-0.5 rounded-lg text-xs font-mono-code font-bold bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
                         {{ $case->case_number }}
                     </span>
-                    <span class="text-xs font-mono-code font-bold text-slate-400 uppercase tracking-wider hidden lg:block">
+                    <span class="text-xs font-mono-code font-extrabold text-slate-700 uppercase tracking-wider hidden lg:block">
                         NACOC FORENSIC DOSSIER EDITOR
                     </span>
                 </div>
@@ -483,7 +599,7 @@
 
             <!-- TOP RIGHT QUICK SAVE ACTIONS -->
             <div class="flex items-center gap-3 shrink-0">
-                <a href="{{ $backReviewUrl }}" class="px-4 py-2 text-xs font-bold text-slate-300 hover:text-white bg-slate-800/60 hover:bg-slate-700/80 border border-slate-700 rounded-xl transition-all text-decoration-none">
+                <a href="{{ $backReviewUrl }}" class="px-4 py-2 text-xs font-bold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-300 hover:border-slate-400 rounded-xl transition-all text-decoration-none shadow-xs">
                     Cancel
                 </a>
                 <button type="button" onclick="document.getElementById('editCaseForm').submit();" class="px-5 py-2 text-xs font-extrabold text-slate-950 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 rounded-xl shadow-md shadow-amber-500/20 border border-amber-400/50 transition-all cursor-pointer inline-flex items-center gap-2 active:scale-95">
@@ -496,18 +612,17 @@
         <main class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
 
             <!-- STYLISH HERO STRIP -->
-            <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 text-white rounded-2xl p-6 border border-slate-800 shadow-xl relative overflow-hidden">
-                <div class="absolute -right-10 -bottom-10 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            <div class="bg-slate-200/90 text-slate-900 rounded-2xl p-6 border border-slate-300 shadow-sm relative overflow-hidden">
                 <div class="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div class="flex items-center gap-4">
                         <div>
                             <div class="flex items-center gap-2 flex-wrap">
-                                <h1 class="text-xl font-black text-white tracking-tight">Edit Case/Update Case Records</h1>
-                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                <h1 class="text-xl font-black text-slate-900 tracking-tight">Edit Case/Update Case Records</h1>
+                                <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300">
                                     ACTIVE DOCKET
                                 </span>
                             </div>
-                            <p class="text-xs text-slate-300 mt-1 max-w-2xl leading-relaxed">
+                            <p class="text-xs text-slate-600 mt-1 max-w-2xl leading-relaxed font-medium">
                                 Modify registered case docket metadata, suspect identification facts, exhibit manifests, or chemical laboratory findings with full audit logging.
                             </p>
                         </div>
@@ -531,17 +646,17 @@
             <div class="glass-card overflow-hidden">
                 
                 <!-- SUSPECT & LINKED EXHIBIT DOCKET SELECTOR BAR -->
-                <div class="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 p-4 sm:p-5 border-b border-slate-700/80 shadow-inner">
+                <div class="bg-slate-200/80 p-4 sm:p-5 border-b border-slate-300 shadow-xs">
                     <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
                         <div class="flex items-center gap-2">
-                            <span class="text-amber-400 font-extrabold text-xs uppercase font-mono-code flex items-center gap-2">
+                            <span class="text-slate-900 font-extrabold text-xs uppercase font-mono-code flex items-center gap-2">
                                 Suspect(s) &amp; Linked Exhibit(s)
                             </span>
-                            <span class="text-[10px] bg-amber-500/20 text-amber-300 px-2.5 py-0.5 rounded-full font-mono-code font-bold border border-amber-500/30">
+                            <span class="text-[10px] bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full font-mono-code font-bold border border-amber-300">
                                 {{ count($suspectsList) }} Suspect(s)
                             </span>
                         </div>
-                        <span class="text-[10px] text-slate-300 font-mono-code font-bold bg-slate-800/90 px-3 py-1 rounded-lg border border-slate-700">
+                        <span class="text-[10px] text-slate-600 font-mono-code font-bold bg-white/90 px-3 py-1 rounded-lg border border-slate-300 shadow-2xs">
                             Select a suspect to switch suspect details, exhibit manifest &amp; lab results across all tabs
                         </span>
                     </div>
@@ -551,18 +666,18 @@
                             <button type="button" 
                                 onclick="switchSuspect({{ $sIdx }})" 
                                 id="suspectSelectBtn_{{ $sIdx }}" 
-                                class="suspect-select-btn px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 shrink-0 {{ $sIdx === 0 ? 'bg-amber-500/20 border-amber-500 text-white ring-2 ring-amber-500/30 shadow-md' : 'bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white' }}">
-                                <div class="w-7 h-7 rounded-lg bg-amber-500/30 text-amber-300 font-bold font-mono-code text-xs flex items-center justify-center border border-amber-500/40 shrink-0">
+                                class="suspect-select-btn px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 shrink-0 {{ $sIdx === 0 ? 'bg-white border-amber-500 text-slate-900 ring-2 ring-amber-500/30 shadow-md' : 'bg-slate-100/90 border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-white hover:text-slate-900' }}">
+                                <div class="w-7 h-7 rounded-lg bg-amber-100 text-amber-900 font-bold font-mono-code text-xs flex items-center justify-center border border-amber-300 shrink-0">
                                     {{ $sIdx + 1 }}
                                 </div>
                                 <div class="min-w-0">
                                     <div class="flex items-center gap-2">
-                                        <span class="text-xs font-black text-white truncate max-w-[160px]">{{ $sItem['suspect_name'] }}</span>
-                                        <span class="text-[9px] px-1.5 py-0.2 rounded font-mono-code font-bold uppercase {{ $sItem['is_associate'] ? 'bg-purple-500/30 text-purple-200 border border-purple-500/40' : ($sIdx > 0 ? 'bg-blue-500/30 text-blue-200 border border-blue-500/40' : 'bg-emerald-500/30 text-emerald-200 border border-emerald-500/40') }}">
+                                        <span class="text-xs font-black text-slate-900 truncate max-w-[160px]">{{ $sItem['suspect_name'] }}</span>
+                                        <span class="text-[9px] px-1.5 py-0.2 rounded font-mono-code font-bold uppercase {{ $sItem['is_associate'] ? 'bg-purple-100 text-purple-800 border border-purple-200' : ($sIdx > 0 ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-emerald-100 text-emerald-800 border border-emerald-200') }}">
                                             {{ $sItem['role'] }}
                                         </span>
                                     </div>
-                                    <div class="text-[10px] text-amber-300/90 truncate max-w-[220px] flex items-center gap-1 mt-0.5 font-mono-code">
+                                    <div class="text-[10px] text-slate-600 truncate max-w-[220px] flex items-center gap-1 mt-0.5 font-mono-code font-medium">
                                         <span>{{ $sItem['exhibit']['seizure_name_drug'] ?: 'No Exhibit' }}</span>
                                         @if(!empty($sItem['exhibit']['seizure_weight']))
                                             <span>({{ $sItem['exhibit']['seizure_weight'] }} {{ $sItem['exhibit']['seizure_unit'] ?: 'kg' }})</span>
@@ -1382,12 +1497,12 @@
                                     <div class="px-3 py-2 rounded-xl bg-slate-800/80 border border-slate-700/80 flex flex-col justify-center min-w-[130px]">
                                         <span class="text-[9px] font-mono-code font-bold text-slate-400 uppercase tracking-wider">Exhibit Drug</span>
                                         <span id="tab2_live_drug" class="text-xs font-black text-amber-300 font-mono-code truncate max-w-[150px]">
-                                            {{ $case->seizure_name_drug ?: ($case->seizure_name ?: 'No Commodity') }}
+                                            {{ $case->seizure_name_drug ?: ($case->seizure_name ?: ($exhibitsList[0]['seizure_name_drug'] ?? 'No Commodity')) }}
                                         </span>
                                     </div>
 
                                     @php
-                                        $curCat = strtolower(trim($case->exhibit_category ?: ($docketData['seizures'][0]['category'] ?? '')));
+                                        $curCat = strtolower(trim($case->exhibit_category ?: ($exhibitsList[0]['exhibit_category'] ?? ($docketData['seizures'][0]['category'] ?? ''))));
                                         $catVal = 'Drugs / Narcotics';
                                         $catBadge = 'DRG';
                                         $catLabel = 'Drugs / Narcotics';
@@ -1460,7 +1575,7 @@
                                         @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
                                     </label>
                                     <div>
-                                        <input type="text" id="input_seizure_name_drug" name="seizure_name_drug" value="{{ $case->seizure_name_drug ?: $case->seizure_name }}" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input font-bold text-slate-900" placeholder="e.g. Suspected Cocaine / White Compressed Slab">
+                                        <input type="text" id="input_seizure_name_drug" name="seizure_name_drug" value="{{ $case->seizure_name_drug ?: ($case->seizure_name ?: ($exhibitsList[0]['seizure_name_drug'] ?? '')) }}" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input font-bold text-slate-900" placeholder="e.g. Suspected Cocaine / White Compressed Slab">
                                     </div>
                                 </div>
 
@@ -1588,7 +1703,7 @@
                                     </label>
                                     <div class="relative">
                                         
-                                        <input type="text" id="input_seizure_quantity" name="seizure_quantity" value="{{ $case->seizure_quantity }}" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input pl-8 font-mono-code font-bold" placeholder="e.g. 50">
+                                        <input type="text" id="input_seizure_quantity" name="seizure_quantity" value="{{ $case->seizure_quantity ?: ($exhibitsList[0]['seizure_quantity'] ?? '') }}" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input pl-8 font-mono-code font-bold" placeholder="e.g. 50">
                                     </div>
                                 </div>
                             </div>
@@ -1613,7 +1728,7 @@
                                         <span>Seizure Weight</span>
                                         @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
                                     </label>
-                                    <input type="text" id="input_seizure_weight" name="seizure_weight" value="{{ $case->seizure_weight }}" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input font-mono-code font-bold" placeholder="e.g. 52.4 kg">
+                                    <input type="text" id="input_seizure_weight" name="seizure_weight" value="{{ $case->seizure_weight ?: ($exhibitsList[0]['seizure_weight'] ?? '') }}" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input font-mono-code font-bold" placeholder="e.g. 52.4 kg">
                                 </div>
 
                                 <!-- Packaging Unit Type Dropdown -->
@@ -1623,7 +1738,7 @@
                                         @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700 font-mono-code font-bold">READ-ONLY</span>@endif
                                     </label>
                                     @php
-                                        $curUnit = strtolower(trim($case->seizure_unit ?: ($docketData['seizures'][0]['seizure_unit'] ?? '')));
+                                        $curUnit = strtolower(trim($case->seizure_unit ?: ($exhibitsList[0]['seizure_unit'] ?? ($docketData['seizures'][0]['seizure_unit'] ?? ''))));
                                         $unitVal = 'Kilograms (kg)';
                                         $unitCode = 'KG';
                                         $unitLabel = 'Kilograms (kg)';
@@ -1749,7 +1864,7 @@
                                         <span>Seizure Packaging Description</span>
                                         @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
                                     </label>
-                                    <input type="text" id="input_seizure_packaging" name="seizure_packaging" value="{{ $case->seizure_packaging }}" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input" placeholder="e.g. Wrapped in brown masking tape with black waterproof foil">
+                                    <input type="text" id="input_seizure_packaging" name="seizure_packaging" value="{{ $case->seizure_packaging ?: ($exhibitsList[0]['seizure_packaging'] ?? '') }}" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input" placeholder="e.g. Wrapped in brown masking tape with black waterproof foil">
                                 </div>
 
                                 <!-- Reason for Seizure -->
@@ -1758,7 +1873,7 @@
                                         <span>Reason for Seizure &amp; Interception Narrative</span>
                                         @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700">READ-ONLY</span>@endif
                                     </label>
-                                    <textarea id="input_seizure_reason" name="seizure_reason" rows="3" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input leading-relaxed" placeholder="Explain field interception justification and legal basis for seizure...">{{ $case->seizure_reason }}</textarea>
+                                    <textarea id="input_seizure_reason" name="seizure_reason" rows="3" {{ !$canEditCrimeScene ? 'readonly' : '' }} oninput="syncExhibitToLabAndSelector()" onchange="syncExhibitToLabAndSelector()" class="stylish-input leading-relaxed" placeholder="Explain field interception justification and legal basis for seizure...">{{ $case->seizure_reason ?: ($exhibitsList[0]['seizure_reason'] ?? '') }}</textarea>
                                 </div>
                             </div>
                         </div>
@@ -3810,9 +3925,9 @@
         // Update selector button styles
         document.querySelectorAll('.suspect-select-btn').forEach((btn, i) => {
             if (i === newIdx) {
-                btn.className = 'suspect-select-btn px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 shrink-0 bg-amber-500/20 border-amber-500 text-white ring-2 ring-amber-500/30 shadow-md';
+                btn.className = 'suspect-select-btn px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 shrink-0 bg-white border-amber-500 text-slate-900 ring-2 ring-amber-500/30 shadow-md';
             } else {
-                btn.className = 'suspect-select-btn px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 shrink-0 bg-slate-800/80 border-slate-700 text-slate-300 hover:border-slate-500 hover:text-white';
+                btn.className = 'suspect-select-btn px-4 py-2.5 rounded-xl border text-left transition-all cursor-pointer flex items-center gap-3 shrink-0 bg-slate-100/90 border-slate-300 text-slate-700 hover:border-slate-400 hover:bg-white hover:text-slate-900';
             }
         });
 
@@ -3859,7 +3974,13 @@
         const mug = s.mugshots || {};
         function getDefinedMugUrl(...vals) {
             for (let v of vals) {
-                if (typeof v === 'string') return v;
+                if (typeof v === 'string' && v.trim() !== '') {
+                    let u = v.trim();
+                    if (!u.startsWith('http://') && !u.startsWith('https://') && !u.startsWith('data:') && !u.startsWith('/')) {
+                        u = '/storage/' + u.replace(/^\/?storage\//, '');
+                    }
+                    return u;
+                }
             }
             return '';
         }
@@ -4030,7 +4151,11 @@
         let html = '';
         photos.forEach((src, pIdx) => {
             if (!src) return;
-            const safeSrc = src.replace(/"/g, '&quot;');
+            let resolvedSrc = src;
+            if (typeof resolvedSrc === 'string' && !resolvedSrc.startsWith('http://') && !resolvedSrc.startsWith('https://') && !resolvedSrc.startsWith('data:') && !resolvedSrc.startsWith('/')) {
+                resolvedSrc = '/storage/' + resolvedSrc.replace(/^\/?storage\//, '');
+            }
+            const safeSrc = resolvedSrc.replace(/"/g, '&quot;');
             html += `
                 <div class="group relative bg-slate-900 rounded-xl overflow-hidden border border-slate-700/80 shadow-md aspect-square flex items-center justify-center hover:border-amber-500 transition-all">
                     <img src="${safeSrc}" alt="Seized Contraband Drug Photo #${pIdx + 1}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">

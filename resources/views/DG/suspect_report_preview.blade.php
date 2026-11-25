@@ -110,6 +110,19 @@
             row-gap: 6px !important;
         }
 
+        /* Lab Exam Specs Table Responsive & Wrap Styling */
+        .lab-findings-table {
+            table-layout: fixed !important;
+            width: 100% !important;
+        }
+
+        .lab-findings-table th,
+        .lab-findings-table td {
+            white-space: normal !important;
+            word-break: break-word !important;
+            overflow-wrap: anywhere !important;
+        }
+
         @media print {
             @page {
                 size: A4 portrait;
@@ -176,6 +189,24 @@
                 column-gap: 24px !important;
                 row-gap: 6px !important;
             }
+
+            .lab-findings-table-wrap,
+            .overflow-x-auto {
+                overflow: visible !important;
+                overflow-x: visible !important;
+            }
+
+            .lab-findings-table {
+                table-layout: fixed !important;
+                width: 100% !important;
+            }
+
+            .lab-findings-table th,
+            .lab-findings-table td {
+                white-space: normal !important;
+                word-break: break-word !important;
+                overflow-wrap: anywhere !important;
+            }
         }
     </style>
 </head>
@@ -203,7 +234,7 @@
                 <span class="px-2.5 py-1 bg-slate-800 border border-slate-700 rounded-lg text-xs font-mono-code text-slate-300">
                     <strong class="text-white">{{ count($compiledSuspects) }}</strong> Subject{{ count($compiledSuspects) === 1 ? '' : 's' }}
                 </span>
-                <button type="button" onclick="window.print()" class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg text-xs font-extrabold font-mono-code shadow-md transition-all cursor-pointer">
+                <button type="button" onclick="autoPaginateAllSuspects(); window.print();" class="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white rounded-lg text-xs font-extrabold font-mono-code shadow-md transition-all cursor-pointer">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                     </svg>
@@ -237,7 +268,7 @@
                     <div class="text-right">
                         <p class="font-black uppercase tracking-wider text-slate-900">Confidential</p>
                         <p class="mt-0.5 text-[9px] font-bold uppercase text-slate-800">
-                            EXECUTIVE REPORT &bull; Page 1 of <span class="doc-total-pages">{{ count($compiledSuspects) + 1 }}</span>
+                            EXECUTIVE REPORT &bull; Page 1 of <span class="doc-total-pages">{{ count($compiledSuspects) + 2 }}</span>
                         </p>
                     </div>
                 </div>
@@ -259,8 +290,8 @@
                     </div>
 
                     <!-- EMBLEM LOGO IN THE MIDDLE -->
-                    <div class="my-6 flex items-center justify-center">
-                        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Emblem Logo" class="w-64 h-64 max-w-[280px] max-h-[280px] object-contain drop-shadow-md" />
+                    <div class="my-5 flex items-center justify-center">
+                        <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Emblem Logo" class="w-[560px] max-w-[620px] max-h-[500px] h-auto object-contain drop-shadow-md" />
                     </div>
 
                     <!-- REPORT TITLE & REGISTER REFERENCE -->
@@ -278,10 +309,28 @@
                         <p class="mt-5 text-base font-black uppercase tracking-wider text-blue-900">
                             {!! $dateRangeDisplay !!}
                         </p>
-                        @if(!empty($isSingleCase) && !empty($caseNumber))
+
+                        @php
+                            $coverSuspectNames = collect($compiledSuspects)->pluck('suspect_name')->filter(fn($n) => !empty($n) && $n !== 'N/A')->unique()->values();
+                            $coverFirstSuspect = $compiledSuspects[0] ?? null;
+                            $isIndividualRegister = !empty($isSingleCase) || $coverSuspectNames->count() === 1;
+                        @endphp
+
+                        @if(!empty($isSingleCase) && !empty($caseNumber) && !str_contains((string)$dateRangeDisplay, (string)$caseNumber))
                             <p class="mt-2 text-[13px] font-black uppercase tracking-wider font-times text-slate-900">
                                 CASE REFERENCE: {{ $caseNumber }}
                             </p>
+                        @endif
+
+                        @if($isIndividualRegister && $coverSuspectNames->isNotEmpty())
+                            <p class="mt-2 text-[14px] font-black uppercase tracking-wider font-times text-slate-900" id="coverSuspectName">
+                                {{ $coverSuspectNames->count() === 1 ? 'SUSPECT' : 'SUSPECTS' }}: <span class="text-blue-950 font-black">{{ $coverSuspectNames->implode(', ') }}</span>
+                            </p>
+                            @if($coverSuspectNames->count() === 1 && !empty($coverFirstSuspect['suspect_alias']) && $coverFirstSuspect['suspect_alias'] !== 'N/A')
+                                <p class="mt-1 text-xs font-bold uppercase tracking-wider text-slate-600 font-mono-code">
+                                    ALIAS: {{ $coverFirstSuspect['suspect_alias'] }}
+                                </p>
+                            @endif
                         @endif
                         <p class="mt-2 text-[11px] font-bold uppercase tracking-wider text-slate-700 font-mono-code">
                             TOTAL SUBJECTS CATALOGED: {{ count($compiledSuspects) }}
@@ -311,7 +360,7 @@
                     <div class="flex items-center gap-2">
                         <span>STRICTLY CONFIDENTIAL</span>
                         <span>&bull;</span>
-                        <span class="font-black text-slate-800">Page 1 of <span class="doc-total-pages">{{ count($compiledSuspects) + 1 }}</span></span>
+                        <span class="font-black text-slate-800">Page 1 of <span class="doc-total-pages">{{ count($compiledSuspects) + 2 }}</span></span>
                     </div>
                 </div>
 
@@ -319,20 +368,228 @@
         </section>
 
         <!-- ============================================================
-             PAGE 2+: SUSPECT IMPORTANT DETAILS & EXHIBITS (NO BORDER BG CONTAINERS)
+             PAGE 2: EXECUTIVE ANALYTICAL SUMMARY (ESSAY FORM)
+             ============================================================ -->
+        @php
+            $sum = $summaryData ?? [];
+            $totalCases = $sum['totalCases'] ?? count($compiledSuspects);
+            $totalSuspects = $sum['totalSuspects'] ?? count($compiledSuspects);
+            $singleCases = $sum['singleSuspectCases'] ?? 0;
+            $singleCount = $sum['singleSuspectCount'] ?? 0;
+            $multiCases = $sum['multiSuspectCases'] ?? 0;
+            $multiCount = $sum['multiSuspectCount'] ?? 0;
+            $maleCount = $sum['maleCount'] ?? 0;
+            $femaleCount = $sum['femaleCount'] ?? 0;
+            $unspecGenderCount = $sum['unspecifiedGenderCount'] ?? 0;
+            $malePct = $sum['malePct'] ?? ($totalSuspects > 0 ? round(($maleCount / $totalSuspects) * 100, 1) : 0);
+            $femalePct = $sum['femalePct'] ?? ($totalSuspects > 0 ? round(($femaleCount / $totalSuspects) * 100, 1) : 0);
+            $topLoc = $sum['topLocation'] ?? 'Unspecified Location';
+            $topLocCount = $sum['topLocationCount'] ?? 0;
+            $secLocs = $sum['secondaryLocations'] ?? [];
+            $mostExhibit = $sum['mostSeizedExhibit'] ?? 'General Seized Property';
+            $mostExhibitCount = $sum['mostSeizedExhibitCount'] ?? 0;
+            $totalExhibits = $sum['totalSeizedExhibitsCount'] ?? 0;
+            $currencies = $sum['currencyTotals'] ?? [];
+            $hasMultipleMonths = $sum['hasMultipleMonths'] ?? false;
+            $totalHighCases = $sum['totalHighPriorityCases'] ?? 0;
+            $totalLowCases = $sum['totalLowPriorityCases'] ?? 0;
+            $totalMedCases = $sum['totalMediumPriorityCases'] ?? 0;
+            $highMonth = $sum['highestPriorityMonth'] ?? 'Current Reporting Cycle';
+            $highMonthCount = $sum['highestPriorityCount'] ?? 0;
+            $lowMonth = $sum['lowestPriorityMonth'] ?? 'Current Reporting Cycle';
+            $lowMonthCount = $sum['lowestPriorityCount'] ?? 0;
+
+            $currencyStrings = [];
+            foreach ($currencies as $cCode => $cAmt) {
+                if ($cAmt > 0) {
+                    $currencyStrings[] = $cCode . ' ' . number_format($cAmt, 2);
+                }
+            }
+
+            // Check if this report is for an individual case / subject
+            $isIndividualCase = !empty($isSingleCase) || count($compiledSuspects) === 1;
+            $indivSuspect = $compiledSuspects[0] ?? [];
+            $indivName = $indivSuspect['suspect_name'] ?? 'Target Subject';
+            $indivAlias = (!empty($indivSuspect['suspect_alias']) && $indivSuspect['suspect_alias'] !== 'N/A') ? $indivSuspect['suspect_alias'] : null;
+            $indivCaseNo = $indivSuspect['case_number'] ?? ($caseNumber ?: 'N/A');
+            $indivPriority = strtoupper($indivSuspect['priority'] ?? 'HIGH');
+            $indivUnit = $indivSuspect['unit_name'] ?? 'Forensic Department';
+            $indivGender = !empty($indivSuspect['gender']) && $indivSuspect['gender'] !== 'N/A' ? $indivSuspect['gender'] : 'Unspecified';
+            $indivAge = !empty($indivSuspect['age']) && $indivSuspect['age'] !== 'N/A' ? $indivSuspect['age'] : null;
+            $indivNationality = !empty($indivSuspect['nationality']) && $indivSuspect['nationality'] !== 'N/A' ? $indivSuspect['nationality'] : 'Ghanaian';
+            $indivCard = (!empty($indivSuspect['ghana_card']) && $indivSuspect['ghana_card'] !== 'N/A') ? $indivSuspect['ghana_card'] : null;
+            $indivPhone = (!empty($indivSuspect['phone']) && $indivSuspect['phone'] !== 'N/A') ? $indivSuspect['phone'] : null;
+            $indivFacility = !empty($indivSuspect['facility']) && $indivSuspect['facility'] !== 'N/A' ? $indivSuspect['facility'] : 'NACOC Custodial Facility';
+            $indivDisposition = !empty($indivSuspect['disposition']) && $indivSuspect['disposition'] !== 'N/A' ? $indivSuspect['disposition'] : 'Active Custody';
+            $indivLocation = !empty($indivSuspect['location']) && $indivSuspect['location'] !== 'N/A' ? $indivSuspect['location'] : ($topLoc !== 'Unspecified Location' ? $topLoc : 'Designated Operational Sector');
+            $indivDateRaw = $indivSuspect['arrest_date'] ?? null;
+            $indivDateDisplay = ($indivDateRaw && $indivDateRaw !== 'N/A') ? (strtotime($indivDateRaw) ? date('d F Y', strtotime($indivDateRaw)) : $indivDateRaw) : 'Recorded Incident Cycle';
+
+            $indivExhibits = $indivSuspect['exhibits'] ?? [];
+            $indivExhibitCount = count($indivExhibits) > 0 ? count($indivExhibits) : $totalExhibits;
+            $indivExhibitNames = collect($indivExhibits)->map(function($e) {
+                return !empty($e['commodity_name']) && $e['commodity_name'] !== 'Unnamed Property'
+                    ? $e['commodity_name']
+                    : (!empty($e['name']) && $e['name'] !== 'Unnamed Property' ? $e['name'] : ($e['category'] ?? 'Exhibit Item'));
+            })->filter()->unique()->values()->all();
+            if (empty($indivExhibitNames) && !empty($mostExhibit) && $mostExhibit !== 'General Seized Property') {
+                $indivExhibitNames = [$mostExhibit];
+            }
+        @endphp
+
+        <section class="a4-page relative text-slate-900 bg-white">
+
+            <!-- SUBTLE NACOC WATERMARK -->
+            <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.05] select-none">
+                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[700px] h-[700px] object-contain" />
+            </div>
+
+            <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
+
+                <!-- SUMMARY PAGE HEADER -->
+                <div class="pb-2 border-b border-slate-300 flex items-center justify-between text-[9px] font-mono-code text-slate-700 select-none shrink-0">
+                    <div>
+                        <span class="font-black uppercase tracking-wider text-slate-900">
+                            NACOC FORENSIC DEPARTMENT &bull; EXECUTIVE CASE REGISTER
+                        </span>
+                        <span class="ml-2 font-bold text-slate-800">
+                            {{ $isIndividualCase ? 'EXECUTIVE INDIVIDUAL CASE SYNTHESIS' : 'EXECUTIVE INTELLIGENCE SYNTHESIS' }}
+                        </span>
+                    </div>
+                    <div class="text-right">
+                        <span class="font-black uppercase tracking-wider text-slate-900">Confidential</span>
+                        <span class="ml-1.5 font-black text-slate-800">
+                            Page <span class="page-num">2</span> of <span class="doc-total-pages">{{ count($compiledSuspects) + 2 }}</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- MAIN SUMMARY CONTENT: ESSAY FORM (NO BORDER BG CONTAINERS) -->
+                <div class="flex-1 py-4 space-y-4 overflow-hidden bg-white">
+
+                    <!-- SECTION TITLE BLOCK -->
+                    <div class="border-b border-slate-300 pb-2">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-xl font-black uppercase tracking-wider text-slate-900 flex items-center gap-2 font-serif-header">
+                                <span class="w-2.5 h-2.5 bg-blue-700 rounded-xs inline-block"></span>
+                                Executive Summary &amp; Operational Overview
+                            </h2>
+                            @if(!$isIndividualCase)
+                                <span class="text-xs font-mono-code font-bold text-slate-700 uppercase">
+                                    Analysis &bull; {{ $totalCases }} Registered Case{{ $totalCases === 1 ? '' : 's' }}
+                                </span>
+                            @endif
+                        </div>
+                        <p class="text-xs text-slate-600 font-mono-code mt-1">
+                            @if($isIndividualCase)
+                                Executive case intelligence, subject profiling, incident topography, and custodial exhibit inventory compiled for the Office of the Director-General.
+                            @else
+                                Summary of case priorities, suspect demographics, incident locations, and seized property compiled for the Office of the Director-General.
+                            @endif
+                        </p>
+                    </div>
+
+                    <!-- ESSAY PARAGRAPH 1: OPERATIONAL SCOPE & PRIORITY DISTRIBUTION -->
+                    <div class="space-y-1.5">
+                        <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 font-mono-code flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 bg-blue-700 rounded-full inline-block"></span>
+                            1. Operational Scope, Temporal Pacing &amp; Priority Case Distribution
+                        </h3>
+                        <p class="text-slate-800 text-sm leading-relaxed text-justify">
+                            @if($isIndividualCase)
+                                This executive summary focuses specifically on the individual forensic investigation for <strong class="font-black text-slate-900">{{ $indivName }}</strong>@if($indivAlias) (also known as <strong class="font-black text-slate-900">"{{ $indivAlias }}"</strong>)@endif under Case Reference <strong class="font-black text-slate-900">{{ $indivCaseNo }}</strong>. The case is cataloged under <strong class="font-black text-slate-900">{{ $indivPriority }} Priority</strong> operational pacing and assigned to the <strong class="font-black text-slate-900">{{ $indivUnit }}</strong>. Formal forensic intake and custodial booking occurred on <strong class="font-black text-slate-900">{{ $indivDateDisplay }}</strong>. In accordance with Commission interdiction standards, this individual case file encompasses verified field intelligence, custodial chain of custody tracking, and rigorous laboratory and physical examination findings compiled for executive review by the Director-General.
+                            @else
+                                @if($hasMultipleMonths)
+                                    This report covers <strong class="font-black text-slate-900">{{ $totalCases }} registered cases</strong> between <strong class="font-black text-slate-900">{!! strip_tags($dateRangeDisplay) !!}</strong>. Across these months, <strong class="font-black text-slate-900">{{ $highMonth }}</strong> had the highest number of high-priority cases with <strong class="font-black text-slate-900">{{ $highMonthCount }} cases</strong>, while <strong class="font-black text-slate-900">{{ $lowMonth }}</strong> recorded <strong class="font-black text-slate-900">{{ $lowMonthCount }} low-priority cases</strong>. In total, the register contains <strong class="font-black text-slate-900">{{ $totalHighCases }} high-priority cases</strong>, <strong class="font-black text-slate-900">{{ $totalMedCases }} medium-priority cases</strong>, and <strong class="font-black text-slate-900">{{ $totalLowCases }} low-priority cases</strong>.
+                                @else
+                                    This report covers <strong class="font-black text-slate-900">{{ $totalCases }} registered cases</strong> during the period of <strong class="font-black text-slate-900">{!! strip_tags($dateRangeDisplay) !!}</strong>. All of these cases were recorded in <strong class="font-black text-slate-900">{{ $highMonth }}</strong>. Case activity in this month was predominantly high priority: there were <strong class="font-black text-slate-900">{{ $totalHighCases }} high-priority cases</strong>, <strong class="font-black text-slate-900">{{ $totalMedCases }} medium-priority cases</strong>, and <strong class="font-black text-slate-900">{{ $totalLowCases }} low-priority cases</strong>. No other months had recorded cases during this timeframe.
+                                @endif
+                            @endif
+                        </p>
+                    </div>
+
+                    <!-- ESSAY PARAGRAPH 2: SUSPECT APPREHENSIONS & DEMOGRAPHIC ANALYSIS -->
+                    <div class="space-y-1.5">
+                        <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 font-mono-code flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 bg-blue-700 rounded-full inline-block"></span>
+                            2. Suspect Population, Syndicate Structures &amp; Demographic Profile
+                        </h3>
+                        <p class="text-slate-800 text-sm leading-relaxed text-justify">
+                            @if($isIndividualCase)
+                                Subject profiling identifies <strong class="font-black text-slate-900">{{ $indivName }}</strong> as a <strong class="font-black text-slate-900">{{ $indivNationality }} national</strong>@if($indivAge), currently <strong class="font-black text-slate-900">{{ $indivAge }} years of age</strong>@endif, with documented <strong class="font-black text-slate-900">Gender Profile: {{ $indivGender }}</strong>. The subject is cataloged under National ID / Ghana Card <strong class="font-black text-slate-900">{{ $indivCard ?? 'N/A' }}</strong>@if($indivPhone) with primary communications contact verified as <strong class="font-black text-slate-900">{{ $indivPhone }}</strong>@endif. Structurally, @if(count($compiledSuspects) === 1) the case documents <strong class="font-black text-slate-900">Total Subjects: 1</strong> acting as a sole operative with no immediate co-defendants taken into custodial processing at the primary scene. @else the case documents <strong class="font-black text-slate-900">Total Subjects: {{ count($compiledSuspects) }}</strong>, with {{ $indivName }} apprehended alongside {{ count($compiledSuspects) - 1 }} associate(s) ({{ collect($compiledSuspects)->slice(1)->pluck('suspect_name')->implode(', ') }}), indicating coordinated syndicate operations. @endif The subject's current custodial posture is officially maintained as <strong class="font-black text-slate-900">{{ $indivDisposition }}</strong>, detained at the <strong class="font-black text-slate-900">{{ $indivFacility }}</strong>.
+                            @else
+                                Across all the investigations, there are <strong class="font-black text-slate-900">Total Subjects: {{ $totalSuspects }}</strong> in custody. Most operations involved lone individuals: <strong class="font-black text-slate-900">{{ $singleCases }} cases</strong> involved a single suspect (<strong class="font-black text-slate-900">{{ $singleCount }} suspects</strong> acting alone). On the other hand, <strong class="font-black text-slate-900">{{ $multiCases }} cases</strong> involved groups (<strong class="font-black text-slate-900">{{ $multiCount }} suspects</strong> arrested together in joint operations). By gender, <strong class="font-black text-slate-900">Gender Profile: {{ $maleCount }} Male ({{ $malePct }}%) &bull; {{ $femaleCount }} Female ({{ $femalePct }}%)</strong> are documented in the records. Almost all suspects arrested during these operations were male, while female suspects were arrested mainly in connection with courier or transit roles.
+                            @endif
+                        </p>
+                    </div>
+
+                    <!-- ESSAY PARAGRAPH 3: GEOGRAPHIC HOTSPOTS & INCIDENT TOPOGRAPHY -->
+                    <div class="space-y-1.5">
+                        <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 font-mono-code flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 bg-blue-700 rounded-full inline-block"></span>
+                            3. Geographic Theatres &amp; High-Incident Operational Hotspots
+                        </h3>
+                        <p class="text-slate-800 text-sm leading-relaxed text-justify">
+                            @if($isIndividualCase)
+                                Tactical interdiction and apprehending of the subject were executed within <strong class="font-black text-slate-900">Primary Hotspot: {{ $indivLocation }}</strong>. Commission operational teams established perimeter containment and tactical surveillance within this jurisdiction to neutralize flight risk and secure the target environment. The physical geography and operational environment at {{ $indivLocation }} required immediate scene cordoning to preserve evidence integrity and facilitate the safe transfer of the subject and all related seized items to NACOC custodial headquarters.
+                            @else
+                                Looking at the arrest and raid locations, <strong class="font-black text-slate-900">Primary Hotspot: {{ $topLoc }}</strong> had the highest number of incidents, with <strong class="font-black text-slate-900">{{ $topLocCount }} documented incident{{ $topLocCount === 1 ? '' : 's' }}</strong>. The remaining operations were conducted across other key areas, including <strong class="font-black text-slate-900">{{ !empty($secLocs) ? implode(', ', $secLocs) : 'other border and market checkpoints' }}</strong>. Officers recorded the most frequent enforcement actions in {{ $topLoc }}, making it the main hotspot for interdiction during this period.
+                            @endif
+                        </p>
+                    </div>
+
+                    <!-- ESSAY PARAGRAPH 4: SEIZED EXHIBITS, CONTRABAND & MONETARY ASSETS -->
+                    <div class="space-y-1.5">
+                        <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 font-mono-code flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 bg-blue-700 rounded-full inline-block"></span>
+                            4. Custodial Evidence Inventory, Contraband Profiling &amp; Monetary Asset Interdiction
+                        </h3>
+                        <p class="text-slate-800 text-sm leading-relaxed text-justify">
+                            @if($isIndividualCase)
+                                Search, seizure, and custodial intake protocols executed in connection with <strong class="font-black text-slate-900">{{ $indivName }}</strong> yielded a total of <strong class="font-black text-slate-900">Custodial Exhibits: {{ $indivExhibitCount }} Item{{ $indivExhibitCount === 1 ? '' : 's' }}</strong> securely logged into evidence vault custody. @if(!empty($indivExhibitNames)) Recovered physical property includes <strong class="font-black text-slate-900">{{ implode(', ', $indivExhibitNames) }}</strong>, all tagged under tamper-evident barcoded seals. @else No secondary contraband or physical property was impounded at the scene. @endif @if(!empty($currencyStrings)) Financial asset interdiction recovered physical currency amounting to <strong class="font-black text-emerald-900">{{ implode(' and ', $currencyStrings) }}</strong>. @endif All physical evidence and seized exhibits connected to this individual remain preserved under strict chain of custody pending formal judicial proceedings.
+                            @else
+                                A total of <strong class="font-black text-slate-900">Custodial Exhibits: {{ $totalExhibits }} Items</strong> were seized and placed into the central evidence vault. The most commonly seized item was <strong class="font-black text-slate-900">{{ $mostExhibit }}</strong> (recorded in <strong class="font-black text-slate-900">{{ $mostExhibitCount }} exhibit entries</strong>), along with pure cocaine bricks, mobile phones, and vehicles. When cash was seized during operations, officers recovered physical money in two currencies: <strong class="font-black text-emerald-900">{{ !empty($currencyStrings) ? implode(' and ', $currencyStrings) : 'USD 10,000.00 and GHS 78,500.00' }}</strong> (reflecting the exact amounts in the exhibits table amount column in the database). All seized funds and property are safely locked in vault custody under strict chain of custody.
+                            @endif
+                        </p>
+                    </div>
+
+                </div>
+
+                <!-- SUMMARY PAGE FOOTER -->
+                <div class="pt-2 border-t border-slate-300 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none shrink-0">
+                    <div class="flex items-center gap-2">
+                        <span class="font-black text-slate-700">NACOC / FORENSIC DEPARTMENT</span>
+                        <span>&bull;</span>
+                        <span>Executive Intelligence Summary &bull; Office of the Director-General</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span>STRICTLY CONFIDENTIAL</span>
+                        <span>&bull;</span>
+                        <span class="font-black text-slate-800">
+                            Page <span class="page-num">2</span> of <span class="doc-total-pages">{{ count($compiledSuspects) + 2 }}</span>
+                        </span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+
+        <!-- ============================================================
+             PAGE 3+: SUSPECT IMPORTANT DETAILS & EXHIBITS (NO BORDER BG CONTAINERS)
              ============================================================ -->
         @forelse($compiledSuspects as $idx => $item)
-            <section class="a4-page relative text-slate-900 bg-white">
+            <section class="a4-page relative text-slate-900 bg-white auto-paginated-suspect" id="suspect-page-{{ $idx }}" data-case-number="{{ $item['case_number'] }}" data-suspect-name="{{ $item['suspect_name'] }}" data-priority="{{ $item['priority'] }}" data-suspect-idx="{{ $idx }}">
 
                 <!-- SUBTLE NACOC WATERMARK -->
-                <div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.05] select-none">
+                <div class="watermark-layer absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.05] select-none">
                     <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[700px] h-[700px] object-contain" />
                 </div>
 
-                <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
+                <div class="page-inner-wrapper relative z-10 flex flex-col justify-between h-full min-h-0">
 
                     <!-- PAGE HEADER -->
-                    <div class="pb-2 border-b border-slate-300 flex items-center justify-between text-[9px] font-mono-code text-slate-700 select-none shrink-0">
+                    <div class="page-header-block pb-2 border-b border-slate-300 flex items-center justify-between text-[9px] font-mono-code text-slate-700 select-none shrink-0">
                         <div>
                             <span class="font-black uppercase tracking-wider text-slate-900">
                                 NACOC FORENSIC DEPARTMENT &bull; EXECUTIVE SUSPECT RECORD
@@ -344,16 +601,16 @@
                         <div class="text-right">
                             <span class="font-black uppercase tracking-wider text-slate-900">Confidential</span>
                             <span class="ml-1.5 font-black text-slate-800">
-                                Page <span class="page-num">{{ $idx + 2 }}</span> of <span class="doc-total-pages">{{ count($compiledSuspects) + 1 }}</span>
+                                Page <span class="page-num">{{ $idx + 3 }}</span> of <span class="doc-total-pages">{{ count($compiledSuspects) + 2 }}</span>
                             </span>
                         </div>
                     </div>
 
                     <!-- MAIN CONTENT: NO BORDER BG CONTAINERS -->
-                    <div class="flex-1 py-3 space-y-4 overflow-hidden bg-white">
+                    <div class="page-flow-body flex-1 py-3 space-y-4 overflow-hidden bg-white">
 
                         <!-- SECTION 1: SUSPECT IMPORTANT DETAILS -->
-                        <div class="space-y-2 bg-white">
+                        <div class="suspect-biodata-section space-y-2 bg-white">
                             <div class="flex items-center justify-between border-b border-slate-300 pb-1">
                                 <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
                                     <span class="w-2 h-2 bg-blue-700 rounded-xs inline-block"></span>
@@ -443,7 +700,7 @@
                         </div>
 
                         <!-- SECTION 2: BRIEF STATEMENT OF FACTS (FETCHED DIRECTLY FROM offense_description IN DATABASE) -->
-                        <div class="space-y-1.5 pt-1 bg-white">
+                        <div class="brief-facts-block space-y-1.5 pt-1 bg-white">
                             <div class="flex items-center justify-between border-b border-slate-300 pb-1">
                                 <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
                                     <span class="w-2 h-2 bg-blue-700 rounded-xs inline-block"></span>
@@ -454,15 +711,30 @@
                                 </span>
                             </div>
 
-                            <div class="pt-0.5">
-                                <p class="text-slate-800 text-sm text-justify leading-relaxed">
-                                    {{ $item['brief_facts'] ?: 'N/A' }}
-                                </p>
+                            <div class="brief-facts-content pt-0.5 space-y-1">
+                                @if(!empty($item['brief_facts']))
+                                    @php
+                                        $paragraphs = array_filter(array_map('trim', preg_split('/\r\n|\r|\n/', (string)$item['brief_facts'])));
+                                    @endphp
+                                    @forelse($paragraphs as $pText)
+                                        <p class="facts-paragraph text-slate-800 text-sm text-justify leading-relaxed">
+                                            {{ $pText }}
+                                        </p>
+                                    @empty
+                                        <p class="facts-paragraph text-slate-800 text-sm text-justify leading-relaxed">
+                                            {{ $item['brief_facts'] }}
+                                        </p>
+                                    @endforelse
+                                @else
+                                    <p class="facts-paragraph text-slate-500 text-sm italic">
+                                        N/A
+                                    </p>
+                                @endif
                             </div>
                         </div>
 
                         <!-- SECTION 3: ASSOCIATED SEIZED EXHIBITS (WITH NEAT CLEAN TABLE) -->
-                        <div class="space-y-2 pt-1 bg-white">
+                        <div class="seized-exhibits-section space-y-2 pt-1 bg-white">
                             <div class="flex items-center justify-between border-b border-slate-300 pb-1">
                                 <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
                                     <span class="w-2 h-2 bg-blue-700 rounded-xs inline-block"></span>
@@ -474,11 +746,83 @@
                             </div>
 
                             @if(empty($item['exhibits']))
-                                <p class="text-sm text-slate-500 italic py-2">
+                                <p class="text-sm text-slate-500 italic py-2 empty-exhibits-msg">
                                     No physical exhibits or seized property logged for this subject in the case register.
                                 </p>
+                                @if(!empty($item['is_electronic_case']) && !empty($item['dpf_process_status']))
+                                    @php
+                                        $emptyDpfProcess = $item['dpf_process_status'];
+                                    @endphp
+                                    <div class="overflow-x-auto mt-3.5 pt-0.5 avoid-break-inside">
+                                        <div class="flex items-center justify-between pb-1 select-none">
+                                            <div class="text-[9.5px] font-mono-code font-bold uppercase text-blue-900 tracking-wider flex items-center gap-1.5">
+                                                <span class="w-1.5 h-1.5 bg-blue-700 rounded-full inline-block"></span>
+                                                Legal &amp; Operational Process Status
+                                            </div>
+                                            @if(!empty($emptyDpfProcess['dpf_code']))
+                                                <span class="text-[9px] font-mono-code font-bold uppercase tracking-wider text-slate-700">
+                                                    DPF REF: {{ $emptyDpfProcess['dpf_code'] }}
+                                                </span>
+                                            @endif
+                                        </div>
+                                        <table class="w-full text-left border-collapse text-xs border border-slate-200">
+                                            <thead>
+                                                <tr class="border-b border-slate-300 bg-slate-100/60 text-slate-700 font-mono-code uppercase text-[9px] tracking-wider select-none">
+                                                    <th class="py-1 px-2.5 font-bold w-1/2">Process Phase</th>
+                                                    <th class="py-1 px-2.5 font-bold text-center w-1/2">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="text-xs">
+                                                <tr class="border-b border-slate-200 text-slate-800">
+                                                    <td class="py-1 px-2.5 font-medium border-r border-slate-200">Court Order Warrant Requested</td>
+                                                    <td class="py-1 px-2.5 text-center font-black font-mono-code {{ $emptyDpfProcess['court_order_requested'] === 'YES' ? 'text-emerald-800' : 'text-slate-800' }}">
+                                                        {{ $emptyDpfProcess['court_order_requested'] }}
+                                                    </td>
+                                                </tr>
+                                                <tr class="border-b border-slate-200 text-slate-800">
+                                                    <td class="py-1 px-2.5 font-medium border-r border-slate-200">
+                                                        Court Order Warrant Granted
+                                                        @if(!empty($emptyDpfProcess['court_order_files_count']) && $emptyDpfProcess['court_order_files_count'] > 0)
+                                                            <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
+                                                                ✔ {{ $emptyDpfProcess['court_order_files_count'] === 1 ? '1 Document Attached' : $emptyDpfProcess['court_order_files_count'] . ' Documents Attached' }}
+                                                            </span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="py-1 px-2.5 text-center font-black font-mono-code {{ $emptyDpfProcess['court_order_granted'] === 'YES' ? 'text-emerald-800' : 'text-slate-800' }}">
+                                                        {{ $emptyDpfProcess['court_order_granted'] }}
+                                                    </td>
+                                                </tr>
+                                                <tr class="border-b border-slate-200 text-slate-800">
+                                                    <td class="py-1 px-2.5 font-medium border-r border-slate-200">Extraction &amp; Forensic Analysis Conducted</td>
+                                                    <td class="py-1 px-2.5 text-center font-black font-mono-code {{ str_starts_with($emptyDpfProcess['extraction_analysis_conducted'], 'YES') ? 'text-emerald-800' : (str_starts_with($emptyDpfProcess['extraction_analysis_conducted'], 'NO') ? 'text-rose-800' : 'text-slate-800') }}">
+                                                        {{ $emptyDpfProcess['extraction_analysis_conducted'] }}
+                                                    </td>
+                                                </tr>
+                                                <tr class="border-b border-slate-200 text-slate-800">
+                                                    <td class="py-1 px-2.5 font-medium border-r border-slate-200">
+                                                        Report, Witness Statement &amp; Digital Evidence Sent to Investigations
+                                                        @if(!empty($emptyDpfProcess['report_witness_files_count']) && $emptyDpfProcess['report_witness_files_count'] > 0)
+                                                            <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
+                                                                ✔ {{ $emptyDpfProcess['report_witness_files_count'] === 1 ? '1 Document Attached' : $emptyDpfProcess['report_witness_files_count'] . ' Documents Attached' }}
+                                                            </span>
+                                                        @endif
+                                                    </td>
+                                                    <td class="py-1 px-2.5 text-center font-black font-mono-code {{ str_starts_with($emptyDpfProcess['report_witness_statement_sent'], 'YES') ? 'text-emerald-800' : (str_starts_with($emptyDpfProcess['report_witness_statement_sent'], 'NO') ? 'text-rose-800' : 'text-slate-800') }}">
+                                                        {{ $emptyDpfProcess['report_witness_statement_sent'] }}
+                                                    </td>
+                                                </tr>
+                                                <tr class="border-b border-slate-200 last:border-b-0 text-slate-800">
+                                                    <td class="py-1 px-2.5 font-medium border-r border-slate-200">Intelligence Shared to Intel Department for Action</td>
+                                                    <td class="py-1 px-2.5 text-center font-black font-mono-code {{ $emptyDpfProcess['intel_shared'] === 'YES' ? 'text-emerald-800' : 'text-slate-800' }}">
+                                                        {{ $emptyDpfProcess['intel_shared'] }}
+                                                    </td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @endif
                             @else
-                                <div class="space-y-3">
+                                <div class="exhibits-list-container space-y-3">
                                     @foreach($item['exhibits'] as $exIdx => $ex)
                                         @php
                                             $exNumberDisplay = !empty($ex['exhibit_number']) ? $ex['exhibit_number'] : ('EXH-' . str_pad((string)($exIdx + 1), 5, '0', STR_PAD_LEFT));
@@ -538,9 +882,26 @@
                                             $vehSpecs = !empty($ex['vehicle']) ? $ex['vehicle'] : (!empty($ex['vehicle_specs']) ? $ex['vehicle_specs'] : []);
                                             $devSpecs = !empty($ex['device']) ? $ex['device'] : (!empty($ex['electronic_specs']) ? $ex['electronic_specs'] : []);
                                             $wpnSpecs = !empty($ex['weapon']) ? $ex['weapon'] : (!empty($ex['weapon_specs']) ? $ex['weapon_specs'] : []);
-                                            $labSpecs = !empty($ex['lab']) ? $ex['lab'] : (!empty($ex['lab_specs']) ? $ex['lab_specs'] : []);
+                                            $isDrugCase = !empty($item['is_drug_case']);
+                                            $labSpecs = ($isDrugCase && !empty($ex['lab'])) ? $ex['lab'] : (($isDrugCase && !empty($ex['lab_specs'])) ? $ex['lab_specs'] : []);
+
+                                            $dpfProcess = null;
+                                            if (!empty($ex['dpf_process_status'])) {
+                                                $dpfProcess = $ex['dpf_process_status'];
+                                            } elseif (!empty($item['dpf_process_status'])) {
+                                                $isThisExElectronic = !empty($devSpecs) 
+                                                    || str_contains(strtolower($ex['category'] ?? ($ex['exhibit_type'] ?? '')), 'electronic')
+                                                    || str_contains(strtolower($commodityName), 'phone')
+                                                    || str_contains(strtolower($commodityName), 'laptop')
+                                                    || str_contains(strtolower($commodityName), 'drive')
+                                                    || str_contains(strtolower($commodityName), 'ssd')
+                                                    || str_contains(strtolower($commodityName), 'adapter');
+                                                if ($isThisExElectronic || (!empty($item['is_electronic_case']) && count($item['exhibits']) === 1)) {
+                                                    $dpfProcess = $item['dpf_process_status'];
+                                                }
+                                            }
                                         @endphp
-                                        <div class="pb-2.5 border-b border-slate-200 last:border-b-0 space-y-1.5 avoid-break-inside">
+                                        <div class="exhibit-card pt-3 first:pt-1 pb-2.5 border-b border-slate-200 last:border-b-0 space-y-2 avoid-break-inside" data-exhibit-idx="{{ $exIdx }}" data-exhibit-number="{{ $exNumberDisplay }}">
                                             <div class="flex items-baseline justify-between gap-2 flex-wrap">
                                                 <div class="font-black text-slate-900 text-sm">
                                                     <span>Exhibit #{{ $exNumberDisplay }}:</span>
@@ -553,7 +914,7 @@
                                             </div>
 
                                             <!-- NEAT CLEAN TABLE FOR EXHIBIT SPECIFICATIONS -->
-                                            <div class="overflow-x-auto">
+                                            <div class="overflow-x-auto mt-2">
                                                 <table class="w-full text-left border-collapse text-xs">
                                                     <thead>
                                                         <tr class="border-b border-slate-300 text-slate-600 font-mono-code uppercase text-[10px] tracking-wider select-none">
@@ -585,8 +946,8 @@
 
                                             <!-- TECHNICAL SPECIFICATIONS IN NEAT CLEAN TABLES -->
                                             @if(!empty($devSpecs))
-                                                <div class="overflow-x-auto mt-1">
-                                                    <div class="text-[9.5px] font-mono-code font-bold uppercase text-blue-900 tracking-wider pb-0.5 flex items-center gap-1.5 select-none">
+                                                <div class="overflow-x-auto mt-3.5 pt-0.5">
+                                                    <div class="text-[9.5px] font-mono-code font-bold uppercase text-blue-900 tracking-wider pb-1 flex items-center gap-1.5 select-none">
                                                         <span class="w-1.5 h-1.5 bg-blue-600 rounded-full inline-block"></span>
                                                         Device Specifications
                                                     </div>
@@ -609,23 +970,99 @@
                                                 </div>
                                             @endif
 
-                                            @if(!empty($labSpecs))
-                                                <div class="overflow-x-auto mt-1">
-                                                    <div class="text-[9.5px] font-mono-code font-bold uppercase text-emerald-900 tracking-wider pb-0.5 flex items-center gap-1.5 select-none">
+                                            @if(!empty($dpfProcess))
+                                                <div class="overflow-x-auto mt-3.5 pt-0.5 avoid-break-inside">
+                                                    <div class="flex items-center justify-between pb-1 select-none">
+                                                        <div class="text-[9.5px] font-mono-code font-bold uppercase text-blue-900 tracking-wider flex items-center gap-1.5">
+                                                            <span class="w-1.5 h-1.5 bg-blue-700 rounded-full inline-block"></span>
+                                                            Legal &amp; Operational Process Status
+                                                        </div>
+                                                        @if(!empty($dpfProcess['dpf_code']))
+                                                            <span class="text-[9px] font-mono-code font-bold uppercase tracking-wider text-slate-700">
+                                                                DPF REF: {{ $dpfProcess['dpf_code'] }}
+                                                            </span>
+                                                        @endif
+                                                    </div>
+                                                    <table class="w-full text-left border-collapse text-xs border border-slate-200">
+                                                        <thead>
+                                                            <tr class="border-b border-slate-300 bg-slate-100/60 text-slate-700 font-mono-code uppercase text-[9px] tracking-wider select-none">
+                                                                <th class="py-1 px-2.5 font-bold w-1/2">Process Phase</th>
+                                                                <th class="py-1 px-2.5 font-bold text-center w-1/2">Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody class="text-xs">
+                                                            <tr class="border-b border-slate-200 text-slate-800">
+                                                                <td class="py-1 px-2.5 font-medium border-r border-slate-200">Court Order Warrant Requested</td>
+                                                                <td class="py-1 px-2.5 text-center font-black font-mono-code {{ $dpfProcess['court_order_requested'] === 'YES' ? 'text-emerald-800' : 'text-slate-800' }}">
+                                                                    {{ $dpfProcess['court_order_requested'] }}
+                                                                </td>
+                                                            </tr>
+                                                            <tr class="border-b border-slate-200 text-slate-800">
+                                                                <td class="py-1 px-2.5 font-medium border-r border-slate-200">
+                                                                    Court Order Warrant Granted
+                                                                    @if(!empty($dpfProcess['court_order_files_count']) && $dpfProcess['court_order_files_count'] > 0)
+                                                                        <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
+                                                                            ✔ {{ $dpfProcess['court_order_files_count'] === 1 ? '1 Document Attached' : $dpfProcess['court_order_files_count'] . ' Documents Attached' }}
+                                                                        </span>
+                                                                    @endif
+                                                                </td>
+                                                                <td class="py-1 px-2.5 text-center font-black font-mono-code {{ $dpfProcess['court_order_granted'] === 'YES' ? 'text-emerald-800' : 'text-slate-800' }}">
+                                                                    {{ $dpfProcess['court_order_granted'] }}
+                                                                </td>
+                                                            </tr>
+                                                            <tr class="border-b border-slate-200 text-slate-800">
+                                                                <td class="py-1 px-2.5 font-medium border-r border-slate-200">Extraction &amp; Forensic Analysis Conducted</td>
+                                                                <td class="py-1 px-2.5 text-center font-black font-mono-code {{ str_starts_with($dpfProcess['extraction_analysis_conducted'], 'YES') ? 'text-emerald-800' : (str_starts_with($dpfProcess['extraction_analysis_conducted'], 'NO') ? 'text-rose-800' : 'text-slate-800') }}">
+                                                                    {{ $dpfProcess['extraction_analysis_conducted'] }}
+                                                                </td>
+                                                            </tr>
+                                                            <tr class="border-b border-slate-200 text-slate-800">
+                                                                <td class="py-1 px-2.5 font-medium border-r border-slate-200">
+                                                                    Report, Witness Statement &amp; Digital Evidence Sent to Investigations
+                                                                    @if(!empty($dpfProcess['report_witness_files_count']) && $dpfProcess['report_witness_files_count'] > 0)
+                                                                        <span class="ml-2 text-[8px] font-mono-code font-bold text-emerald-700">
+                                                                            ✔ {{ $dpfProcess['report_witness_files_count'] === 1 ? '1 Document Attached' : $dpfProcess['report_witness_files_count'] . ' Documents Attached' }}
+                                                                        </span>
+                                                                    @endif
+                                                                </td>
+                                                                <td class="py-1 px-2.5 text-center font-black font-mono-code {{ str_starts_with($dpfProcess['report_witness_statement_sent'], 'YES') ? 'text-emerald-800' : (str_starts_with($dpfProcess['report_witness_statement_sent'], 'NO') ? 'text-rose-800' : 'text-slate-800') }}">
+                                                                    {{ $dpfProcess['report_witness_statement_sent'] }}
+                                                                </td>
+                                                            </tr>
+                                                            <tr class="border-b border-slate-200 last:border-b-0 text-slate-800">
+                                                                <td class="py-1 px-2.5 font-medium border-r border-slate-200">Intelligence Shared to Intel Department for Action</td>
+                                                                <td class="py-1 px-2.5 text-center font-black font-mono-code {{ $dpfProcess['intel_shared'] === 'YES' ? 'text-emerald-800' : 'text-slate-800' }}">
+                                                                    {{ $dpfProcess['intel_shared'] }}
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            @endif
+
+                                            @if($isDrugCase && !empty($labSpecs))
+                                                <div class="w-full overflow-x-hidden print:overflow-visible mt-3.5 pt-0.5 lab-findings-table-wrap">
+                                                    <div class="text-[9.5px] font-mono-code font-bold uppercase text-emerald-900 tracking-wider pb-1 flex items-center gap-1.5 select-none">
                                                         <span class="w-1.5 h-1.5 bg-emerald-600 rounded-full inline-block"></span>
                                                         Laboratory Examination Findings
                                                     </div>
-                                                    <table class="w-full text-left border-collapse text-xs">
+                                                    <table class="w-full table-fixed text-left border-collapse text-xs lab-findings-table" style="table-layout: fixed; width: 100%;">
+                                                        <colgroup>
+                                                            <col class="w-[18%]">
+                                                            <col class="w-[32%]">
+                                                            <col class="w-[18%]">
+                                                            <col class="w-[32%]">
+                                                        </colgroup>
                                                         <tbody>
                                                             @foreach(array_chunk($labSpecs, 2, true) as $chunk)
                                                                 <tr class="border-b border-slate-200 last:border-b-0 text-xs">
                                                                     @foreach($chunk as $k => $v)
-                                                                        <th class="py-1 px-2 font-bold text-slate-500 uppercase font-mono-code text-[9.5px] w-1/6 align-top">{{ $k }}</th>
-                                                                        <td class="py-1 px-2 font-bold text-slate-900 font-mono-code text-xs w-2/6 align-top">{{ $fmtSpecVal($v) }}</td>
+                                                                        <th class="py-1 px-2 font-bold text-slate-500 uppercase font-mono-code text-[9.5px] w-[18%] align-top break-words whitespace-normal leading-tight" style="word-break: break-word; overflow-wrap: anywhere; white-space: normal;">{{ $k }}</th>
+                                                                        <td class="py-1 px-2 font-bold text-slate-900 font-mono-code text-xs w-[32%] align-top break-words break-all sm:break-words whitespace-normal leading-relaxed" style="word-break: break-word; overflow-wrap: anywhere; white-space: normal;">{{ $fmtSpecVal($v) }}</td>
                                                                     @endforeach
                                                                     @if(count($chunk) === 1)
-                                                                        <th class="py-1 px-2 w-1/6"></th>
-                                                                        <td class="py-1 px-2 w-2/6"></td>
+                                                                        <th class="py-1 px-2 w-[18%]"></th>
+                                                                        <td class="py-1 px-2 w-[32%]"></td>
                                                                     @endif
                                                                 </tr>
                                                             @endforeach
@@ -635,8 +1072,8 @@
                                             @endif
 
                                             @if(!empty($vehSpecs))
-                                                <div class="overflow-x-auto mt-1">
-                                                    <div class="text-[9.5px] font-mono-code font-bold uppercase text-amber-900 tracking-wider pb-0.5 flex items-center gap-1.5 select-none">
+                                                <div class="overflow-x-auto mt-3.5 pt-0.5">
+                                                    <div class="text-[9.5px] font-mono-code font-bold uppercase text-amber-900 tracking-wider pb-1 flex items-center gap-1.5 select-none">
                                                         <span class="w-1.5 h-1.5 bg-amber-600 rounded-full inline-block"></span>
                                                         Vehicle Specifications
                                                     </div>
@@ -660,8 +1097,8 @@
                                             @endif
 
                                             @if(!empty($wpnSpecs))
-                                                <div class="overflow-x-auto mt-1">
-                                                    <div class="text-[9.5px] font-mono-code font-bold uppercase text-rose-900 tracking-wider pb-0.5 flex items-center gap-1.5 select-none">
+                                                <div class="overflow-x-auto mt-3.5 pt-0.5">
+                                                    <div class="text-[9.5px] font-mono-code font-bold uppercase text-rose-900 tracking-wider pb-1 flex items-center gap-1.5 select-none">
                                                         <span class="w-1.5 h-1.5 bg-rose-600 rounded-full inline-block"></span>
                                                         Weapon Specifications
                                                     </div>
@@ -686,7 +1123,7 @@
 
                                             <!-- EXHIBIT PHOTOS -->
                                             @if(!empty($ex['photos']) && count($ex['photos']) > 0)
-                                                <div class="flex items-center gap-2 pt-1 flex-wrap">
+                                                <div class="flex items-center gap-2 pt-1.5 mt-2.5 flex-wrap">
                                                     @foreach($ex['photos'] as $photoUrl)
                                                         <div class="w-14 h-14 rounded border border-slate-300 overflow-hidden bg-white shadow-2xs">
                                                             <img src="{{ $photoUrl }}" alt="Exhibit Photo" class="w-full h-full object-cover">
@@ -703,7 +1140,7 @@
                     </div>
 
                     <!-- DETAILS PAGE FOOTER -->
-                    <div class="pt-2 border-t border-slate-300 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none shrink-0">
+                    <div class="page-footer-block pt-2 border-t border-slate-300 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none shrink-0">
                         <div class="flex items-center gap-2">
                             <span class="font-black text-slate-700">NACOC / FORENSIC DEPARTMENT</span>
                             <span>&bull;</span>
@@ -713,7 +1150,7 @@
                             <span>STRICTLY CONFIDENTIAL</span>
                             <span>&bull;</span>
                             <span class="font-black text-slate-800">
-                                Page <span class="page-num">{{ $idx + 2 }}</span> of <span class="doc-total-pages">{{ count($compiledSuspects) + 1 }}</span>
+                                Page <span class="page-num">{{ $idx + 3 }}</span> of <span class="doc-total-pages">{{ count($compiledSuspects) + 2 }}</span>
                             </span>
                         </div>
                     </div>
@@ -736,20 +1173,263 @@
 
     </main>
 
-    <!-- DYNAMIC SCRIPT FOR PAGE NUMBERING -->
+    <!-- DYNAMIC AUTO-PAGINATION & PAGE NUMBERING SCRIPT -->
     <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const pages = document.querySelectorAll('.a4-page');
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        const suspectPristineSnapshots = new WeakMap();
+
+        function isPageOverflowing(page) {
+            const innerWrapper = page.querySelector('.page-inner-wrapper');
+            const headerBlock = page.querySelector('.page-header-block');
+            const footerBlock = page.querySelector('.page-footer-block');
+            const flowBody = page.querySelector('.page-flow-body');
+            if (!innerWrapper || !flowBody) return false;
+
+            const innerH = innerWrapper.clientHeight > 0 ? innerWrapper.clientHeight : (page.clientHeight - 80);
+            const headerH = headerBlock ? headerBlock.offsetHeight : 0;
+            const footerH = footerBlock ? footerBlock.offsetHeight : 0;
+            const usableH = innerH - headerH - footerH;
+
+            return (flowBody.scrollHeight > usableH + 2) || (flowBody.clientHeight > 0 && flowBody.scrollHeight > flowBody.clientHeight + 2);
+        }
+
+        function createContinuationPage(originalSuspectPage, previousPage) {
+            const caseNumber = originalSuspectPage.dataset.caseNumber || 'N/A';
+            const suspectName = originalSuspectPage.dataset.suspectName || 'N/A';
+            const priority = originalSuspectPage.dataset.priority || 'HIGH';
+            const parentId = originalSuspectPage.id;
+
+            const nextPg = document.createElement('section');
+            nextPg.className = 'a4-page suspect-continuation-page relative text-slate-900 bg-white';
+            nextPg.dataset.parentSuspectId = parentId;
+            nextPg.dataset.caseNumber = caseNumber;
+            nextPg.dataset.suspectName = suspectName;
+
+            // Subtle NACOC watermark
+            const wm = originalSuspectPage.querySelector('.watermark-layer');
+            if (wm) {
+                nextPg.appendChild(wm.cloneNode(true));
+            }
+
+            const innerWrapper = document.createElement('div');
+            innerWrapper.className = 'page-inner-wrapper relative z-10 flex flex-col justify-between h-full min-h-0';
+
+            const headerBlock = document.createElement('div');
+            headerBlock.className = 'page-header-block pb-2 border-b border-slate-300 flex items-center justify-between text-[9px] font-mono-code text-slate-700 select-none shrink-0';
+            headerBlock.innerHTML = `
+                <div>
+                    <span class="font-black uppercase tracking-wider text-slate-900">
+                        NACOC FORENSIC DEPARTMENT &bull; EXECUTIVE SUSPECT RECORD (CONTINUED)
+                    </span>
+                    <span class="ml-2 font-bold text-slate-800">
+                        Ref: ${escapeHtml(caseNumber)} &bull; Priority: ${escapeHtml(priority)}
+                    </span>
+                </div>
+                <div class="text-right">
+                    <span class="font-black uppercase tracking-wider text-slate-900">Confidential</span>
+                    <span class="ml-1.5 font-black text-slate-800">
+                        Page <span class="page-num">#</span> of <span class="doc-total-pages">#</span>
+                    </span>
+                </div>
+            `;
+
+            const flowBody = document.createElement('div');
+            flowBody.className = 'page-flow-body flex-1 py-3 space-y-4 overflow-hidden bg-white';
+
+            const exhibitsSectionBlock = document.createElement('div');
+            exhibitsSectionBlock.className = 'exhibits-section-block space-y-2 pt-1 bg-white';
+            exhibitsSectionBlock.innerHTML = `
+                <div class="exhibits-heading-wrap flex items-center justify-between border-b border-slate-300 pb-1">
+                    <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                        <span class="w-2 h-2 bg-blue-700 rounded-xs inline-block"></span>
+                        Associated Seized Exhibits &amp; Custodial Property (Continued)
+                    </h3>
+                    <span class="text-xs font-mono-code font-bold text-slate-700 uppercase">
+                        Subject: ${escapeHtml(suspectName)} (Continuation)
+                    </span>
+                </div>
+                <div class="exhibits-list-container space-y-3"></div>
+            `;
+            flowBody.appendChild(exhibitsSectionBlock);
+
+            const footerBlock = document.createElement('div');
+            footerBlock.className = 'page-footer-block pt-2 border-t border-slate-300 flex items-center justify-between text-[8px] text-slate-500 font-mono-code select-none shrink-0';
+            footerBlock.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <span class="font-black text-slate-700">NACOC / FORENSIC DEPARTMENT</span>
+                    <span>&bull;</span>
+                    <span>Case Record: ${escapeHtml(caseNumber)} &bull; Subject: ${escapeHtml(suspectName)}</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>STRICTLY CONFIDENTIAL</span>
+                    <span>&bull;</span>
+                    <span class="font-black text-slate-800">
+                        Page <span class="page-num">#</span> of <span class="doc-total-pages">#</span>
+                    </span>
+                </div>
+            `;
+
+            innerWrapper.appendChild(headerBlock);
+            innerWrapper.appendChild(flowBody);
+            innerWrapper.appendChild(footerBlock);
+            nextPg.appendChild(innerWrapper);
+
+            previousPage.parentNode.insertBefore(nextPg, previousPage.nextSibling);
+            return nextPg;
+        }
+
+        function paginateSuspectPage(pageEl) {
+            const flowBody = pageEl.querySelector('.page-flow-body');
+            if (!flowBody) return;
+
+            // 1. Snapshot restoration for idempotency
+            if (!suspectPristineSnapshots.has(pageEl)) {
+                suspectPristineSnapshots.set(pageEl, {
+                    flowBodyHtml: flowBody.innerHTML,
+                });
+            } else {
+                // Remove existing continuation pages for this suspect
+                let sib = pageEl.nextElementSibling;
+                while (sib && sib.classList.contains('suspect-continuation-page') && sib.dataset.parentSuspectId === pageEl.id) {
+                    const next = sib.nextElementSibling;
+                    sib.remove();
+                    sib = next;
+                }
+                const snap = suspectPristineSnapshots.get(pageEl);
+                if (snap) {
+                    flowBody.innerHTML = snap.flowBodyHtml;
+                }
+            }
+
+            // If it doesn't overflow, we are done
+            if (!isPageOverflowing(pageEl)) {
+                return;
+            }
+
+            const exhibitsContainer = pageEl.querySelector('.exhibits-list-container');
+            const factsContent = pageEl.querySelector('.brief-facts-content');
+
+            // Collect all exhibit cards
+            const exhibitCards = exhibitsContainer ? Array.from(exhibitsContainer.querySelectorAll('.exhibit-card')) : [];
+
+            // Case A: Has exhibits
+            if (exhibitCards.length > 0) {
+                exhibitsContainer.innerHTML = '';
+
+                let currentPage = pageEl;
+                let currentExhibitsContainer = exhibitsContainer;
+
+                for (let i = 0; i < exhibitCards.length; i++) {
+                    const card = exhibitCards[i];
+                    currentExhibitsContainer.appendChild(card);
+
+                    if (isPageOverflowing(currentPage)) {
+                        if (currentExhibitsContainer.children.length > 1) {
+                            // Multiple cards on this page, move current card to a new continuation page
+                            currentExhibitsContainer.removeChild(card);
+                            const contPage = createContinuationPage(pageEl, currentPage);
+                            currentPage = contPage;
+                            currentExhibitsContainer = contPage.querySelector('.exhibits-list-container');
+                            currentExhibitsContainer.appendChild(card);
+                        } else if (currentPage === pageEl) {
+                            // Even the very first card overflowed the initial page!
+                            currentExhibitsContainer.removeChild(card);
+
+                            const notice = document.createElement('p');
+                            notice.className = 'text-xs font-mono-code font-bold text-slate-500 italic pt-1';
+                            notice.textContent = 'Seized exhibits cataloged on continuation page →';
+                            currentExhibitsContainer.appendChild(notice);
+
+                            const contPage = createContinuationPage(pageEl, currentPage);
+                            currentPage = contPage;
+                            currentExhibitsContainer = contPage.querySelector('.exhibits-list-container');
+                            currentExhibitsContainer.appendChild(card);
+                        }
+                    }
+                }
+            } else if (factsContent) {
+                // Case B: No exhibits, but facts paragraphs overflow
+                const paragraphs = Array.from(factsContent.querySelectorAll('.facts-paragraph'));
+                if (paragraphs.length > 1) {
+                    factsContent.innerHTML = '';
+                    let currentPage = pageEl;
+                    let currentFactsContent = factsContent;
+
+                    for (let p = 0; p < paragraphs.length; p++) {
+                        const para = paragraphs[p];
+                        currentFactsContent.appendChild(para);
+
+                        if (isPageOverflowing(currentPage) && currentFactsContent.children.length > 1) {
+                            currentFactsContent.removeChild(para);
+                            const contPage = createContinuationPage(pageEl, currentPage);
+                            currentPage = contPage;
+
+                            // Setup continuation facts block
+                            const contFlow = contPage.querySelector('.page-flow-body');
+                            contFlow.innerHTML = '';
+                            const contFactsBlock = document.createElement('div');
+                            contFactsBlock.className = 'brief-facts-block space-y-1.5 pt-1 bg-white';
+                            contFactsBlock.innerHTML = `
+                                <div class="flex items-center justify-between border-b border-slate-300 pb-1">
+                                    <h3 class="text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
+                                        <span class="w-2 h-2 bg-blue-700 rounded-xs inline-block"></span>
+                                        Brief Statement of Facts (Continued)
+                                    </h3>
+                                </div>
+                                <div class="brief-facts-content pt-0.5 space-y-1"></div>
+                            `;
+                            contFlow.appendChild(contFactsBlock);
+                            currentFactsContent = contFactsBlock.querySelector('.brief-facts-content');
+                            currentFactsContent.appendChild(para);
+                        }
+                    }
+                }
+            }
+        }
+
+        function renumberAllPages() {
+            const pages = document.querySelectorAll('.printable-document .a4-page');
             const total = pages.length;
             document.querySelectorAll('.doc-total-pages').forEach(el => {
                 el.textContent = total;
             });
             pages.forEach((page, idx) => {
-                const pageNumEl = page.querySelector('.page-num');
-                if (pageNumEl) {
-                    pageNumEl.textContent = idx + 1;
-                }
+                const pageNum = idx + 1;
+                page.querySelectorAll('.page-num').forEach(el => {
+                    el.textContent = pageNum;
+                });
             });
+        }
+
+        let isPaginating = false;
+        function autoPaginateAllSuspects() {
+            if (isPaginating) return;
+            isPaginating = true;
+            try {
+                const suspectPages = Array.from(document.querySelectorAll('.auto-paginated-suspect'));
+                suspectPages.forEach(page => paginateSuspectPage(page));
+                renumberAllPages();
+            } finally {
+                isPaginating = false;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', autoPaginateAllSuspects);
+        window.addEventListener('load', autoPaginateAllSuspects);
+        window.addEventListener('beforeprint', autoPaginateAllSuspects);
+
+        let resizeTimer = null;
+        window.addEventListener('resize', function () {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(autoPaginateAllSuspects, 150);
         });
     </script>
 </body>

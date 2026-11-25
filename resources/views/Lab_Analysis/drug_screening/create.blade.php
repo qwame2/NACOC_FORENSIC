@@ -457,6 +457,11 @@
                                     @foreach(($suspects ?? $eligibleSuspects) as $suspect)
                                     @php
                                         $caseNo = $suspect->case_number ?? ($suspect->singleCase->case_number ?? ($suspect->multipleCase->case_number ?? 'N/A'));
+                                        $mugshotUrl = $suspect->mugshot_front_url 
+                                            ?? \App\Services\CasePhotoResolver::resolveMugshotUrl(
+                                                $suspect->mugshot_front 
+                                                ?: ($suspect->singleCase?->mugshot_front ?: null)
+                                            );
                                     @endphp
                                     <option value="{{ $suspect->id }}"
                                         {{ old('suspect_id') == $suspect->id ? 'selected' : '' }}
@@ -466,7 +471,7 @@
                                         data-gender="{{ $suspect->gender ?? 'Male' }}"
                                         data-facility="{{ $suspect->holding_facility ?? 'NACOC Holding Center' }}"
                                         data-case="{{ $caseNo }}"
-                                        data-mugshot="{{ $suspect->mugshot_front ?? '' }}"
+                                        data-mugshot="{{ $mugshotUrl ?? '' }}"
                                         data-reason="Registered Suspect">
                                         {{ $suspect->suspect_name }} (Suspect)
                                     </option>
@@ -977,6 +982,20 @@
             }
         }
 
+        function resolveClientMugshotUrl(src) {
+            if (!src || src === 'null' || src === 'undefined' || src === '#' || src === 'N/A') return '';
+            src = String(src).trim();
+            if (src === '' || src === '#' || src === 'null' || src === 'undefined' || src === 'N/A') return '';
+            if (src.startsWith('data:') || src.startsWith('http://') || src.startsWith('https://')) {
+                return src;
+            }
+            const clean = src.replace(/^\/+/, '');
+            if (clean.startsWith('storage/')) {
+                return '{{ asset('') }}' + clean;
+            }
+            return '{{ asset('storage') }}/' + clean;
+        }
+
         function renderCivilianPreview(civilianName) {
             const previewCard = document.getElementById('suspectPreviewCard');
             if (!previewCard) return;
@@ -1054,11 +1073,13 @@
 
             const avatarContainer = document.getElementById('previewAvatarContainer');
             if (avatarContainer) {
-                avatarContainer.className = 'w-12 h-12 rounded-xl bg-blue-100 text-blue-800 font-extrabold flex items-center justify-center border border-blue-200 shrink-0 font-mono-code text-sm';
-                if (mugshot) {
-                    avatarContainer.innerHTML = '<img src="' + mugshot + '" class="w-full h-full object-cover rounded-xl" alt="' + name + '">';
+                avatarContainer.className = 'w-12 h-12 rounded-xl bg-blue-100 text-blue-800 font-extrabold flex items-center justify-center border border-blue-200 shrink-0 font-mono-code text-sm overflow-hidden';
+                const resolvedMugshot = resolveClientMugshotUrl(mugshot);
+                const initials = (name.substring(0, 2) || 'SP').toUpperCase();
+                if (resolvedMugshot) {
+                    avatarContainer.innerHTML = '<img src="' + resolvedMugshot + '" class="w-full h-full object-cover rounded-xl" alt="' + name + '" onerror="this.onerror=null; this.parentElement.innerHTML=\'' + initials + '\';">';
                 } else {
-                    avatarContainer.innerHTML = (name.substring(0, 2) || 'SP').toUpperCase();
+                    avatarContainer.innerHTML = initials;
                 }
             }
 
@@ -1682,10 +1703,11 @@
                         const card = opt.getAttribute('data-card') || 'N/A';
                         const mugshot = opt.getAttribute('data-mugshot');
                         const initials = (name.substring(0, 2) || 'SP').toUpperCase();
+                        const resolvedMugshot = resolveClientMugshotUrl(mugshot);
 
                         let avatarHtml = '<div class="w-8 h-8 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 flex items-center justify-center font-extrabold text-xs uppercase font-mono-code shrink-0">' + initials + '</div>';
-                        if (mugshot) {
-                            avatarHtml = '<div class="w-8 h-8 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100"><img src="' + mugshot + '" class="w-full h-full object-cover"></div>';
+                        if (resolvedMugshot) {
+                            avatarHtml = '<div class="w-8 h-8 rounded-xl overflow-hidden shrink-0 border border-slate-200 bg-slate-100 flex items-center justify-center"><img src="' + resolvedMugshot + '" class="w-full h-full object-cover" onerror="this.onerror=null; this.parentElement.innerHTML=\'' + initials + '\';"></div>';
                         }
 
                         return $(
@@ -1733,10 +1755,15 @@
 
                     const opt = data.element;
                     const suspectName = opt ? (opt.getAttribute('data-name') || data.text.replace(/\s*\(Suspect\)/gi, '').trim()) : data.text.replace(/\s*\(Suspect\)/gi, '').trim();
+                    const optMugshot = opt ? resolveClientMugshotUrl(opt.getAttribute('data-mugshot')) : '';
+                    let thumbHtml = '<span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>';
+                    if (optMugshot) {
+                        thumbHtml = '<img src="' + optMugshot + '" class="w-4 h-4 rounded-full object-cover border border-slate-200 shrink-0" onerror="this.style.display=\'none\';">';
+                    }
 
                     return $(
                         '<span class="inline-flex items-center gap-2 font-extrabold text-slate-900 text-xs truncate">' +
-                            '<span class="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>' +
+                            thumbHtml +
                             '<span class="truncate">' + $('<div>').text(suspectName).html() + '</span>' +
                             '<span class="px-2 py-0.5 rounded-md text-[10px] font-mono-code font-bold bg-blue-100 text-blue-800 border border-blue-200 shrink-0 ml-1">Suspect</span>' +
                         '</span>'

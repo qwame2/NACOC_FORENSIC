@@ -144,13 +144,6 @@
                         <span>Refresh</span>
                     </button>
 
-                    <button type="button"
-                            onclick="window.print()"
-                            class="inline-flex items-center px-3 py-1.5 bg-slate-900 hover:bg-black text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-                            title="Print Custody Register">
-                        <i data-lucide="printer" class="w-3.5 h-3.5 mr-1.5 text-slate-300"></i>
-                        <span class="hidden sm:inline">Print Register</span>
-                    </button>
 
                     <div class="hidden lg:flex items-center space-x-2 pl-2 border-l border-slate-200">
                         <div class="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">

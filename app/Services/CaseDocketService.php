@@ -125,6 +125,11 @@ class CaseDocketService
      */
     public function storeCase(Request $request): array
     {
+        // Offload any Base64 mugshots or exhibit images to high-performance partitioned disk files
+        $mediaStorage = app(\App\Services\MediaStorageService::class);
+        $processedInput = $mediaStorage->processPayloadImages($request->all(), $request->input('case_number'));
+        $request->merge($processedInput);
+
         $noSuspect = filter_var($request->input('no_suspect'), FILTER_VALIDATE_BOOLEAN);
 
         $validated = Validator::make($request->all(), [
@@ -211,6 +216,8 @@ class CaseDocketService
             'seizure_reason'       => ['nullable', 'string'],
             'source_of_exhibits'   => ['nullable', 'string'],
             'exhibit_remark'       => ['nullable', 'string'],
+            'remark'               => ['nullable', 'string'],
+            'remarks'              => ['nullable', 'string'],
             'chain_of_custody'     => ['nullable', 'string'],
             'lab_remark'           => ['nullable', 'string'],
             'lab_exhibit_no'       => ['nullable', 'string', 'max:255'],
@@ -752,7 +759,19 @@ class CaseDocketService
             'source_requesting_unit'   => $validated['source_requesting_unit'] ?? ($request->input('source_requesting_unit') ?? ($docketData['seizures'][0]['source_requesting_unit'] ?? null)),
             'seizure_reason'           => $validated['seizure_reason'] ?? ($request->input('seizure_reason') ?? ($docketData['seizures'][0]['seizure_reason'] ?? null)),
             'source_of_exhibits'       => $validated['source_of_exhibits'] ?? ($request->input('source_of_exhibits') ?? ($docketData['seizures'][0]['source_of_exhibits'] ?? ($docketData['seizures'][0]['source'] ?? null))),
-            'exhibit_remark'           => $validated['exhibit_remark'] ?? ($request->input('exhibit_remark') ?? null),
+            'exhibit_remark'           => $validated['exhibit_remark']
+                ?? ($request->input('exhibit_remark')
+                ?? ($validated['remark']
+                ?? ($request->input('remark')
+                ?? ($validated['remarks']
+                ?? ($request->input('remarks')
+                ?? ($request->input('seizures.0.exhibit_remark')
+                ?? ($request->input('seizures.0.remark')
+                ?? ($request->input('seizures.0.remarks')
+                ?? ($docketData['seizures'][0]['exhibit_remark']
+                ?? ($docketData['seizures'][0]['remark']
+                ?? ($docketData['seizures'][0]['remarks']
+                ?? null))))))))))),
             'chain_of_custody'         => $validated['chain_of_custody'] ?? ($request->input('chain_of_custody') ?? ($docketData['seizures'][0]['chain_of_custody'] ?? null)),
             'exhibit_type'             => $validated['exhibit_type'] ?? null,
             'drug_classification'      => $validated['drug_classification'] ?? null,
@@ -1943,12 +1962,37 @@ class CaseDocketService
      */
     public function updateCase(ForensicCase $case, Request $request): array
     {
+        // Offload any Base64 mugshots or exhibit images to high-performance partitioned disk files
+        $mediaStorage = app(\App\Services\MediaStorageService::class);
+        $processedInput = $mediaStorage->processPayloadImages($request->all(), $case->case_number);
+        $request->merge($processedInput);
+
         $user = Auth::user();
         $userUnit = strtolower(trim($user->unit ?? ''));
         $isHead = !empty($user->is_head);
 
-        $isCrimeSceneUnit = $isHead || str_contains($userUnit, 'crime') || str_contains($userUnit, 'scene') || str_contains($userUnit, 'support') || empty($userUnit);
-        $isLabUnit = $isHead || str_contains($userUnit, 'lab') || str_contains($userUnit, 'chemistry') || str_contains($userUnit, 'narcotics');
+        $permContext = $request->input('from') ?: ($case->unit_name ?: null);
+        $hasEditCasesPermission = $isHead
+            || (method_exists($user, 'hasPermission') ? $user->hasPermission('edit_cases', $permContext) : true);
+        $hasManageExhibitsPermission = $isHead
+            || (method_exists($user, 'hasPermission') ? $user->hasPermission('manage_exhibits', $permContext) : true);
+        $hasLabPermission = $isHead
+            || (method_exists($user, 'hasPermission') ? $user->hasPermission('record_lab_analysis', $permContext) : true);
+
+        $isCrimeSceneUnit = $isHead 
+            || $hasEditCasesPermission 
+            || $hasManageExhibitsPermission 
+            || str_contains($userUnit, 'crime') 
+            || str_contains($userUnit, 'scene') 
+            || str_contains($userUnit, 'support') 
+            || empty($userUnit);
+
+        $isLabUnit = $isHead 
+            || $hasLabPermission 
+            || $hasEditCasesPermission 
+            || str_contains($userUnit, 'lab') 
+            || str_contains($userUnit, 'chemistry') 
+            || str_contains($userUnit, 'narcotics');
 
         $docketData = $this->decodeDocket($case);
 
@@ -2565,6 +2609,9 @@ class CaseDocketService
                         if (isset($exObj['source_requesting_unit'])) $docketData['seizures'][$eIdx]['source_requesting_unit'] = $exObj['source_requesting_unit'];
                         if (isset($exObj['lab_exhibit_no'])) $docketData['seizures'][$eIdx]['lab_exhibit_no'] = $exObj['lab_exhibit_no'];
                         if (isset($exObj['source_of_exhibits'])) $docketData['seizures'][$eIdx]['source_of_exhibits'] = $exObj['source_of_exhibits'];
+                        if (isset($exObj['exhibit_remark']) || isset($exObj['remark']) || isset($exObj['remarks'])) {
+                            $docketData['seizures'][$eIdx]['exhibit_remark'] = $exObj['exhibit_remark'] ?? ($exObj['remark'] ?? $exObj['remarks']);
+                        }
                         if (isset($exObj['other_exhibit_description']) || isset($exObj['other_description'])) $docketData['seizures'][$eIdx]['other_exhibit_description'] = $exObj['other_exhibit_description'] ?? $exObj['other_description'];
                         if (isset($exObj['presumptive_result'])) $docketData['seizures'][$eIdx]['presumptive_result'] = $exObj['presumptive_result'];
                         if (isset($exObj['evidence_photos']))   $docketData['seizures'][$eIdx]['evidence_photos']   = is_array($exObj['evidence_photos']) ? array_values($exObj['evidence_photos']) : [];
@@ -3063,7 +3110,7 @@ class CaseDocketService
                     'source_requesting_unit'   => $exhibit['source_requesting_unit'] ?? null,
                     'seizure_reason'           => $exhibit['seizure_reason'] ?? ($exhibit['reason'] ?? null),
                     'source_of_exhibits'       => $exhibit['source_of_exhibits'] ?? ($exhibit['source'] ?? null),
-                    'exhibit_remark'           => $exhibit['exhibit_remark'] ?? null,
+                    'exhibit_remark'           => $exhibit['exhibit_remark'] ?? ($exhibit['remark'] ?? ($exhibit['remarks'] ?? null)),
                     'chain_of_custody'         => $exhibit['chain_of_custody'] ?? null,
                     'lab_remark'               => $exhibit['lab_remark'] ?? ($exhibit['confirmatory_remark'] ?? null),
                     'veh_make'                 => $vehMake,
@@ -3139,7 +3186,7 @@ class CaseDocketService
                     'source_requesting_unit' => $exhibit['source_requesting_unit'] ?? null,
                     'seizure_reason'     => $exhibit['seizure_reason'] ?? ($exhibit['reason'] ?? null),
                     'source_of_exhibits' => $exhibit['source_of_exhibits'] ?? ($exhibit['source'] ?? null),
-                    'exhibit_remark'     => $exhibit['exhibit_remark'] ?? null,
+                    'exhibit_remark'     => $exhibit['exhibit_remark'] ?? ($exhibit['remark'] ?? ($exhibit['remarks'] ?? null)),
                     'lab_remark'         => $exhibit['lab_remark'] ?? ($exhibit['confirmatory_remark'] ?? null),
                     'veh_make'           => $vehMake,
                     'veh_model'          => $vehModel,
@@ -3512,7 +3559,7 @@ class CaseDocketService
             'investigating_officer'     => $szItem['investigating_officer'] ?? ($fallbackFields['investigating_officer'] ?? null),
             'source_requesting_unit'    => $szItem['source_requesting_unit'] ?? ($fallbackFields['source_requesting_unit'] ?? null),
             'source_of_exhibits'        => $szItem['source_of_exhibits'] ?? ($szItem['source'] ?? ($fallbackFields['source_of_exhibits'] ?? null)),
-            'exhibit_remark'            => $szItem['exhibit_remark'] ?? ($fallbackFields['exhibit_remark'] ?? null),
+            'exhibit_remark'            => $szItem['exhibit_remark'] ?? ($szItem['remark'] ?? ($szItem['remarks'] ?? ($fallbackFields['exhibit_remark'] ?? null))),
             'chain_of_custody'          => $szItem['chain_of_custody'] ?? ($fallbackFields['chain_of_custody'] ?? null),
             'lab_remark'                => $szItem['lab_remark'] ?? ($szItem['confirmatory_remark'] ?? null),
             'veh_make'                  => $szItem['veh_make'] ?? ($szItem['veh']['make'] ?? ($szItem['vehicle_make'] ?? null)),

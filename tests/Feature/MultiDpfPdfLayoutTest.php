@@ -213,4 +213,228 @@ class MultiDpfPdfLayoutTest extends TestCase
         $this->assertStringNotContainsString('Location / Post</p>' . "\n" . '                                <p class="mt-1 text-sm font-bold text-slate-900 truncate">', $content);
         $this->assertStringContainsString('leading-snug break-words">' . $fullLocation . '</p>', $content);
     }
+
+    public function test_summary_table_renders_in_dpf_pdf_and_multi_dpf_pdf(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Digital Forensics',
+            'is_approved' => true,
+        ]);
+
+        $case = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-SUMMARY-TEST',
+            'title' => 'Republic vs Test Suspect',
+            'suspect_name' => 'Test Suspect',
+            'location' => 'Accra Cargo Terminal',
+            'unit_name' => 'Digital Forensics',
+            'status' => 'active',
+            'priority' => 'HIGH',
+            'dev_model' => 'Samsung Galaxy S22 Ultra',
+            'user_id' => $user->id,
+        ]);
+
+        \App\Models\Exhibit::create([
+            'single_suspect_case_id' => $case->id,
+            'dev_model' => 'Samsung Galaxy S22 Ultra',
+            'commodity_name' => 'Smartphone',
+            'exhibit_type' => 'Electronic Devices',
+            'exhibit_category' => 'Electronic Hardware',
+            'seizure_quantity' => '1',
+            'user_id' => $user->id,
+        ]);
+
+        $report = DpfReport::create([
+            'case_number' => 'NCC-2026-SUMMARY-TEST',
+            'dpf_code' => 'DF-STATUS-2026-SUMM-01',
+            'single_suspect_case_id' => $case->id,
+            'user_id' => $user->id,
+            'location_post' => 'Accra Cargo Terminal',
+            'court_order_requested' => 'YES',
+            'court_order_granted' => 'YES',
+            'extraction_analysis_conducted' => 'YES - Logical Acquisition Completed',
+            'remark' => 'Summary test remarks.',
+            'report_data' => [
+                'case_section_label' => 'ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED)',
+            ],
+        ]);
+
+        // 1. Single DPF PDF
+        $singleResponse = $this->actingAs($user)->get('/Digital_Forensics/dpf-report-pdf/DF-STATUS-2026-SUMM-01');
+        $singleResponse->assertStatus(200);
+        $singleContent = $singleResponse->getContent();
+
+        $this->assertStringContainsString('section-summary', $singleContent);
+        $this->assertStringContainsString('Summary', $singleContent);
+        $this->assertStringContainsString('No.', $singleContent);
+        $this->assertStringContainsString('Case Name', $singleContent);
+        $this->assertStringContainsString('Status', $singleContent);
+        $this->assertStringContainsString('Device Model', $singleContent);
+        $this->assertStringContainsString('Court Order Warrant Requested', $singleContent);
+        $this->assertStringContainsString('Court Order Warrant Granted', $singleContent);
+        $this->assertStringContainsString('Extraction &amp; Forensic Analysis Conducted', $singleContent);
+        $this->assertStringContainsString('Republic vs Test Suspect', $singleContent);
+        $this->assertStringContainsString('Ongoing', $singleContent);
+        $this->assertStringContainsString('Samsung Galaxy S22 Ultra', $singleContent);
+
+        // 2. Multi DPF PDF (with multiple cases)
+        $case2 = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-SUMMARY-TEST-2',
+            'title' => 'Republic vs Second Suspect',
+            'suspect_name' => 'Second Suspect',
+            'location' => 'Tema Port',
+            'unit_name' => 'Digital Forensics',
+            'status' => 'active',
+            'priority' => 'HIGH',
+            'user_id' => $user->id,
+        ]);
+
+        \App\Models\Exhibit::create([
+            'single_suspect_case_id' => $case2->id,
+            'dev_model' => 'iPhone 14 Pro Max',
+            'commodity_name' => 'Smartphone',
+            'exhibit_type' => 'Electronic Devices',
+            'exhibit_category' => 'Electronic Hardware',
+            'seizure_quantity' => '1',
+            'user_id' => $user->id,
+        ]);
+
+        $report2 = DpfReport::create([
+            'case_number' => 'NCC-2026-SUMMARY-TEST-2',
+            'dpf_code' => 'DF-STATUS-2026-SUMM-02',
+            'single_suspect_case_id' => $case2->id,
+            'user_id' => $user->id,
+            'location_post' => 'Tema Port',
+            'court_order_requested' => 'NO',
+            'court_order_granted' => 'NO',
+            'extraction_analysis_conducted' => 'NO',
+            'remark' => 'Second suspect remarks.',
+            'report_data' => [
+                'case_section_label' => 'CURRENT/NEW CASES',
+            ],
+        ]);
+
+        $multiResponse = $this->actingAs($user)->get('/Digital_Forensics/multi_dpf_pdf?cases=NCC-2026-SUMMARY-TEST,NCC-2026-SUMMARY-TEST-2');
+        $multiResponse->assertStatus(200);
+        $multiContent = $multiResponse->getContent();
+
+        // Must have the dedicated summary page under the last case
+        $this->assertStringContainsString('section-summary-page', $multiContent);
+        $this->assertStringContainsString('Consolidated Forensic &amp; Warrant Status Log', $multiContent);
+
+        // Individual suspect dossier pages should NOT have section-summary embedded (not dpf-report-pdf style)
+        $firstSuspectDossierEnd = strpos($multiContent, 'Suspect 1 &bull; Page');
+        $this->assertNotFalse($firstSuspectDossierEnd);
+        $summaryPagePos = strpos($multiContent, 'section-summary-page');
+        $this->assertNotFalse($summaryPagePos);
+        $this->assertTrue($summaryPagePos > $firstSuspectDossierEnd, 'Summary page must be placed under the cases');
+
+        // All cases must be summarized in the single summary table
+        $this->assertStringContainsString('Republic vs Test Suspect', $multiContent);
+        $this->assertStringContainsString('Republic vs Second Suspect', $multiContent);
+        $this->assertStringContainsString('Samsung Galaxy S22 Ultra', $multiContent);
+        $this->assertStringContainsString('iPhone 14 Pro Max', $multiContent);
+
+        // Table headers must be present
+        $this->assertStringContainsString('No.', $multiContent);
+        $this->assertStringContainsString('Case Name', $multiContent);
+        $this->assertStringContainsString('Status', $multiContent);
+        $this->assertStringContainsString('Device Model', $multiContent);
+        $this->assertStringContainsString('Court Order Warrant Requested', $multiContent);
+        $this->assertStringContainsString('Court Order Warrant Granted', $multiContent);
+        $this->assertStringContainsString('Extraction &amp; Forensic Analysis Conducted', $multiContent);
+
+        // Status values: one is Ongoing, one is Current
+        $this->assertStringContainsString('Ongoing', $multiContent);
+        $this->assertStringContainsString('Current', $multiContent);
+
+        // In the summary page, section-summary appears on top of Conditions:
+        $summaryTableInSummaryPage = strpos($multiContent, 'flow-block section-summary overflow-hidden');
+        $conditionsInSummaryPage = strpos($multiContent, 'Note: The result(s) relate only to the item(s) / digital exhibit(s) examined across all referenced forensic cases.');
+        $this->assertNotFalse($summaryTableInSummaryPage);
+        $this->assertNotFalse($conditionsInSummaryPage);
+        $this->assertTrue($summaryTableInSummaryPage < $conditionsInSummaryPage, 'In summary page, Summary table must be on top of Conditions');
+    }
+
+    public function test_nine_cases_consolidated_summary_table_has_pagination_and_all_rows(): void
+    {
+        $user = User::factory()->create([
+            'unit' => 'Digital Forensics',
+            'is_approved' => true,
+        ]);
+
+        $caseNumbers = [];
+        for ($i = 1; $i <= 9; $i++) {
+            $caseNo = "NCC-2026-MULTI-{$i}";
+            $caseNumbers[] = $caseNo;
+
+            $case = SingleSuspectCase::create([
+                'case_number' => $caseNo,
+                'title' => "Republic vs Suspect {$i} (Operation Coast Sentinel)",
+                'suspect_name' => "Suspect {$i}",
+                'location' => 'Coast Guard Station',
+                'unit_name' => 'Digital Forensics',
+                'status' => 'active',
+                'priority' => 'HIGH',
+                'user_id' => $user->id,
+            ]);
+
+            \App\Models\Exhibit::create([
+                'single_suspect_case_id' => $case->id,
+                'dev_model' => "Garmin inReach Explorer+ Model {$i}",
+                'commodity_name' => 'GPS Tracker',
+                'exhibit_type' => 'Electronic Devices',
+                'exhibit_category' => 'Electronic Hardware',
+                'seizure_quantity' => '1',
+                'user_id' => $user->id,
+            ]);
+
+            DpfReport::create([
+                'case_number' => $caseNo,
+                'dpf_code' => "DF-STATUS-2026-NINE-0{$i}",
+                'single_suspect_case_id' => $case->id,
+                'user_id' => $user->id,
+                'location_post' => 'Coast Guard Station',
+                'court_order_requested' => 'YES',
+                'court_order_granted' => 'YES',
+                'extraction_analysis_conducted' => 'Decoded satellite ping intervals and historical GPS track logs using Cellebrite UFED ISP analysis and Garmin BaseCamp.',
+                'remark' => "Technical extraction log for Case {$i}.",
+                'report_data' => [
+                    'case_section_label' => 'ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED)',
+                ],
+            ]);
+        }
+
+        $casesQuery = implode(',', $caseNumbers);
+        $response = $this->actingAs($user)->get("/Digital_Forensics/multi_dpf_pdf?cases={$casesQuery}");
+        $response->assertStatus(200);
+
+        $content = $response->getContent();
+
+        // 1. Consolidated Summary Register exists
+        $this->assertStringContainsString('Consolidated Summary Register', $content);
+        $this->assertStringContainsString('9 Cases Recorded', $content);
+
+        // 2. All 9 rows are generated in the summary table
+        for ($i = 1; $i <= 9; $i++) {
+            $this->assertStringContainsString("Republic vs Suspect {$i} (Operation Coast Sentinel)", $content);
+            $this->assertStringContainsString("Garmin inReach Explorer+ Model {$i}", $content);
+        }
+
+        // 3. Client-side pagination logic for summary register is included
+        $this->assertStringContainsString('paginateSummaryRegisterPage', $content);
+        $this->assertStringContainsString('generated-summary-page', $content);
+        $this->assertStringContainsString('dpfSummaryPristineSnapshots', $content);
+        $this->assertStringContainsString('getOrCreateCurrentTbody', $content);
+        $this->assertStringContainsString('activeTbody.removeChild(rowEl)', $content);
+        $this->assertStringContainsString('createNextSummaryPage()', $content);
+
+        // 4. Single DPF PDF pagination also contains row splitting for summary tables
+        $singleResponse = $this->actingAs($user)->get('/Digital_Forensics/dpf-report-pdf/DF-STATUS-2026-NINE-01');
+        $singleResponse->assertStatus(200);
+        $singleContent = $singleResponse->getContent();
+
+        $this->assertStringContainsString('createSummaryTableBlock', $singleContent);
+        $this->assertStringContainsString('Summary (Cont.)', $singleContent);
+        $this->assertStringContainsString('curTableObj.tbody.removeChild(row)', $singleContent);
+    }
 }

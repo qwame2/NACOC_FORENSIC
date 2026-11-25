@@ -91,8 +91,20 @@ class CaseController extends Controller
                     $rawInput['search_warrant_document_path'] = $warrantFile->store('search_warrants', 'public');
                 }
             }
+            foreach (['mugshot_front', 'mugshot_left', 'mugshot_right', 'mugshot_back'] as $mugKey) {
+                if ($request->hasFile($mugKey)) {
+                    $mFile = $request->file($mugKey);
+                    if ($mFile && $mFile->isValid()) {
+                        $rawInput[$mugKey] = $mFile->store('suspects', 'public');
+                    }
+                }
+            }
 
             $payload = $this->stripUploadedFiles($rawInput);
+            $payload = app(\App\Services\MediaStorageService::class)->processPayloadImages(
+                $payload,
+                $request->input('case_number') ?: ('SUB-' . ($authUser->id ?? 'staff'))
+            );
             $unitName = trim((string) ($authUser->unit ?: $request->input('unit_name') ?: $request->input('unit') ?: 'Crime Scene Support'));
             $suspectName = trim((string) ($request->input('suspect_name') ?: $request->input('full_name') ?: $request->input('title') ?: 'Pending Suspect'));
             $title = trim((string) ($request->input('title') ?: $request->input('offense_type') ?: $request->input('operation_type') ?: 'Staff Case Submission'));

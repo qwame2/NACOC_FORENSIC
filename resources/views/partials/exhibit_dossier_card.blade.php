@@ -156,15 +156,135 @@
                         {{ $cleanValP }}</div>
                 </div>
 
-                @if (!empty($pEx['source_of_exhibits']) || !empty($pEx['source']))
-                    <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
-                        <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                            Source of Exhibits</div>
-                        <div class="font-bold text-slate-900 text-xs mt-0.5">
-                            {{ $pEx['source_of_exhibits'] ?? $pEx['source'] }}
-                        </div>
+                {{-- 1. Source/Requesting Unit --}}
+                @php
+                    $sourceReqUnit = $pEx['source_requesting_unit'] ?? ($pEx['requesting_unit'] ?? ($pEx['source_unit'] ?? ($pEx['source_of_exhibits'] ?? ($pEx['source'] ?? ($case->source_requesting_unit ?? ($case->requesting_unit ?? ($case->unit_name ?? null)))))));
+                @endphp
+                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Source/Requesting Unit</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5">
+                        {{ !empty($sourceReqUnit) ? $sourceReqUnit : 'N/A' }}
                     </div>
-                @endif
+                </div>
+
+                {{-- 2. Investigating Officer --}}
+                @php
+                    $invOfficer = !empty($pEx['investigating_officer']) && $pEx['investigating_officer'] !== 'N/A'
+                        ? $pEx['investigating_officer']
+                        : (!empty($pEx['investigation_officer']) && $pEx['investigation_officer'] !== 'N/A'
+                            ? $pEx['investigation_officer']
+                            : null);
+
+                    if (empty($invOfficer) && !empty($pEx['id'])) {
+                        try { $invOfficer = \App\Models\Exhibit::where('id', $pEx['id'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                    }
+                    if (empty($invOfficer) && !empty($pEx['linked_exhibit_id'])) {
+                        try { $invOfficer = \App\Models\Exhibit::where('id', $pEx['linked_exhibit_id'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                    }
+                    if (empty($invOfficer) && !empty($pEx['exhibit_number'])) {
+                        try { $invOfficer = \App\Models\Exhibit::where('exhibit_number', $pEx['exhibit_number'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                    }
+                    if (empty($invOfficer) && isset($case->exhibits) && $case->exhibits instanceof \Illuminate\Support\Collection) {
+                        $mEx = $case->exhibits->first(function ($e) use ($pEx) {
+                            return (!empty($pEx['id']) && (int)$e->id === (int)$pEx['id'])
+                                || (!empty($pEx['exhibit_number']) && (string)$e->exhibit_number === (string)$pEx['exhibit_number'])
+                                || (!empty($pEx['commodity_name']) && strtolower(trim((string)$e->commodity_name)) === strtolower(trim((string)$pEx['commodity_name'])))
+                                || (!empty($pEx['seizure_name']) && strtolower(trim((string)$e->commodity_name)) === strtolower(trim((string)$pEx['seizure_name'])));
+                        });
+                        if ($mEx && !empty($mEx->investigating_officer) && $mEx->investigating_officer !== 'N/A') {
+                            $invOfficer = $mEx->investigating_officer;
+                        }
+                    }
+                    if (empty($invOfficer) && !empty($case->id)) {
+                        $uId = isset($case->underlyingRecord) ? $case->underlyingRecord->id : $case->id;
+                        try {
+                            $mDb = \App\Models\Exhibit::where(function ($q) use ($case, $uId) {
+                                $q->where('single_suspect_case_id', $case->id)
+                                    ->orWhere('multiple_suspect_case_id', $case->id)
+                                    ->orWhere('single_suspect_case_id', $uId)
+                                    ->orWhere('multiple_suspect_case_id', $uId);
+                            })->where(function ($q) use ($pEx) {
+                                if (!empty($pEx['id'])) $q->orWhere('id', $pEx['id']);
+                                if (!empty($pEx['exhibit_number'])) $q->orWhere('exhibit_number', $pEx['exhibit_number']);
+                                if (!empty($pEx['commodity_name'])) $q->orWhere('commodity_name', $pEx['commodity_name']);
+                                if (!empty($pEx['seizure_name'])) $q->orWhere('commodity_name', $pEx['seizure_name']);
+                            })->whereNotNull('investigating_officer')->value('investigating_officer');
+                            if (!empty($mDb) && $mDb !== 'N/A') {
+                                $invOfficer = $mDb;
+                            }
+                        } catch (\Throwable $e) {}
+                    }
+                    if (empty($invOfficer) && !empty($case->id)) {
+                        $uId = isset($case->underlyingRecord) ? $case->underlyingRecord->id : $case->id;
+                        try {
+                            $firstCaseInv = \App\Models\Exhibit::where(function ($q) use ($case, $uId) {
+                                $q->where('single_suspect_case_id', $case->id)
+                                    ->orWhere('multiple_suspect_case_id', $case->id)
+                                    ->orWhere('single_suspect_case_id', $uId)
+                                    ->orWhere('multiple_suspect_case_id', $uId);
+                            })->whereNotNull('investigating_officer')->value('investigating_officer');
+                            if (!empty($firstCaseInv) && $firstCaseInv !== 'N/A') {
+                                $invOfficer = $firstCaseInv;
+                            }
+                        } catch (\Throwable $e) {}
+                    }
+                    if (empty($invOfficer)) {
+                        $invOfficer = $case->investigating_officer
+                            ?? ($case->docket_data['investigating_officer']
+                            ?? ($payload['investigating_officer']
+                            ?? ($case->docket_data['seizures'][0]['investigating_officer'] ?? 'N/A')));
+                    }
+                    $invOfficer = !empty($invOfficer) ? $invOfficer : 'N/A';
+                @endphp
+                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Investigating Officer</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5">
+                        {{ !empty($invOfficer) ? $invOfficer : 'N/A' }}
+                    </div>
+                </div>
+
+                {{-- 3. Reason for Seizure --}}
+                @php
+                    $seizureReason = $pEx['reason_for_seizure'] ?? ($pEx['seizure_reason'] ?? ($pEx['reason'] ?? ($case->reason_for_seizure ?? ($case->seizure_reason ?? null))));
+                @endphp
+                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Reason for Seizure</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                        {{ !empty($seizureReason) ? $seizureReason : 'N/A' }}
+                    </div>
+                </div>
+
+                {{-- 4. Concealment & Packaging Notes --}}
+                @php
+                    $pkgVal = $pEx['seizure_packaging'] ?? ($pEx['packaging'] ?? ($pEx['packaging_type'] ?? null));
+                    $concealVal = $pEx['seizure_concealment'] ?? ($pEx['concealment_method'] ?? ($pEx['concealment'] ?? ($pEx['packaging_notes'] ?? null)));
+                    $concealAndPkgNotes = implode(' — ', array_filter([$pkgVal, $concealVal]));
+                    if (empty($concealAndPkgNotes)) {
+                        $concealAndPkgNotes = $concealVal ?: ($pkgVal ?: 'N/A');
+                    }
+                @endphp
+                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Concealment &amp; Packaging Notes</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                        {{ $concealAndPkgNotes }}
+                    </div>
+                </div>
+
+                {{-- 5. Remarks / Observations --}}
+                @php
+                    $remarksObs = $pEx['exhibit_remark'] ?? ($pEx['remarks'] ?? ($pEx['observations'] ?? ($pEx['remarks_observations'] ?? ($pEx['seizure_remarks'] ?? ($pEx['notes'] ?? ($case->remarks ?? null))))));
+                @endphp
+                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Remarks / Observations</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed whitespace-pre-line">
+                        {{ !empty($remarksObs) ? $remarksObs : 'N/A' }}
+                    </div>
+                </div>
 
                 @if (!empty($pEx['other_exhibit_description']) || !empty($pEx['other_description']))
                     <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-full">

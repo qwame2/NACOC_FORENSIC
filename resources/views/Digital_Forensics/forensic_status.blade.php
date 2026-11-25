@@ -873,17 +873,17 @@
                 @include('partials.flash')
 
                 <!-- HERO BANNER -->
-                <div class="p-6 rounded-3xl text-white shadow-xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 border bg-black">
-                    <div class="space-y-2">
+                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
+                    <div class="space-y-1">
                         <div class="flex items-center gap-2 flex-wrap">
-                            <span class="px-2.5 py-1 bg-emerald-600 text-white text-[10px] font-extrabold font-mono-code rounded-lg uppercase tracking-wider">
+                            <span class="text-xs font-black font-mono-code uppercase tracking-wider text-emerald-700">
                                 DIGITAL &amp; PHYSICAL FORENSICS UNIT
                             </span>
                         </div>
-                        <h1 class="text-xl sm:text-2xl font-black font-mono-code uppercase tracking-tight text-white">
+                        <h1 class="text-xl sm:text-2xl font-black font-mono-code uppercase tracking-tight text-slate-900">
                             Forensic &amp; Investigation Status
                         </h1>
-                        <p class="text-xs text-blue-100 font-medium max-w-2xl leading-relaxed">
+                        <p class="text-xs text-slate-600 font-medium max-w-2xl leading-relaxed">
                             Monitor hardware write-blocker extraction, chip-off memory acquisition, passcode recovery, and case investigation status for electronic exhibits across NACOC active dockets.
                         </p>
                     </div>
@@ -907,7 +907,7 @@
                                 <p class="text-xs text-slate-500 font-medium">Record live extraction status, hash checksum, write-blocker mode, and findings for mobile devices &amp; digital media.</p>
                             </div>
                         </div>
-                        <span class="text-xs font-mono-code font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-xl self-start sm:self-auto">
+                        <span class="text-xs font-mono-code font-bold text-slate-500 self-start sm:self-auto">
                             FORM REF # DF-STATUS-{{ date('Y-md') }}
                         </span>
                     </div>
@@ -1393,10 +1393,7 @@
                                             $sCoCount = $sInfo['co_count'] ?? 0;
                                         }
                                         if (!empty($sMug)) {
-                                            $sMug = trim((string)$sMug);
-                                            if (!str_starts_with($sMug, 'data:image') && !str_starts_with($sMug, 'http://') && !str_starts_with($sMug, 'https://') && !str_starts_with($sMug, '/')) {
-                                                $sMug = asset($sMug);
-                                            }
+                                            $sMug = \App\Services\CasePhotoResolver::resolveMugshotUrl($sMug);
                                         }
                                     @endphp
                                     @php
@@ -1573,10 +1570,7 @@
                                             $sCoCount = $sInfo['co_count'] ?? 0;
                                         }
                                         if (!empty($sMug)) {
-                                            $sMug = trim((string)$sMug);
-                                            if (!str_starts_with($sMug, 'data:image') && !str_starts_with($sMug, 'http://') && !str_starts_with($sMug, 'https://') && !str_starts_with($sMug, '/')) {
-                                                $sMug = asset($sMug);
-                                            }
+                                            $sMug = \App\Services\CasePhotoResolver::resolveMugshotUrl($sMug);
                                         }
                                     @endphp
                                     <tr class="hover:bg-emerald-50/40 transition-colors directory-row" 

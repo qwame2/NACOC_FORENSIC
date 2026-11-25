@@ -289,5 +289,45 @@ class VehicleExhibitPersistenceTest extends TestCase
         $response->assertSee('Titanium Gray');
         $response->assertSee('Cracked screen protector on top right');
     }
+
+    #[Test]
+    public function exhibit_remark_is_persisted_in_exhibits_table()
+    {
+        $user = User::factory()->create([
+            'unit' => 'Digital Forensics',
+        ]);
+
+        $seizures = [
+            [
+                'exhibit_number' => '1',
+                'category' => 'Electronic Devices',
+                'seizure_name' => 'MacBook Pro 16',
+                'dev_model' => 'A2485',
+                'exhibit_remark' => 'Packaging seal unbroken; chain of custody tag #4459 attached.',
+            ]
+        ];
+
+        $payload = [
+            'unit_name' => 'Digital Forensics',
+            'title' => 'Republic vs Kofi Tech',
+            'suspect_name' => 'Kofi Tech',
+            'exhibit_remark' => 'Packaging seal unbroken; chain of custody tag #4459 attached.',
+            'docket_data' => [
+                'suspects' => [
+                    ['suspect_name' => 'Kofi Tech', 'role' => 'Primary Suspect'],
+                ],
+                'seizures' => $seizures,
+            ],
+            'user_id' => $user->id,
+        ];
+
+        $case = ForensicCase::create($payload);
+
+        $this->assertNotNull($case);
+
+        $exhibit = Exhibit::where('commodity_name', 'MacBook Pro 16')->first();
+        $this->assertNotNull($exhibit);
+        $this->assertEquals('Packaging seal unbroken; chain of custody tag #4459 attached.', $exhibit->exhibit_remark);
+    }
 }
 

@@ -29,6 +29,9 @@
     $approvedHistoryCount = $reviewedSubmissions->where('status', 'Approved')->count();
 
     $extractSubmissionMeta = function ($sub) use ($photoResolver) {
+        if (method_exists($sub, 'getSubmissionMeta')) {
+            return $sub->getSubmissionMeta();
+        }
         $p = is_array($sub->payload) ? $sub->payload : [];
         $docket = is_array($p['docket_data'] ?? null) ? $p['docket_data'] : [];
 
@@ -45,9 +48,40 @@
         $caseRef = trim((string) ($sub->case_number_preview ?? ($p['case_number'] ?? '')));
 
         $rawFront = $p['mugshot_front']
+            ?? ($p['mugshot'] ?? null)
             ?? ($p['mugshots']['front'] ?? null)
+            ?? ($p['photo'] ?? null)
+            ?? ($p['suspect_photo'] ?? null)
             ?? ($suspectsList[0]['mugshot_front'] ?? null)
-            ?? ($suspectsList[0]['mugshots']['front'] ?? null);
+            ?? ($suspectsList[0]['mugshot'] ?? null)
+            ?? ($suspectsList[0]['mugshots']['front'] ?? null)
+            ?? ($suspectsList[0]['photo'] ?? null)
+            ?? ($suspectsList[0]['suspect_photo'] ?? null)
+            ?? ($docket['mugshot_front'] ?? null)
+            ?? ($docket['mugshots']['front'] ?? null);
+
+        if (empty($rawFront) && !empty($sub->approved_case_number)) {
+            try {
+                $approvedRecord = \App\Models\SingleSuspectCase::where('case_number', $sub->approved_case_number)->first()
+                    ?? \App\Models\MultipleSuspectCase::where('case_number', $sub->approved_case_number)->first();
+                if ($approvedRecord) {
+                    if ($approvedRecord instanceof \App\Models\SingleSuspectCase) {
+                        $rawFront = $approvedRecord->mugshot_front;
+                    } elseif (isset($approvedRecord->suspects) && count($approvedRecord->suspects) > 0) {
+                        $rawFront = $approvedRecord->suspects[0]->mugshot_front ?? null;
+                    }
+                }
+                if (empty($rawFront)) {
+                    $fCase = \App\Models\ForensicCase::where('case_number', $sub->approved_case_number)->first();
+                    if ($fCase) {
+                        $rawFront = $fCase->mugshot_front
+                            ?? ($fCase->suspects[0]->mugshot_front ?? null)
+                            ?? ($fCase->suspects[0]['mugshot_front'] ?? null);
+                    }
+                }
+            } catch (\Throwable) {}
+        }
+
         $mugshotUrl = $photoResolver->formatMugshotUrl($rawFront);
 
         return [
@@ -57,6 +91,8 @@
             'location'      => $location,
             'case_ref'      => $caseRef,
             'mugshot_url'   => $mugshotUrl,
+            'suspects'      => [],
+            'is_multiple_suspects' => false,
         ];
     };
 @endphp
@@ -236,7 +272,7 @@
                         <button type="button" onclick="focusPendingFilter('PENDING')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
                             <div>
                                 <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">Pending Review</div>
-                                <div class="text-2xl font-extrabold text-slate-900 tnum mt-1">{{ $awaitingReviewCount }}</div>
+                                <div id="kpiPendingReviewCount" class="text-2xl font-extrabold text-slate-900 tnum mt-1">{{ $awaitingReviewCount }}</div>
                                 <div class="text-[11px] font-medium text-emerald-700 mt-1">Staged for sign-off</div>
                             </div>
                             <svg class="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -247,10 +283,10 @@
                         <button type="button" onclick="focusPendingFilter('ROLLED_BACK')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
                             <div>
                                 <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">Awaiting Corrections</div>
-                                <div class="text-2xl font-extrabold {{ $rolledBackCount > 0 ? 'text-amber-700' : 'text-slate-900' }} tnum mt-1">{{ $rolledBackCount }}</div>
+                                <div id="kpiRolledBackCount" class="text-2xl font-extrabold {{ $rolledBackCount > 0 ? 'text-amber-700' : 'text-slate-900' }} tnum mt-1">{{ $rolledBackCount }}</div>
                                 <div class="text-[11px] font-medium text-slate-500 mt-1">Returned to staff</div>
                             </div>
-                            <svg class="w-5 h-5 {{ $rolledBackCount > 0 ? 'text-amber-600' : 'text-slate-400' }} shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <svg id="kpiRolledBackIcon" class="w-5 h-5 {{ $rolledBackCount > 0 ? 'text-amber-600' : 'text-slate-400' }} shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/>
                             </svg>
                         </button>
@@ -258,10 +294,10 @@
                         <button type="button" onclick="focusPendingFilter('URGENT')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
                             <div>
                                 <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">High &amp; Critical</div>
-                                <div class="text-2xl font-extrabold {{ $urgentPendingCount > 0 ? 'text-red-600' : 'text-slate-900' }} tnum mt-1">{{ $urgentPendingCount }}</div>
+                                <div id="kpiUrgentPendingCount" class="text-2xl font-extrabold {{ $urgentPendingCount > 0 ? 'text-red-600' : 'text-slate-900' }} tnum mt-1">{{ $urgentPendingCount }}</div>
                                 <div class="text-[11px] font-medium {{ $urgentPendingCount > 0 ? 'text-red-600' : 'text-slate-500' }} mt-1">Priority docket attention</div>
                             </div>
-                            <svg class="w-5 h-5 {{ $urgentPendingCount > 0 ? 'text-red-500' : 'text-slate-400' }} shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <svg id="kpiUrgentPendingIcon" class="w-5 h-5 {{ $urgentPendingCount > 0 ? 'text-red-500' : 'text-slate-400' }} shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
                             </svg>
                         </button>
@@ -269,7 +305,7 @@
                         <button type="button" onclick="focusHistoryFilter('ALL')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
                             <div>
                                 <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">Approved &amp; Saved</div>
-                                <div class="text-2xl font-extrabold text-emerald-700 tnum mt-1">{{ $approvedHistoryCount }}</div>
+                                <div id="kpiApprovedHistoryCount" class="text-2xl font-extrabold text-emerald-700 tnum mt-1">{{ $approvedHistoryCount }}</div>
                                 <div class="text-[11px] font-medium text-slate-500 mt-1">Committed to case registry</div>
                             </div>
                             <svg class="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
@@ -293,184 +329,111 @@
 
                         <div class="flex items-center gap-5 overflow-x-auto" role="tablist" aria-label="Filter pending queue by status and priority">
                             <button type="button" class="filter-underline-tab is-active" data-pending-tab="ALL" onclick="setPendingFilter('ALL', this)">
-                                All Submissions ({{ $pendingSubmissions->count() }})
+                                All Submissions (<span id="tabCountAll">{{ $pendingSubmissions->count() }}</span>)
                             </button>
                             <button type="button" class="filter-underline-tab" data-pending-tab="PENDING" onclick="setPendingFilter('PENDING', this)">
-                                Pending Review ({{ $awaitingReviewCount }})
+                                Pending Review (<span id="tabCountPending">{{ $awaitingReviewCount }}</span>)
                             </button>
-                            @if($rolledBackCount > 0)
-                                <button type="button" class="filter-underline-tab" data-pending-tab="ROLLED_BACK" onclick="setPendingFilter('ROLLED_BACK', this)">
-                                    Awaiting Corrections ({{ $rolledBackCount }})
-                                </button>
-                            @endif
+                            <button type="button" class="filter-underline-tab {{ $rolledBackCount > 0 ? '' : 'hidden' }}" id="tabRolledBackWrapper" data-pending-tab="ROLLED_BACK" onclick="setPendingFilter('ROLLED_BACK', this)">
+                                Awaiting Corrections (<span id="tabCountRolledBack">{{ $rolledBackCount }}</span>)
+                            </button>
                             <button type="button" class="filter-underline-tab" data-pending-tab="URGENT" onclick="setPendingFilter('URGENT', this)">
-                                High &amp; Critical ({{ $urgentPendingCount }})
+                                High &amp; Critical (<span id="tabCountUrgent">{{ $urgentPendingCount }}</span>)
                             </button>
                         </div>
                     </div>
 
-                    @if($pendingSubmissions->isEmpty())
-                        <div class="bg-white rounded-2xl p-12 text-center shadow-sm">
-                            <div class="w-12 h-12 mx-auto rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                    <!-- PENDING SUBMISSIONS FILTER CONSOLE -->
+                    <div class="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                        <!-- SEARCH INPUT -->
+                        <div class="relative flex-1">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                 </svg>
                             </div>
-                            <h4 class="text-sm font-extrabold text-slate-900">Queue Clear for {{ $unitLabel }}</h4>
-                            <p class="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                                No pending staff case submissions are currently waiting for review. Newly submitted dockets from field officers will appear here automatically.
-                            </p>
-                        </div>
-                    @else
-                        <div id="pendingQueueList" class="space-y-3">
-                            @foreach($pendingSubmissions as $sub)
-                                @php
-                                    $meta = $extractSubmissionMeta($sub);
-                                    $prio = strtoupper((string) ($sub->priority ?: 'MEDIUM'));
-                                    $isUrgent = in_array($prio, ['HIGH', 'CRITICAL'], true);
-                                    $prioTextColor = match ($prio) {
-                                        'CRITICAL' => 'text-red-700',
-                                        'HIGH'     => 'text-red-600',
-                                        'LOW'      => 'text-emerald-700',
-                                        default    => 'text-amber-700',
-                                    };
-                                    $reviewUrl = $reviewUrlFor($sub->id);
-                                    $subCode = 'SUB-' . str_pad((string) $sub->id, 4, '0', STR_PAD_LEFT);
-                                    $searchHaystack = strtolower(implode(' ', array_filter([
-                                        $subCode,
-                                        $sub->suspect_name,
-                                        $sub->title,
-                                        $sub->submitted_by_name,
-                                        $sub->unit_name,
-                                        $prio,
-                                        $meta['case_ref'],
-                                        $meta['offense'],
-                                        $meta['location'],
-                                    ])));
-                                @endphp
-                                <article
-                                    class="submission-card rounded-2xl p-4 sm:p-5 pending-item"
-                                    data-priority="{{ $prio }}"
-                                    data-urgent="{{ $isUrgent ? '1' : '0' }}"
-                                    data-status="{{ $sub->status }}"
-                                    data-search="{{ $searchHaystack }}"
-                                >
-                                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
-                                        <!-- COL 1: SUBMISSION REF & PRIORITY (NO BG CONTAINERS, NO DOTS) -->
-                                        <div class="lg:col-span-2 space-y-1">
-                                            <a href="{{ $reviewUrl }}" class="font-mono-code font-extrabold text-sm text-slate-900 hover:text-emerald-700 transition-colors text-decoration-none block">
-                                                {{ $subCode }}
-                                            </a>
-                                            <div class="font-mono-code font-extrabold text-[11px] uppercase tracking-wide {{ $prioTextColor }}">
-                                                {{ $prio }} PRIORITY
-                                            </div>
-                                            @if($sub->status === 'Rolled Back')
-                                                <div class="mt-1">
-                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-green-100 text-green-950 border-none">
-                                                        Awaiting Corrections
-                                                    </span>
-                                                </div>
-                                            @elseif(!empty($sub->payload['was_corrected']) || !empty($sub->payload['resubmitted_at']))
-                                                <div class="mt-1">
-                                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-blue-100 text-blue-950 border-none" title="Staff officer has updated the case and returned it for review">
-                                                        <svg class="w-3 h-3 text-blue-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-                                                        <span>Corrections Submitted</span>
-                                                    </span>
-                                                </div>
-                                            @else
-                                                <div class="text-[11px] text-slate-400 font-mono-code">
-                                                    {{ optional($sub->created_at)->format('d M Y, H:i') }}
-                                                </div>
-                                            @endif
-                                        </div>
-
-                                        <!-- COL 2: SUSPECT PHOTO / IDENTITY & CASE TITLE -->
-                                        <div class="lg:col-span-5 flex items-start gap-3.5 min-w-0">
-                                            @if(!empty($meta['mugshot_url']))
-                                                <img
-                                                    src="{{ $meta['mugshot_url'] }}"
-                                                    alt="{{ $sub->suspect_name ?: 'Suspect Mugshot' }}"
-                                                    width="48"
-                                                    height="48"
-                                                    class="w-12 h-12 rounded-xl object-cover shrink-0"
-                                                    onerror="this.style.display='none'"
-                                                >
-                                            @else
-                                                <div class="w-12 h-12 rounded-xl bg-slate-100 text-slate-400 flex items-center justify-center shrink-0" aria-hidden="true">
-                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
-                                                    </svg>
-                                                </div>
-                                            @endif
-
-                                            <div class="min-w-0 flex-1 space-y-1">
-                                                <div class="flex items-baseline gap-2.5 flex-wrap">
-                                                    <a href="{{ $reviewUrl }}" class="text-sm sm:text-[15px] font-extrabold text-slate-900 hover:text-emerald-700 transition-colors truncate text-decoration-none">
-                                                        {{ $sub->suspect_name ?: 'Unnamed Suspect' }}
-                                                    </a>
-                                                    @if(!empty($meta['case_ref']))
-                                                        <span class="text-[11px] font-mono-code font-semibold text-slate-500">
-                                                            Ref: {{ $meta['case_ref'] }}
-                                                        </span>
-                                                    @endif
-                                                </div>
-
-                                                <div class="text-xs font-medium text-slate-600 line-clamp-1">
-                                                    {{ $sub->title ?: 'Staff Case Submission' }}
-                                                </div>
-
-                                                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 pt-0.5">
-                                                    <span>{{ $meta['suspect_count'] }} {{ $meta['suspect_count'] === 1 ? 'Suspect' : 'Suspects' }}</span>
-                                                    @if($meta['exhibit_count'] > 0)
-                                                        <span class="text-slate-300">|</span>
-                                                        <span>{{ $meta['exhibit_count'] }} {{ $meta['exhibit_count'] === 1 ? 'Exhibit' : 'Exhibits' }}</span>
-                                                    @endif
-                                                    @if(!empty($meta['offense']))
-                                                        <span class="text-slate-300">|</span>
-                                                        <span class="truncate max-w-[200px]">{{ $meta['offense'] }}</span>
-                                                    @endif
-                                                    @if(!empty($meta['location']))
-                                                        <span class="text-slate-300">|</span>
-                                                        <span class="truncate max-w-[180px]">{{ $meta['location'] }}</span>
-                                                    @endif
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <!-- COL 3: SUBMITTED BY & UNIT (PURE TYPOGRAPHY) -->
-                                        <div class="lg:col-span-2 min-w-0 space-y-0.5 lg:pl-4">
-                                            <div class="text-[10px] font-mono-code uppercase tracking-wider text-slate-400 font-semibold">Submitted By</div>
-                                            <div class="text-xs font-bold text-slate-800 truncate">{{ $sub->submitted_by_name ?: 'Staff Officer' }}</div>
-                                            <div class="text-[11px] font-medium text-slate-500 truncate">{{ $sub->unit_name }}</div>
-                                        </div>
-
-                                        <!-- COL 4: DIRECT ACTIONS -->
-                                        <div class="lg:col-span-3 flex items-center justify-start lg:justify-end shrink-0">
-                                            <a
-                                                href="{{ $reviewUrl }}"
-                                                class="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors text-decoration-none"
-                                            >
-                                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                                </svg>
-                                                <span>{{ (!empty($sub->payload['was_corrected']) || !empty($sub->payload['resubmitted_at'])) ? 'Review Corrections' : 'Review Dossier' }}</span>
-                                            </a>
-                                        </div>
-                                    </div>
-                                </article>
-                            @endforeach
-                        </div>
-
-                        <!-- FILTERED EMPTY STATE FOR PENDING QUEUE -->
-                        <div id="pendingFilterEmpty" class="hidden bg-white rounded-2xl shadow-sm p-10 text-center">
-                            <h4 class="text-sm font-bold text-slate-900">No Matching Pending Submissions</h4>
-                            <p class="text-xs text-slate-500 mt-1">Adjust your search query or selected priority tab to see staged submissions.</p>
-                            <button type="button" onclick="resetAllQueueFilters()" class="mt-3 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-colors">
-                                Reset Filters
+                            <input
+                                type="text"
+                                id="pendingSearchInput"
+                                placeholder="Search pending submissions (suspect, title, officer, SUB #)..."
+                                aria-label="Search pending submissions"
+                                oninput="onPendingSearchInput(this.value)"
+                                class="w-full pl-9 pr-8 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-emerald-600 focus:outline-none transition-colors"
+                            >
+                            <button
+                                type="button"
+                                id="pendingSearchClear"
+                                onclick="clearPendingSearch()"
+                                aria-label="Clear pending search"
+                                class="hidden absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
                             </button>
                         </div>
-                    @endif
+
+                        <!-- DATE RANGE FILTER (FROM & TO) -->
+                        <div class="flex items-center gap-1.5 bg-slate-50/70 border border-slate-200 rounded-xl px-3 py-1.5 shrink-0">
+                            <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <div class="flex items-center gap-1">
+                                <label for="pendingDateFrom" class="text-[10px] font-bold text-slate-500 uppercase font-mono-code">From:</label>
+                                <input
+                                    type="date"
+                                    id="pendingDateFrom"
+                                    onchange="onPendingDateChange()"
+                                    class="text-xs text-slate-800 bg-transparent border-none focus:outline-none focus:ring-0 p-0 font-mono-code cursor-pointer"
+                                    title="Filter pending submissions from date"
+                                >
+                            </div>
+                            <span class="text-slate-300 mx-0.5">&ndash;</span>
+                            <div class="flex items-center gap-1">
+                                <label for="pendingDateTo" class="text-[10px] font-bold text-slate-500 uppercase font-mono-code">To:</label>
+                                <input
+                                    type="date"
+                                    id="pendingDateTo"
+                                    onchange="onPendingDateChange()"
+                                    class="text-xs text-slate-800 bg-transparent border-none focus:outline-none focus:ring-0 p-0 font-mono-code cursor-pointer"
+                                    title="Filter pending submissions to date"
+                                >
+                            </div>
+                            <button
+                                type="button"
+                                onclick="clearPendingDateFilter()"
+                                title="Reset date filter"
+                                id="clearPendingDateBtn"
+                                class="hidden ml-1 text-[11px] font-bold text-slate-400 hover:text-rose-600 transition-colors p-0.5"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="pendingQueueContainer">
+                        @include('head.partials.pending_queue')
+                    </div>
+
+                    <!-- PENDING PAGINATION FOOTER -->
+                    <div id="pendingPaginationBar" class="bg-white border border-slate-200/80 rounded-2xl px-5 py-3 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                        <div class="flex items-center gap-3 text-slate-500 font-mono-code text-[11px]">
+                            <span>Showing <strong id="pendingPageStart" class="text-slate-800">1</strong> to <strong id="pendingPageEnd" class="text-slate-800">5</strong> of <strong id="pendingPageTotal" class="text-slate-800">0</strong></span>
+                            <span class="text-slate-300">|</span>
+                            <div class="flex items-center gap-1.5">
+                                <span class="text-slate-400">Per page:</span>
+                                <select id="pendingPerPageSelect" onchange="changePendingPerPage(this.value)" class="bg-slate-50 border border-slate-200 rounded-lg text-xs py-0.5 px-2 font-mono-code text-slate-700 focus:outline-none focus:border-emerald-600">
+                                    <option value="5" selected>5</option>
+                                    <option value="10">10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="pendingPaginationControls" class="flex items-center gap-1"></div>
+                    </div>
                 </section>
 
                 <!-- REVIEWED HISTORY LEDGER -->
@@ -488,6 +451,76 @@
                         <div class="flex items-center gap-5 overflow-x-auto" role="tablist" aria-label="Filter history by decision">
                             <button type="button" class="filter-underline-tab is-active" data-history-tab="ALL" onclick="setHistoryFilter('ALL', this)">
                                 Approved Cases ({{ $approvedHistoryCount }})
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- DECISION HISTORY FILTER CONSOLE -->
+                    <div class="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-3.5 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+                        <!-- SEARCH INPUT -->
+                        <div class="relative flex-1">
+                            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                                </svg>
+                            </div>
+                            <input
+                                type="text"
+                                id="historySearchInput"
+                                placeholder="Search decision history (suspect, case #, reviewer, SUB #)..."
+                                aria-label="Search decision history"
+                                oninput="onHistorySearchInput(this.value)"
+                                class="w-full pl-9 pr-8 py-2 bg-slate-50/70 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:border-emerald-600 focus:outline-none transition-colors"
+                            >
+                            <button
+                                type="button"
+                                id="historySearchClear"
+                                onclick="clearHistorySearch()"
+                                aria-label="Clear history search"
+                                class="hidden absolute inset-y-0 right-0 pr-2.5 flex items-center text-slate-400 hover:text-slate-700"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- DATE RANGE FILTER (FROM & TO) -->
+                        <div class="flex items-center gap-1.5 bg-slate-50/70 border border-slate-200 rounded-xl px-3 py-1.5 shrink-0">
+                            <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                            </svg>
+                            <div class="flex items-center gap-1">
+                                <label for="historyDateFrom" class="text-[10px] font-bold text-slate-500 uppercase font-mono-code">From:</label>
+                                <input
+                                    type="date"
+                                    id="historyDateFrom"
+                                    onchange="onHistoryDateChange()"
+                                    class="text-xs text-slate-800 bg-transparent border-none focus:outline-none focus:ring-0 p-0 font-mono-code cursor-pointer"
+                                    title="Filter decision history from date"
+                                >
+                            </div>
+                            <span class="text-slate-300 mx-0.5">&ndash;</span>
+                            <div class="flex items-center gap-1">
+                                <label for="historyDateTo" class="text-[10px] font-bold text-slate-500 uppercase font-mono-code">To:</label>
+                                <input
+                                    type="date"
+                                    id="historyDateTo"
+                                    onchange="onHistoryDateChange()"
+                                    class="text-xs text-slate-800 bg-transparent border-none focus:outline-none focus:ring-0 p-0 font-mono-code cursor-pointer"
+                                    title="Filter decision history to date"
+                                >
+                            </div>
+                            <button
+                                type="button"
+                                onclick="clearHistoryDateFilter()"
+                                title="Reset date filter"
+                                id="clearHistoryDateBtn"
+                                class="hidden ml-1 text-[11px] font-bold text-slate-400 hover:text-rose-600 transition-colors p-0.5"
+                            >
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
                             </button>
                         </div>
                     </div>
@@ -517,6 +550,7 @@
                                                 $revUrl = $reviewUrlFor($rev->id);
                                                 $revCode = 'SUB-' . str_pad((string) $rev->id, 4, '0', STR_PAD_LEFT);
                                                 $corrCount = is_array($rev->rollback_corrections) ? count($rev->rollback_corrections) : 0;
+                                                $revMeta = $extractSubmissionMeta($rev);
                                                 $revSearch = strtolower(implode(' ', array_filter([
                                                     $revCode,
                                                     $rev->suspect_name,
@@ -530,6 +564,7 @@
                                             <tr
                                                 class="even:bg-slate-50/40 hover:bg-slate-100/60 transition-colors history-row"
                                                 data-status="{{ $rev->status }}"
+                                                data-date="{{ optional($rev->reviewed_at ?? $rev->created_at)->format('Y-m-d') }}"
                                                 data-search="{{ $revSearch }}"
                                             >
                                                 <td class="py-4 px-5 whitespace-nowrap">
@@ -541,11 +576,37 @@
                                                     </div>
                                                 </td>
 
-                                                <td class="py-4 px-5 min-w-[200px]">
-                                                    <a href="{{ $revUrl }}" class="font-bold text-slate-900 hover:text-emerald-700 transition-colors block text-decoration-none">
-                                                        {{ $rev->suspect_name ?: 'N/A' }}
-                                                    </a>
-                                                    <div class="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{{ $rev->title }}</div>
+                                                <td class="py-4 px-5 min-w-[220px]">
+                                                    <div class="flex items-center gap-3">
+                                                        <a href="{{ $revUrl }}" class="shrink-0 text-decoration-none group focus:outline-none" title="{{ $rev->suspect_name ?: 'Suspect Front Image' }}">
+                                                            @if(!empty($revMeta['mugshot_url']))
+                                                                <img
+                                                                    src="{{ $revMeta['mugshot_url'] }}"
+                                                                    alt="{{ $rev->suspect_name ?: 'Suspect Front Image' }}"
+                                                                    class="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0 bg-slate-100 shadow-2xs group-hover:ring-2 group-hover:ring-emerald-500/40 transition-all"
+                                                                    loading="lazy"
+                                                                    onerror="this.onerror=null; this.style.display='none'; if(this.nextElementSibling) this.nextElementSibling.style.display='flex';"
+                                                                >
+                                                                <div class="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 items-center justify-center shrink-0" style="display: none;" aria-hidden="true">
+                                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                                    </svg>
+                                                                </div>
+                                                            @else
+                                                                <div class="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 text-slate-400 flex items-center justify-center shrink-0" aria-hidden="true">
+                                                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/>
+                                                                    </svg>
+                                                                </div>
+                                                            @endif
+                                                        </a>
+                                                        <div class="min-w-0">
+                                                            <a href="{{ $revUrl }}" class="font-bold text-slate-900 hover:text-emerald-700 transition-colors block text-decoration-none truncate">
+                                                                {{ $rev->suspect_name ?: 'N/A' }}
+                                                            </a>
+                                                            <div class="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{{ $rev->title }}</div>
+                                                        </div>
+                                                    </div>
                                                 </td>
 
                                                 <td class="py-4 px-5">
@@ -613,7 +674,28 @@
                             <!-- FILTERED EMPTY STATE FOR HISTORY -->
                             <div id="historyFilterEmpty" class="hidden p-10 text-center">
                                 <h4 class="text-sm font-bold text-slate-900">No Matching Reviewed Submissions</h4>
-                                <p class="text-xs text-slate-500 mt-1">Try selecting a different decision tab or clearing the search bar.</p>
+                                <p class="text-xs text-slate-500 mt-1">Try selecting a different decision tab, date range, or clearing the search bar.</p>
+                                <button type="button" onclick="clearHistoryAllFilters()" class="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-colors">
+                                    Reset History Filters
+                                </button>
+                            </div>
+
+                            <!-- HISTORY PAGINATION FOOTER -->
+                            <div id="historyPaginationBar" class="px-6 py-4 border-t border-slate-200/80 bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+                                <div class="flex items-center gap-3 text-slate-500 font-mono-code text-[11px]">
+                                    <span>Showing <strong id="historyPageStart" class="text-slate-800">1</strong> to <strong id="historyPageEnd" class="text-slate-800">5</strong> of <strong id="historyPageTotal" class="text-slate-800">0</strong></span>
+                                    <span class="text-slate-300">|</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="text-slate-400">Per page:</span>
+                                        <select id="historyPerPageSelect" onchange="changeHistoryPerPage(this.value)" class="bg-white border border-slate-200 rounded-lg text-xs py-0.5 px-2 font-mono-code text-slate-700 focus:outline-none focus:border-emerald-600">
+                                            <option value="5" selected>5</option>
+                                            <option value="10">10</option>
+                                            <option value="25">25</option>
+                                            <option value="50">50</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div id="historyPaginationControls" class="flex items-center gap-1"></div>
                             </div>
                         @endif
                     </div>
@@ -623,10 +705,26 @@
     </div>
 
     <script>
+        // State for Pending Staff Submissions
         let activePendingFilter = 'ALL';
-        let activeHistoryFilter = 'ALL';
-        let activeSearchQuery = '';
+        let pendingSearchQuery = '';
+        let pendingFromDate = '';
+        let pendingToDate = '';
+        let pendingCurrentPage = 1;
+        let pendingPerPage = 5;
 
+        // State for Decision History
+        let activeHistoryFilter = 'ALL';
+        let historySearchQuery = '';
+        let historyFromDate = '';
+        let historyToDate = '';
+        let historyCurrentPage = 1;
+        let historyPerPage = 5;
+
+        // Global search query (header input)
+        let globalSearchQuery = '';
+
+        /* ── Global Header Search Sync ── */
         function syncSearchInputs(val) {
             const desktop = document.getElementById('queueSearchInput');
             const mobile = document.getElementById('queueSearchInputMobile');
@@ -636,7 +734,9 @@
             if (clearBtn) {
                 clearBtn.classList.toggle('hidden', val.trim() === '');
             }
-            activeSearchQuery = val.trim().toLowerCase();
+            globalSearchQuery = val.trim().toLowerCase();
+            pendingCurrentPage = 1;
+            historyCurrentPage = 1;
             applyAllFilters();
         }
 
@@ -644,20 +744,55 @@
             syncSearchInputs('');
         }
 
+        /* ── Pending Submissions Filter & Pagination Handlers ── */
+        function onPendingSearchInput(val) {
+            pendingSearchQuery = val.trim().toLowerCase();
+            const clearBtn = document.getElementById('pendingSearchClear');
+            if (clearBtn) {
+                clearBtn.classList.toggle('hidden', val.trim() === '');
+            }
+            pendingCurrentPage = 1;
+            applyPendingFilters();
+        }
+
+        function clearPendingSearch() {
+            const input = document.getElementById('pendingSearchInput');
+            if (input) input.value = '';
+            onPendingSearchInput('');
+        }
+
+        function onPendingDateChange() {
+            pendingFromDate = document.getElementById('pendingDateFrom')?.value || '';
+            pendingToDate = document.getElementById('pendingDateTo')?.value || '';
+            const clearBtn = document.getElementById('clearPendingDateBtn');
+            if (clearBtn) {
+                clearBtn.classList.toggle('hidden', !pendingFromDate && !pendingToDate);
+            }
+            pendingCurrentPage = 1;
+            applyPendingFilters();
+        }
+
+        function clearPendingDateFilter() {
+            const fromEl = document.getElementById('pendingDateFrom');
+            const toEl = document.getElementById('pendingDateTo');
+            if (fromEl) fromEl.value = '';
+            if (toEl) toEl.value = '';
+            onPendingDateChange();
+        }
+
+        function clearPendingAllFilters() {
+            clearPendingSearch();
+            clearPendingDateFilter();
+            setPendingFilter('ALL');
+        }
+
         function setPendingFilter(filterKey, btnEl) {
             activePendingFilter = filterKey;
             document.querySelectorAll('[data-pending-tab]').forEach(btn => {
                 btn.classList.toggle('is-active', btn.dataset.pendingTab === filterKey);
             });
-            applyAllFilters();
-        }
-
-        function setHistoryFilter(statusKey, btnEl) {
-            activeHistoryFilter = statusKey;
-            document.querySelectorAll('[data-history-tab]').forEach(btn => {
-                btn.classList.toggle('is-active', btn.dataset.historyTab === statusKey);
-            });
-            applyAllFilters();
+            pendingCurrentPage = 1;
+            applyPendingFilters();
         }
 
         function focusPendingFilter(filterKey) {
@@ -666,77 +801,427 @@
             document.getElementById('pendingQueueSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
+        function changePendingPerPage(val) {
+            pendingPerPage = parseInt(val, 10) || 5;
+            pendingCurrentPage = 1;
+            applyPendingFilters();
+        }
+
+        function goToPendingPage(p) {
+            pendingCurrentPage = p;
+            applyPendingFilters();
+            document.getElementById('pendingQueueSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        /* ── Decision History Filter & Pagination Handlers ── */
+        function onHistorySearchInput(val) {
+            historySearchQuery = val.trim().toLowerCase();
+            const clearBtn = document.getElementById('historySearchClear');
+            if (clearBtn) {
+                clearBtn.classList.toggle('hidden', val.trim() === '');
+            }
+            historyCurrentPage = 1;
+            applyHistoryFilters();
+        }
+
+        function clearHistorySearch() {
+            const input = document.getElementById('historySearchInput');
+            if (input) input.value = '';
+            onHistorySearchInput('');
+        }
+
+        function onHistoryDateChange() {
+            historyFromDate = document.getElementById('historyDateFrom')?.value || '';
+            historyToDate = document.getElementById('historyDateTo')?.value || '';
+            const clearBtn = document.getElementById('clearHistoryDateBtn');
+            if (clearBtn) {
+                clearBtn.classList.toggle('hidden', !historyFromDate && !historyToDate);
+            }
+            historyCurrentPage = 1;
+            applyHistoryFilters();
+        }
+
+        function clearHistoryDateFilter() {
+            const fromEl = document.getElementById('historyDateFrom');
+            const toEl = document.getElementById('historyDateTo');
+            if (fromEl) fromEl.value = '';
+            if (toEl) toEl.value = '';
+            onHistoryDateChange();
+        }
+
+        function clearHistoryAllFilters() {
+            clearHistorySearch();
+            clearHistoryDateFilter();
+            setHistoryFilter('ALL');
+        }
+
+        function setHistoryFilter(statusKey, btnEl) {
+            activeHistoryFilter = statusKey;
+            document.querySelectorAll('[data-history-tab]').forEach(btn => {
+                btn.classList.toggle('is-active', btn.dataset.historyTab === statusKey);
+            });
+            historyCurrentPage = 1;
+            applyHistoryFilters();
+        }
+
         function focusHistoryFilter(statusKey) {
             const targetBtn = document.querySelector(`[data-history-tab="${statusKey}"]`);
             setHistoryFilter(statusKey, targetBtn);
             document.getElementById('reviewedHistorySection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
 
+        function changeHistoryPerPage(val) {
+            historyPerPage = parseInt(val, 10) || 5;
+            historyCurrentPage = 1;
+            applyHistoryFilters();
+        }
+
+        function goToHistoryPage(p) {
+            historyCurrentPage = p;
+            applyHistoryFilters();
+            document.getElementById('reviewedHistorySection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
         function resetAllQueueFilters() {
             syncSearchInputs('');
+            clearPendingSearch();
+            clearPendingDateFilter();
+            clearHistorySearch();
+            clearHistoryDateFilter();
             setPendingFilter('ALL');
             setHistoryFilter('ALL');
         }
 
-        function applyAllFilters() {
-            const pendingItems = document.querySelectorAll('.pending-item');
-            let pendingShown = 0;
+        /* ── Reusable Pagination UI Renderer ── */
+        function renderPaginationUI(prefix, totalMatching, currentPage, perPage, totalPages, start, end, goFnName) {
+            const bar = document.getElementById(`${prefix}PaginationBar`);
+            if (!bar) return;
+
+            if (totalMatching === 0) {
+                bar.classList.add('hidden');
+                return;
+            }
+            bar.classList.remove('hidden');
+
+            const startEl = document.getElementById(`${prefix}PageStart`);
+            const endEl = document.getElementById(`${prefix}PageEnd`);
+            const totalEl = document.getElementById(`${prefix}PageTotal`);
+            if (startEl) startEl.textContent = start;
+            if (endEl) endEl.textContent = end;
+            if (totalEl) totalEl.textContent = totalMatching;
+
+            const controls = document.getElementById(`${prefix}PaginationControls`);
+            if (!controls) return;
+
+            let html = '';
+
+            // Previous Button
+            const prevDisabled = currentPage <= 1;
+            html += `<button type="button" ${prevDisabled ? 'disabled' : `onclick="${goFnName}(${currentPage - 1})"`} class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" title="Previous page">&larr; Prev</button>`;
+
+            // Numbered Page Buttons
+            let pages = [];
+            if (totalPages <= 7) {
+                for (let i = 1; i <= totalPages; i++) pages.push(i);
+            } else {
+                pages.push(1);
+                if (currentPage > 3) pages.push('...');
+                let pStart = Math.max(2, currentPage - 1);
+                let pEnd = Math.min(totalPages - 1, currentPage + 1);
+                for (let i = pStart; i <= pEnd; i++) pages.push(i);
+                if (currentPage < totalPages - 2) pages.push('...');
+                pages.push(totalPages);
+            }
+
+            pages.forEach(p => {
+                if (p === '...') {
+                    html += `<span class="px-2 py-1 text-xs font-bold text-slate-400">...</span>`;
+                } else if (p === currentPage) {
+                    html += `<button type="button" class="px-3 py-1 text-xs font-bold rounded-lg bg-emerald-600 text-white shadow-2xs">${p}</button>`;
+                } else {
+                    html += `<button type="button" onclick="${goFnName}(${p})" class="px-3 py-1 text-xs font-semibold rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-100 transition-colors">${p}</button>`;
+                }
+            });
+
+            // Next Button
+            const nextDisabled = currentPage >= totalPages;
+            html += `<button type="button" ${nextDisabled ? 'disabled' : `onclick="${goFnName}(${currentPage + 1})"`} class="px-2.5 py-1 text-xs font-semibold rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors" title="Next page">Next &rarr;</button>`;
+
+            controls.innerHTML = html;
+        }
+
+        /* ── Filter Engine: Pending Submissions ── */
+        function applyPendingFilters() {
+            const pendingItems = Array.from(document.querySelectorAll('.pending-item'));
+            if (!pendingItems.length) {
+                const bar = document.getElementById('pendingPaginationBar');
+                if (bar) bar.classList.add('hidden');
+                return;
+            }
+
+            const activeQuery = pendingSearchQuery || globalSearchQuery;
+            const matchingItems = [];
+
             pendingItems.forEach(item => {
                 const prio = (item.dataset.priority || 'MEDIUM').toUpperCase();
                 const isUrgent = item.dataset.urgent === '1';
                 const itemStatus = item.dataset.status || 'Pending Approval';
                 const haystack = item.dataset.search || '';
+                const itemDate = item.dataset.date || '';
 
                 const matchesTab = activePendingFilter === 'ALL'
                     || (activePendingFilter === 'PENDING' && itemStatus === 'Pending Approval')
                     || (activePendingFilter === 'ROLLED_BACK' && itemStatus === 'Rolled Back')
                     || (activePendingFilter === 'URGENT' && isUrgent)
                     || (activePendingFilter === prio);
-                const matchesSearch = !activeSearchQuery || haystack.includes(activeSearchQuery);
 
-                const show = matchesTab && matchesSearch;
-                item.classList.toggle('hidden', !show);
-                if (show) pendingShown++;
+                const matchesSearch = !activeQuery || haystack.includes(activeQuery);
+
+                let matchesDate = true;
+                if (pendingFromDate && itemDate) {
+                    matchesDate = matchesDate && (itemDate >= pendingFromDate);
+                }
+                if (pendingToDate && itemDate) {
+                    matchesDate = matchesDate && (itemDate <= pendingToDate);
+                }
+
+                if (matchesTab && matchesSearch && matchesDate) {
+                    matchingItems.push(item);
+                } else {
+                    item.classList.add('hidden');
+                }
             });
 
-            const pendingCountEl = document.getElementById('pendingVisibleCount');
-            if (pendingCountEl && pendingItems.length > 0) {
-                pendingCountEl.textContent = activeSearchQuery || activePendingFilter !== 'ALL'
-                    ? `${pendingShown} of ${pendingItems.length} shown`
+            const totalMatching = matchingItems.length;
+            const totalPages = Math.max(1, Math.ceil(totalMatching / pendingPerPage));
+            if (pendingCurrentPage > totalPages) pendingCurrentPage = totalPages;
+            if (pendingCurrentPage < 1) pendingCurrentPage = 1;
+
+            const startIndex = (pendingCurrentPage - 1) * pendingPerPage;
+            const endIndex = Math.min(startIndex + pendingPerPage, totalMatching);
+
+            matchingItems.forEach((item, idx) => {
+                if (idx >= startIndex && idx < endIndex) {
+                    item.classList.remove('hidden');
+                } else {
+                    item.classList.add('hidden');
+                }
+            });
+
+            const countEl = document.getElementById('pendingVisibleCount');
+            if (countEl) {
+                const isFiltered = activeQuery || activePendingFilter !== 'ALL' || pendingFromDate || pendingToDate;
+                countEl.textContent = isFiltered
+                    ? `${totalMatching} of ${pendingItems.length} filtered`
                     : `${pendingItems.length} total`;
             }
-            const pendingEmpty = document.getElementById('pendingFilterEmpty');
-            if (pendingEmpty && pendingItems.length > 0) {
-                pendingEmpty.classList.toggle('hidden', pendingShown > 0);
+
+            const emptyEl = document.getElementById('pendingFilterEmpty');
+            if (emptyEl) {
+                emptyEl.classList.toggle('hidden', totalMatching > 0);
             }
 
-            const historyRows = document.querySelectorAll('.history-row');
-            let historyShown = 0;
+            renderPaginationUI('pending', totalMatching, pendingCurrentPage, pendingPerPage, totalPages, totalMatching > 0 ? startIndex + 1 : 0, endIndex, 'goToPendingPage');
+        }
+
+        /* ── Filter Engine: Decision History ── */
+        function applyHistoryFilters() {
+            const historyRows = Array.from(document.querySelectorAll('.history-row'));
+            if (!historyRows.length) {
+                const bar = document.getElementById('historyPaginationBar');
+                if (bar) bar.classList.add('hidden');
+                return;
+            }
+
+            const activeQuery = historySearchQuery || globalSearchQuery;
+            const matchingRows = [];
+
             historyRows.forEach(row => {
                 const st = row.dataset.status || '';
                 const haystack = row.dataset.search || '';
+                const rowDate = row.dataset.date || '';
+
                 const matchesTab = activeHistoryFilter === 'ALL' || st === activeHistoryFilter;
-                const matchesSearch = !activeSearchQuery || haystack.includes(activeSearchQuery);
-                const show = matchesTab && matchesSearch;
-                row.classList.toggle('hidden', !show);
-                if (show) historyShown++;
+                const matchesSearch = !activeQuery || haystack.includes(activeQuery);
+
+                let matchesDate = true;
+                if (historyFromDate && rowDate) {
+                    matchesDate = matchesDate && (rowDate >= historyFromDate);
+                }
+                if (historyToDate && rowDate) {
+                    matchesDate = matchesDate && (rowDate <= historyToDate);
+                }
+
+                if (matchesTab && matchesSearch && matchesDate) {
+                    matchingRows.push(row);
+                } else {
+                    row.classList.add('hidden');
+                }
             });
 
-            const historyCountEl = document.getElementById('historyVisibleCount');
-            if (historyCountEl && historyRows.length > 0) {
-                historyCountEl.textContent = activeSearchQuery || activeHistoryFilter !== 'ALL'
-                    ? `${historyShown} of ${historyRows.length} shown`
+            const totalMatching = matchingRows.length;
+            const totalPages = Math.max(1, Math.ceil(totalMatching / historyPerPage));
+            if (historyCurrentPage > totalPages) historyCurrentPage = totalPages;
+            if (historyCurrentPage < 1) historyCurrentPage = 1;
+
+            const startIndex = (historyCurrentPage - 1) * historyPerPage;
+            const endIndex = Math.min(startIndex + historyPerPage, totalMatching);
+
+            matchingRows.forEach((row, idx) => {
+                if (idx >= startIndex && idx < endIndex) {
+                    row.classList.remove('hidden');
+                } else {
+                    row.classList.add('hidden');
+                }
+            });
+
+            const countEl = document.getElementById('historyVisibleCount');
+            if (countEl) {
+                const isFiltered = activeQuery || activeHistoryFilter !== 'ALL' || historyFromDate || historyToDate;
+                countEl.textContent = isFiltered
+                    ? `${totalMatching} of ${historyRows.length} filtered`
                     : `${historyRows.length} records`;
             }
-            const historyEmpty = document.getElementById('historyFilterEmpty');
-            if (historyEmpty && historyRows.length > 0) {
-                historyEmpty.classList.toggle('hidden', historyShown > 0);
+
+            const emptyEl = document.getElementById('historyFilterEmpty');
+            if (emptyEl) {
+                emptyEl.classList.toggle('hidden', totalMatching > 0);
+            }
+
+            renderPaginationUI('history', totalMatching, historyCurrentPage, historyPerPage, totalPages, totalMatching > 0 ? startIndex + 1 : 0, endIndex, 'goToHistoryPage');
+        }
+
+        /* ── Unified Filter Applicator ── */
+        function applyAllFilters() {
+            applyPendingFilters();
+            applyHistoryFilters();
+        }
+
+        /* ── Real-Time Silent Polling Engine for Pending Staff Submissions ─────── */
+        let isPollingPendingQueue = false;
+        let lastPendingSignature = null;
+
+        async function pollPendingQueue(force = false) {
+            if (isPollingPendingQueue || (!force && document.hidden)) return;
+            isPollingPendingQueue = true;
+
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timeoutId = controller ? setTimeout(() => controller.abort(), 6000) : null;
+
+            try {
+                const pollUrl = window.location.pathname + (window.location.search ? (window.location.search + '&poll=1') : '?poll=1');
+                const res = await fetch(pollUrl, {
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin',
+                    signal: controller ? controller.signal : undefined
+                });
+                if (timeoutId) clearTimeout(timeoutId);
+                if (!res.ok) return;
+
+                const data = await res.json();
+                if (!data || !data.success) return;
+
+                // If signature matches and not forced, no changes occurred
+                if (data.signature && data.signature === lastPendingSignature && !force) {
+                    return;
+                }
+                lastPendingSignature = data.signature;
+
+                // 1. Update queue container HTML
+                const container = document.getElementById('pendingQueueContainer');
+                if (container && data.html !== undefined) {
+                    container.innerHTML = data.html;
+                }
+
+                // 2. Update KPI metrics cards
+                if (data.counts) {
+                    const elPending = document.getElementById('kpiPendingReviewCount');
+                    if (elPending) elPending.textContent = data.counts.awaiting_review;
+
+                    const elRolledBack = document.getElementById('kpiRolledBackCount');
+                    if (elRolledBack) {
+                        elRolledBack.textContent = data.counts.rolled_back;
+                        elRolledBack.className = 'text-2xl font-extrabold ' + (data.counts.rolled_back > 0 ? 'text-amber-700' : 'text-slate-900') + ' tnum mt-1';
+                    }
+                    const iconRolledBack = document.getElementById('kpiRolledBackIcon');
+                    if (iconRolledBack) {
+                        iconRolledBack.setAttribute('class', 'w-5 h-5 ' + (data.counts.rolled_back > 0 ? 'text-amber-600' : 'text-slate-400') + ' shrink-0 mt-0.5');
+                    }
+
+                    const elUrgent = document.getElementById('kpiUrgentPendingCount');
+                    if (elUrgent) {
+                        elUrgent.textContent = data.counts.urgent;
+                        elUrgent.className = 'text-2xl font-extrabold ' + (data.counts.urgent > 0 ? 'text-red-600' : 'text-slate-900') + ' tnum mt-1';
+                    }
+                    const iconUrgent = document.getElementById('kpiUrgentPendingIcon');
+                    if (iconUrgent) {
+                        iconUrgent.setAttribute('class', 'w-5 h-5 ' + (data.counts.urgent > 0 ? 'text-red-500' : 'text-slate-400') + ' shrink-0 mt-0.5');
+                    }
+
+                    const elApproved = document.getElementById('kpiApprovedHistoryCount');
+                    if (elApproved) elApproved.textContent = data.counts.approved_history;
+
+                    // 3. Update tabs counts
+                    const tabAll = document.getElementById('tabCountAll');
+                    if (tabAll) tabAll.textContent = data.counts.pending_total;
+
+                    const tabPending = document.getElementById('tabCountPending');
+                    if (tabPending) tabPending.textContent = data.counts.awaiting_review;
+
+                    const tabRolledBack = document.getElementById('tabCountRolledBack');
+                    if (tabRolledBack) tabRolledBack.textContent = data.counts.rolled_back;
+
+                    const tabWrapper = document.getElementById('tabRolledBackWrapper');
+                    if (tabWrapper) {
+                        if (data.counts.rolled_back > 0) {
+                            tabWrapper.classList.remove('hidden');
+                        } else {
+                            tabWrapper.classList.add('hidden');
+                            if (activePendingFilter === 'ROLLED_BACK') {
+                                setPendingFilter('ALL');
+                            }
+                        }
+                    }
+
+                    const tabUrgent = document.getElementById('tabCountUrgent');
+                    if (tabUrgent) tabUrgent.textContent = data.counts.urgent;
+                }
+
+                // 4. Re-apply current tab filter, date filter, search query, and pagination to new items
+                applyAllFilters();
+            } catch (e) {
+                // Silently ignore network failures during background polling
+            } finally {
+                if (timeoutId) clearTimeout(timeoutId);
+                isPollingPendingQueue = false;
             }
         }
+        window.pollPendingQueue = pollPendingQueue;
+
+        // 1. Fast 3-second silent background polling interval
+        setInterval(() => pollPendingQueue(), 3000);
+
+        // 2. Immediate check when window regains focus or visibility
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) pollPendingQueue();
+        });
+        window.addEventListener('focus', () => pollPendingQueue());
+
+        // 3. Cross-tab sync: trigger immediately when an action or submission is made in another tab
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'nacoc_badge_sync') {
+                pollPendingQueue(true);
+            }
+        });
+        window.addEventListener('nacoc:badge-update', () => pollPendingQueue(true));
 
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('queueSearchInput')?.addEventListener('input', (e) => syncSearchInputs(e.target.value));
             document.getElementById('queueSearchInputMobile')?.addEventListener('input', (e) => syncSearchInputs(e.target.value));
+            applyAllFilters();
         });
     </script>
 </body>

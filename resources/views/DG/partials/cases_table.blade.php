@@ -2,6 +2,7 @@
     $cases = $cases ?? collect();
     $statusParam = strtolower((string) request()->input('status', ($status ?? '')));
     $isLabTestingFilter = str_contains($statusParam, 'lab');
+    $isVaultStatusActive = str_contains($statusParam, 'vault');
 @endphp
 <!-- DIRECTOR-GENERAL NATIONAL CASE REGISTER TABLE -->
                     <div class="overflow-x-auto">
@@ -36,14 +37,18 @@
 
                                         $dDataHead = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
                                         $suspectDisplayName = $case->suspect_name ?? 'Unassigned Target';
-                                        $frontPic = $case->mugshot_front ?? ($dDataHead['mugshot_front'] ?? null);
+                                        $frontPic = $case->mugshot_front
+                                            ?? ($case->photo
+                                            ?? ($dDataHead['mugshot_front']
+                                            ?? ($dDataHead['photo']
+                                            ?? ($dDataHead['mugshots']['front']
+                                            ?? ($dDataHead['suspects'][0]['mugshot_front']
+                                            ?? ($dDataHead['suspects'][0]['photo'] ?? null))))));
                                         if (!$frontPic && !empty($case->evidence_photos)) {
                                             $evArr = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: []);
                                             if (!empty($evArr[0])) { $frontPic = $evArr[0]; }
                                         }
-                                        if ($frontPic && !str_starts_with($frontPic, 'data:') && !str_starts_with($frontPic, 'http://') && !str_starts_with($frontPic, 'https://')) {
-                                            $frontPic = asset($frontPic);
-                                        }
+                                        $frontPic = \App\Services\CasePhotoResolver::resolveMugshotUrl($frontPic);
 
                                         $suspectsArray = !empty($dDataHead['suspects']) && is_array($dDataHead['suspects'])
                                             ? array_values(array_filter($dDataHead['suspects'], fn($s) => !empty($s['suspect_name'])))
@@ -59,14 +64,15 @@
 
                                         $suspectPics = [];
                                         foreach ($suspectsArray as $sIdx => $sItem) {
-                                            $p = $sItem['mugshot_front'] ?? ($sIdx === 0 ? $frontPic : null);
+                                            $p = $sItem['mugshot_front']
+                                                ?? ($sItem['photo']
+                                                ?? ($sItem['mugshots']['front']
+                                                ?? ($sIdx === 0 ? $frontPic : null)));
                                             if (!$p && $sIdx === 0 && !empty($case->evidence_photos)) {
                                                 $evArr = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: []);
                                                 if (!empty($evArr[0])) { $p = $evArr[0]; }
                                             }
-                                            if ($p && !str_starts_with($p, 'data:') && !str_starts_with($p, 'http://') && !str_starts_with($p, 'https://')) {
-                                                $p = asset($p);
-                                            }
+                                            $p = \App\Services\CasePhotoResolver::resolveMugshotUrl($p);
                                             $suspectPics[] = [
                                                 'name'         => $sItem['suspect_name'] ?? ('Suspect #' . ($sIdx + 1)),
                                                 'alias'        => $sItem['suspect_alias'] ?? 'N/A',
@@ -102,6 +108,27 @@
                                             $hasPrelimReport = false;
                                         }
                                         $showPrelimReport = ($isDrugCase || $hasPrelimReport);
+
+                                        $isDigitalCase = false;
+                                        if (method_exists($case, 'isDigitalCase')) {
+                                            $isDigitalCase = $case->isDigitalCase();
+                                        }
+                                        if (!$isDigitalCase && method_exists($case, 'classifyExhibits')) {
+                                            $flags = $case->classifyExhibits();
+                                            $isDigitalCase = !empty($flags['has_electronic']);
+                                        }
+                                        if (!$isDigitalCase) {
+                                            $cUnitLower = strtolower($case->unit_name ?? '');
+                                            if (str_contains($cUnitLower, 'digital') || str_contains($cUnitLower, 'physical') || str_contains($cUnitLower, 'dpf')) {
+                                                $isDigitalCase = true;
+                                            }
+                                        }
+                                        if (!$isDigitalCase) {
+                                            try {
+                                                $isDigitalCase = \App\Models\DpfReport::forCase($case->id, $case->case_number) !== null;
+                                            } catch (\Throwable $e) {}
+                                        }
+
                                         $caseExhibits = method_exists($case, 'getAllCaseExhibits') ? $case->getAllCaseExhibits() : [];
                                         $detailedExhibits = method_exists($case, 'getDetailedSuspectExhibits') ? $case->getDetailedSuspectExhibits() : [];
                                         $suspectModalPayload = [
@@ -121,7 +148,7 @@
                                             ?: ($case->incident_date ? \Carbon\Carbon::parse($case->incident_date) : ($case->seizure_date ? \Carbon\Carbon::parse($case->seizure_date) : null));
                                         $rowDateStr = $rowDateRaw ? (\Carbon\Carbon::parse($rowDateRaw)->format('Y-m-d')) : '';
                                     @endphp
-                                    <tr class="table-row-hover transition-colors case-row" data-ref="{{ $case->case_number }}" data-unit="{{ $case->unit_name }}" data-status="{{ $case->status }}" data-date="{{ $rowDateStr }}" data-is-drug="{{ $showPrelimReport ? '1' : '0' }}" data-has-preliminary="{{ $hasPrelimReport ? '1' : '0' }}" data-has-exhibits="{{ count($caseExhibits) > 0 ? '1' : '0' }}" data-exhibits-count="{{ count($caseExhibits) }}" data-vault-payload="{{ base64_encode(json_encode($suspectModalPayload, JSON_UNESCAPED_UNICODE)) }}">
+                                    <tr class="table-row-hover transition-colors case-row" data-ref="{{ $case->case_number }}" data-unit="{{ $case->unit_name }}" data-status="{{ $case->status }}" data-date="{{ $rowDateStr }}" data-is-digital="{{ $isDigitalCase ? '1' : '0' }}" data-is-drug="{{ $showPrelimReport ? '1' : '0' }}" data-has-preliminary="{{ $hasPrelimReport ? '1' : '0' }}" data-has-exhibits="{{ count($caseExhibits) > 0 ? '1' : '0' }}" data-exhibits-count="{{ count($caseExhibits) }}" data-vault-payload="{{ base64_encode(json_encode($suspectModalPayload, JSON_UNESCAPED_UNICODE)) }}">
                                         <td class="py-4 px-5 whitespace-nowrap">
                                             <div class="font-extrabold font-mono-code text-blue-600 text-sm">{{ $case->case_number }}</div>
                                             <div class="flex items-center space-x-1.5 mt-1">
@@ -138,7 +165,7 @@
                                             </div>
 
                                             @if(!empty($caseExhibits))
-                                                <div class="mt-2.5 pt-2 border-t border-slate-200/80 space-y-1.5 vault-exhibits-container">
+                                                <div class="mt-2.5 pt-2 border-t border-slate-200/80 space-y-1.5 vault-exhibits-container {{ $isVaultStatusActive ? '' : 'hidden' }}" style="{{ $isVaultStatusActive ? '' : 'display: none;' }}">
                                                     <div class="flex items-center justify-between text-[10px] font-mono-code font-bold text-slate-600">
                                                         <span class="flex items-center gap-1 text-amber-700">
                                                             <svg class="w-3.5 h-3.5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -292,11 +319,10 @@
                                                     </a>
                                                 @endif
                                                 @php
-                                                    $isVaultStatusActive = (isset($status) && str_contains(strtolower($status), 'vault')) || (request('status') && str_contains(strtolower(request('status')), 'vault'));
                                                     $dgVaultUrl = url('/DG/cases/' . $case->case_number . '/vault-exhibits');
                                                     $dgReviewUrl = url('/DG/cases/' . $case->case_number . '/review');
                                                     $eyeHref = $isVaultStatusActive ? $dgVaultUrl : $dgReviewUrl;
-                                                    $eyeTitle = $isVaultStatusActive ? 'View Vault Storage Exhibit Dossier' : 'View DG Case Docket';
+                                                    $eyeTitle = $isVaultStatusActive ? 'View Vault Storage Exhibit Dossier' : 'View Case File';
                                                 @endphp
                                                 <button type="button"
                                                         onclick="openSuspectReportPreview('{{ $case->case_number }}')"

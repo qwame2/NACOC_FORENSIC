@@ -584,7 +584,7 @@ class EvidenceManagementController extends Controller
                 'source_requesting_unit'    => $sz['source_requesting_unit'] ?? 'Evidence Management',
                 'seizure_reason'            => $sz['seizure_reason'] ?? null,
                 'source_of_exhibits'        => $sz['source_of_exhibits'] ?? null,
-                'exhibit_remark'            => $sz['exhibit_remark'] ?? null,
+                'exhibit_remark'            => $sz['exhibit_remark'] ?? ($sz['remark'] ?? ($sz['remarks'] ?? ($request->input('exhibit_remark') ?? ($request->input('remark') ?? null)))),
                 'chain_of_custody'          => $sz['chain_of_custody'] ?? ($request->input('chain_of_custody') ?? null),
                 'lab_remark'                => $sz['lab_remark'] ?? null,
                 'custodial_status'          => 'Seized',
@@ -1168,7 +1168,7 @@ class EvidenceManagementController extends Controller
                                 'source_requesting_unit'   => $sz['source_requesting_unit'] ?? null,
                                 'seizure_reason'           => $sz['seizure_reason'] ?? null,
                                 'source_of_exhibits'       => $sz['source_of_exhibits'] ?? null,
-                                'exhibit_remark'           => $sz['exhibit_remark'] ?? null,
+                                'exhibit_remark'           => $sz['exhibit_remark'] ?? ($sz['remark'] ?? ($sz['remarks'] ?? null)),
                                 'chain_of_custody'         => $sz['chain_of_custody'] ?? 'Incident Scene ➔ Central Evidence Vault',
                                 'lab_remark'               => $sz['lab_remark'] ?? $sc->confirmatory_remark,
                             ]);
@@ -1258,7 +1258,7 @@ class EvidenceManagementController extends Controller
                                 'source_requesting_unit'   => $sz['source_requesting_unit'] ?? null,
                                 'seizure_reason'           => $sz['seizure_reason'] ?? null,
                                 'source_of_exhibits'       => $sz['source_of_exhibits'] ?? null,
-                                'exhibit_remark'           => $sz['exhibit_remark'] ?? null,
+                                'exhibit_remark'           => $sz['exhibit_remark'] ?? ($sz['remark'] ?? ($sz['remarks'] ?? null)),
                                 'chain_of_custody'         => $sz['chain_of_custody'] ?? 'Incident Scene ➔ Central Evidence Vault',
                                 'lab_remark'               => $sz['lab_remark'] ?? $mc->confirmatory_remark,
                             ]);

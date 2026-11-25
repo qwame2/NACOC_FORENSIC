@@ -552,6 +552,23 @@
                             'case' => $case,
                         ])
                     </div>
+
+                    {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
+                    @if (!empty($savedJointLabExamCards) && count($savedJointLabExamCards) > 0)
+                        @foreach ($savedJointLabExamCards as $labCard)
+                            @include('partials.lab-examination-card', [
+                                'labExam' => $labCard,
+                                'labHeadingName' => $labCard['labHeadingName'] ?? ($savedJointLabHeadingName ?? $jointDossierHeadingName),
+                                'case' => $case,
+                            ])
+                        @endforeach
+                    @elseif (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']))
+                        @include('partials.lab-examination-card', [
+                            'labExam' => $savedJointLabExamCard ?? $savedJointLabExam,
+                            'labHeadingName' => $savedJointLabHeadingName ?? $jointDossierHeadingName,
+                            'case' => $case,
+                        ])
+                    @endif
                 @endif
 
                 {{-- ATTACHED REPORT FILES CONTAINER ALWAYS ON TOP OF SEIZURES (COMMODITIES INVENTORY) --}}
@@ -1038,42 +1055,54 @@
             const countEl = document.getElementById('rollbackModalCount');
             const inputEl = document.getElementById('rollbackCorrectionsInput');
 
-            const corrections = [];
-
             if (selectedContainers.length === 0) {
-                if (listEl) {
-                    listEl.innerHTML = `
-                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 italic">
-                            No specific detail containers were clicked yet. You can return to click specific sections, or enter general rollback directives below.
-                        </div>
-                    `;
+                const warningMsg = '<span class="text-black font-semibold" style="color: #000000 !important;">Please select at least one section for correction before sending a rollback to staff.</span>';
+                const warningTitle = '<span class="text-black font-bold" style="color: #000000 !important;">Select Section for Correction</span>';
+                if (typeof window.showFlashToast === 'function') {
+                    window.showFlashToast(warningMsg, 'warning', warningTitle);
+                } else {
+                    alert('Please select at least one section for correction before sending a rollback to staff.');
                 }
-                if (countEl) countEl.textContent = '0';
-                if (inputEl) inputEl.value = '[]';
-            } else {
-                let html = '';
-                selectedContainers.forEach((container, idx) => {
-                    const label = extractContainerLabel(container);
-                    const note = container.querySelector('.rollback-note-input')?.value.trim() || 'Correction requested by Unit Head.';
-                    corrections.push({
-                        field: label,
-                        note: note
-                    });
 
-                    html += `
-                        <div class="p-2.5 bg-green-100 border-none rounded-xl text-xs space-y-1">
-                            <div class="flex items-center justify-between font-bold text-green-950 font-mono-code text-[11px]">
-                                <span>#${idx + 1}. ${label}</span>
-                            </div>
-                            <div class="text-slate-700 font-sans">${note}</div>
-                        </div>
-                    `;
+                // Highlight and pulse the count badge as a visual cue
+                const badge = document.getElementById('rollbackCountBadge');
+                if (badge) {
+                    badge.classList.add('ring-2', 'ring-amber-500', 'bg-amber-100', 'text-amber-950', 'animate-pulse');
+                    setTimeout(() => {
+                        badge.classList.remove('ring-2', 'ring-amber-500', 'bg-amber-100', 'text-amber-950', 'animate-pulse');
+                    }, 3000);
+                }
+
+                const dossier = document.getElementById('reviewDossierContent');
+                if (dossier) {
+                    dossier.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                return;
+            }
+
+            const corrections = [];
+            let html = '';
+            selectedContainers.forEach((container, idx) => {
+                const label = extractContainerLabel(container);
+                const note = container.querySelector('.rollback-note-input')?.value.trim() || 'Correction requested by Unit Head.';
+                corrections.push({
+                    field: label,
+                    note: note
                 });
 
-                if (listEl) listEl.innerHTML = html;
-                if (countEl) countEl.textContent = String(corrections.length);
-                if (inputEl) inputEl.value = JSON.stringify(corrections);
-            }
+                html += `
+                    <div class="p-2.5 bg-green-100 border-none rounded-xl text-xs space-y-1">
+                        <div class="flex items-center justify-between font-bold text-green-950 font-mono-code text-[11px]">
+                            <span>#${idx + 1}. ${label}</span>
+                        </div>
+                        <div class="text-slate-700 font-sans">${note}</div>
+                    </div>
+                `;
+            });
+
+            if (listEl) listEl.innerHTML = html;
+            if (countEl) countEl.textContent = String(corrections.length);
+            if (inputEl) inputEl.value = JSON.stringify(corrections);
 
             document.getElementById('rollbackSubmitModal')?.classList.remove('hidden');
         }
@@ -1105,6 +1134,12 @@
             if (modal) modal.classList.add('hidden');
         }
 
+        // Global bridge so suspect-mugshots partial onclick="openMugshotModal(...)" opens the lightbox seamlessly
+        window.openMugshotModal = function(imgSrc, titleText) {
+            if (!imgSrc) return;
+            openImageLightbox(imgSrc, titleText || 'Suspect Biometric Mugshot');
+        };
+
         // Attach click listeners to mugshot images and AJAX submit for Rollback form
         document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('img[alt*="Mugshot"], img[alt*="Exhibit"]').forEach(img => {
@@ -1118,6 +1153,26 @@
             if (rollbackForm) {
                 rollbackForm.addEventListener('submit', function(e) {
                     e.preventDefault();
+
+                    const correctionsRaw = document.getElementById('rollbackCorrectionsInput')?.value;
+                    let parsedCorrections = [];
+                    try {
+                        parsedCorrections = JSON.parse(correctionsRaw || '[]');
+                    } catch (err) {
+                        parsedCorrections = [];
+                    }
+
+                    if (!Array.isArray(parsedCorrections) || parsedCorrections.length === 0) {
+                        const warningMsg = '<span class="text-black font-semibold" style="color: #000000 !important;">Please select at least one section for correction before sending a rollback to staff.</span>';
+                        const warningTitle = '<span class="text-black font-bold" style="color: #000000 !important;">Select Section for Correction</span>';
+                        if (typeof window.showFlashToast === 'function') {
+                            window.showFlashToast(warningMsg, 'warning', warningTitle);
+                        } else {
+                            alert('Please select at least one section for correction before sending a rollback to staff.');
+                        }
+                        return;
+                    }
+
                     const submitBtn = rollbackForm.querySelector('button[type="submit"]');
                     const originalBtnHtml = submitBtn ? submitBtn.innerHTML : 'Confirm &amp; Send Rollback';
                     if (submitBtn) {

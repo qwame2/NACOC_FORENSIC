@@ -88,7 +88,9 @@ class CaseExhibitResolver
         $allCaseExhibitPhotos = [];
 
         $dbExsList = new Collection();
-        if (isset($case->id)) {
+        if (isset($case->exhibits) && $case->exhibits instanceof Collection && $case->exhibits->isNotEmpty()) {
+            $dbExsList = $case->exhibits;
+        } elseif (!empty($case->id) && empty($case->is_staff_submission)) {
             try {
                 $uId = isset($case->underlyingRecord) ? $case->underlyingRecord->id : $case->id;
                 $dbExsList = Exhibit::where(function ($q) use ($case, $uId) {
@@ -100,6 +102,13 @@ class CaseExhibitResolver
             } catch (\Throwable $e) {
                 $dbExsList = new Collection();
             }
+        }
+        if ($dbExsList->isEmpty() && !empty($case->case_number)) {
+            try {
+                $dbExsList = Exhibit::whereHas('singleSuspectCase', fn($q) => $q->where('case_number', $case->case_number))
+                    ->orWhereHas('multipleSuspectCase', fn($q) => $q->where('case_number', $case->case_number))
+                    ->get();
+            } catch (\Throwable $e) {}
         }
 
         $allDocketSeizures = array_merge(
@@ -184,24 +193,36 @@ class CaseExhibitResolver
                 $item['commodity_name'] = $item['dev_model'];
             }
 
-            $key = !empty($dbId)
-                ? 'db_' . $dbId
-                : (!empty($exNo)
-                    ? 'ex_' . strtolower(trim($exNo))
-                    : 'cn_' . strtolower(trim($cat)) . '_' . strtolower(trim($name)));
+            $possibleKeys = [];
+            if (!empty($dbId)) {
+                $possibleKeys[] = 'db_' . $dbId;
+            }
+            if (!empty($exNo)) {
+                $possibleKeys[] = 'ex_' . strtolower(trim((string)$exNo));
+            }
+            if (!empty($name)) {
+                $possibleKeys[] = 'cn_' . strtolower(trim((string)$cat)) . '_' . strtolower(trim((string)$name));
+            }
 
-            if (isset($seenExhibitKeys[$key])) {
-                $existingIdx = $seenExhibitKeys[$key];
-                if (isset($allCaseExhibits[$existingIdx])) {
-                    foreach (['dev_model', 'dev_serial_no', 'dev_imei1', 'dev_imei2', 'dev_mac_address', 'dev_storage', 'dev_colour', 'dev_marks'] as $df) {
-                        if (empty($allCaseExhibits[$existingIdx][$df]) && !empty($item[$df])) {
-                            $allCaseExhibits[$existingIdx][$df] = $item[$df];
+            $matchedExistingIdx = null;
+            foreach ($possibleKeys as $pk) {
+                if (isset($seenExhibitKeys[$pk])) {
+                    $matchedExistingIdx = $seenExhibitKeys[$pk];
+                    break;
+                }
+            }
+
+            if ($matchedExistingIdx !== null) {
+                if (isset($allCaseExhibits[$matchedExistingIdx])) {
+                    foreach (['investigating_officer', 'source_requesting_unit', 'seizure_reason', 'source_of_exhibits', 'seizure_location', 'seizure_officer', 'seizure_packaging', 'seizure_concealment', 'seizure_date', 'seizure_time', 'exhibit_remark', 'other_exhibit_description', 'dev_model', 'dev_serial_no', 'dev_imei1', 'dev_imei2', 'dev_mac_address', 'dev_storage', 'dev_colour', 'dev_marks'] as $df) {
+                        if (empty($allCaseExhibits[$matchedExistingIdx][$df]) && !empty($item[$df])) {
+                            $allCaseExhibits[$matchedExistingIdx][$df] = $item[$df];
                         }
                     }
-                    if (isset($allCaseExhibits[$existingIdx]['dev'])) {
+                    if (isset($allCaseExhibits[$matchedExistingIdx]['dev'])) {
                         foreach (['model', 'serial_no', 'imei1', 'imei2', 'mac_address', 'storage', 'colour', 'marks'] as $subF) {
-                            if (empty($allCaseExhibits[$existingIdx]['dev'][$subF]) && !empty($item['dev'][$subF])) {
-                                $allCaseExhibits[$existingIdx]['dev'][$subF] = $item['dev'][$subF];
+                            if (empty($allCaseExhibits[$matchedExistingIdx]['dev'][$subF]) && !empty($item['dev'][$subF])) {
+                                $allCaseExhibits[$matchedExistingIdx]['dev'][$subF] = $item['dev'][$subF];
                             }
                         }
                     }
@@ -209,7 +230,10 @@ class CaseExhibitResolver
                 return;
             }
 
-            $seenExhibitKeys[$key] = count($allCaseExhibits);
+            $currIdx = count($allCaseExhibits);
+            foreach ($possibleKeys as $pk) {
+                $seenExhibitKeys[$pk] = $currIdx;
+            }
 
                 $owner =
                     $item['owner_name'] ??
@@ -254,6 +278,33 @@ class CaseExhibitResolver
                     $photos,
                 );
 
+                // Ensure investigating_officer is authoritatively populated from DB exhibit record if empty
+                if (empty($item['investigating_officer']) && $dbExsList->isNotEmpty()) {
+                    $dbMatch = $dbExsList->first(function ($dbE) use ($item) {
+                        if (!empty($item['id']) && (int)$dbE->id === (int)$item['id']) return true;
+                        if (!empty($item['exhibit_number']) && (string)$dbE->exhibit_number === (string)$item['exhibit_number']) return true;
+                        if (!empty($item['commodity_name']) && strtolower(trim((string)$dbE->commodity_name)) === strtolower(trim((string)$item['commodity_name']))) return true;
+                        if (!empty($item['seizure_name']) && strtolower(trim((string)$dbE->commodity_name)) === strtolower(trim((string)$item['seizure_name']))) return true;
+                        return false;
+                    });
+                    if ($dbMatch && !empty($dbMatch->investigating_officer)) {
+                        $item['investigating_officer'] = $dbMatch->investigating_officer;
+                    }
+                }
+                if (empty($item['investigating_officer']) && !empty($item['id'])) {
+                    try {
+                        $item['investigating_officer'] = Exhibit::where('id', $item['id'])->value('investigating_officer');
+                    } catch (\Throwable $e) {}
+                }
+                if (empty($item['investigating_officer']) && !empty($item['exhibit_number'])) {
+                    try {
+                        $item['investigating_officer'] = Exhibit::where('exhibit_number', $item['exhibit_number'])->value('investigating_officer');
+                    } catch (\Throwable $e) {}
+                }
+                if (empty($item['investigating_officer']) && !empty($case->investigating_officer)) {
+                    $item['investigating_officer'] = $case->investigating_officer;
+                }
+
                 $allCaseExhibits[] = $item;
 
                 foreach ($photos as $p) {
@@ -279,6 +330,19 @@ class CaseExhibitResolver
             $arr['weapon_calibre'] = $dbE->wpn_calibre;
             $arr['weapon_color'] = $dbE->wpn_colour;
             $arr['weapon_size_length'] = $dbE->wpn_size;
+
+            // Ensure custody & investigating officer attributes are mapped from DB model
+            $arr['investigating_officer']  = $dbE->investigating_officer;
+            $arr['source_requesting_unit'] = $dbE->source_requesting_unit;
+            $arr['seizure_reason']         = $dbE->seizure_reason;
+            $arr['source_of_exhibits']     = $dbE->source_of_exhibits ?? $dbE->source_of_exhibit;
+            $arr['exhibit_remark']         = $dbE->exhibit_remark ?? $dbE->lab_remark;
+            $arr['seizure_location']       = $dbE->seizure_location;
+            $arr['seizure_officer']        = $dbE->seizure_officer;
+            $arr['seizure_packaging']      = $dbE->seizure_packaging;
+            $arr['seizure_concealment']    = $dbE->seizure_concealment;
+            $arr['seizure_date']           = $dbE->seizure_date;
+            $arr['seizure_time']           = $dbE->seizure_time;
 
             // Ensure device fields are fully mapped from DB model
             $arr['dev_model']       = $dbE->dev_model;

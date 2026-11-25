@@ -28,17 +28,17 @@
     <div class="auth-shell">
         @include('auth.partials.auth_brand', ['mode' => 'login'])
 
-        <main class="auth-panel">
+        <main class="auth-panel auth-panel--login">
             <div class="flex items-center justify-end">
                 <span class="auth-switch">No account yet?
                     <a href="{{ url('/register') }}"
                         onclick="navigateWithFade(event, '{{ url('/register') }}')">Register as officer</a></span>
             </div>
 
-            <div class="auth-panel__inner">
-                <div class="auth-header mb-6">
-                    <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC crest" width="175" height="175"
-                        class="auth-logo">
+            <div class="auth-panel__inner auth-panel__inner--login">
+                <div class="auth-header mb-4">
+                    <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC crest" width="350" height="350"
+                        class="auth-logo auth-logo--login">
                     <h1 class="auth-title">Sign in</h1>
                     <p class="auth-sub">Authorised personnel only. Your session and actions are logged.</p>
                 </div>

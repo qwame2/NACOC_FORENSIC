@@ -90,7 +90,13 @@
                                         $suspectDisplayName =
                                             $case->suspect_name ?? 'Unassigned Target';
 
-                                        $frontPic = $case->mugshot_front ?? ($dDataLanding['mugshot_front'] ?? null);
+                                        $frontPic = $case->mugshot_front
+                                            ?? ($case->photo
+                                            ?? ($dDataLanding['mugshot_front']
+                                            ?? ($dDataLanding['photo']
+                                            ?? ($dDataLanding['mugshots']['front']
+                                            ?? ($dDataLanding['suspects'][0]['mugshot_front']
+                                            ?? ($dDataLanding['suspects'][0]['photo'] ?? null))))));
                                         if (!$frontPic && !empty($case->evidence_photos)) {
                                             $evArr = is_array($case->evidence_photos)
                                                 ? $case->evidence_photos
@@ -100,14 +106,7 @@
                                                 $frontPic = $evArr[0];
                                             }
                                         }
-                                        if (
-                                            $frontPic &&
-                                            !str_starts_with($frontPic, 'data:') &&
-                                            !str_starts_with($frontPic, 'http://') &&
-                                            !str_starts_with($frontPic, 'https://')
-                                        ) {
-                                            $frontPic = asset($frontPic);
-                                        }
+                                        $frontPic = \App\Services\CasePhotoResolver::resolveMugshotUrl($frontPic);
 
                                         $suspectsArray =
                                             !empty($dDataLanding['suspects']) && is_array($dDataLanding['suspects'])
@@ -132,7 +131,10 @@
 
                                         $suspectPics = [];
                                         foreach ($suspectsArray as $sIdx => $sItem) {
-                                            $p = $sItem['mugshot_front'] ?? ($sIdx === 0 ? $frontPic : null);
+                                            $p = $sItem['mugshot_front']
+                                                ?? ($sItem['photo']
+                                                ?? ($sItem['mugshots']['front']
+                                                ?? ($sIdx === 0 ? $frontPic : null)));
                                             if (!$p && $sIdx === 0 && !empty($case->evidence_photos)) {
                                                 $evArr = is_array($case->evidence_photos)
                                                     ? $case->evidence_photos
@@ -142,14 +144,7 @@
                                                     $p = $evArr[0];
                                                 }
                                             }
-                                            if (
-                                                $p &&
-                                                !str_starts_with($p, 'data:') &&
-                                                !str_starts_with($p, 'http://') &&
-                                                !str_starts_with($p, 'https://')
-                                            ) {
-                                                $p = asset($p);
-                                            }
+                                            $p = \App\Services\CasePhotoResolver::resolveMugshotUrl($p);
                                             $suspectPics[] = [
                                                 'name' => $sItem['suspect_name'] ?? 'Suspect #' . ($sIdx + 1),
                                                 'alias' => $sItem['suspect_alias'] ?? 'N/A',

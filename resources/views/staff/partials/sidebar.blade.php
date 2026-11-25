@@ -106,17 +106,7 @@
         };
 
         try {
-            $rollbackQuery = \App\Models\StaffCaseSubmission::where('status', 'Rolled Back');
-            if (!$authUser->is_head) {
-                $rollbackQuery->where(function ($q) use ($authUser, $scopedUnitName) {
-                    $q->where('submitted_by', $authUser->id)
-                      ->orWhere('submitted_by_name', $authUser->fullname ?? ($authUser->name ?? ''))
-                      ->orWhere('unit_name', 'LIKE', '%' . $scopedUnitName . '%');
-                });
-            } else {
-                $rollbackQuery->where('unit_name', 'LIKE', '%' . $scopedUnitName . '%');
-            }
-            $staffRollbackCount = $rollbackQuery->count();
+            $staffRollbackCount = \App\Models\StaffCaseSubmission::countRollbacksForContext($scopedUnitName, $authUser);
         } catch (\Throwable $e) {
             $staffRollbackCount = 0;
         }
@@ -313,11 +303,13 @@
                         <svg class="w-4.5 h-4.5 mr-3 shrink-0 {{ $isStaffRollbackActive ? 'text-white' : 'text-rose-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
                         <span>Case Rollback</span>
                     </span>
-                    @if($staffRollbackCount > 0)
-                        <span class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black font-mono-code text-white bg-red-600 rounded-full animate-pulse shadow-xs shrink-0 ml-2" title="{{ $staffRollbackCount }} Case(s) awaiting corrections">
-                            {{ $staffRollbackCount }}
-                        </span>
-                    @endif
+                    <span id="sidebarStaffRollbackBadge"
+                          data-rollback-badge="sidebar"
+                          class="{{ $staffRollbackCount > 0 ? 'inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black font-mono-code text-white bg-red-600 rounded-full animate-pulse shadow-xs shrink-0 ml-2' : 'hidden' }}"
+                          style="{{ $staffRollbackCount > 0 ? '' : 'display: none;' }}"
+                          title="{{ $staffRollbackCount > 0 ? $staffRollbackCount . ' Case(s) awaiting corrections' : '' }}">
+                        {{ $staffRollbackCount > 0 ? $staffRollbackCount : '' }}
+                    </span>
                 </a>
 
                 @if($unitKey !== 'digital')

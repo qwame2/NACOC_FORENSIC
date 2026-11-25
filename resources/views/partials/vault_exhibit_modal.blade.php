@@ -266,7 +266,7 @@
                         { label: 'Seizure Date & Time', val: (ex.seizure_date || '') + (ex.seizure_time ? ' ' + ex.seizure_time : '') },
                         { label: 'Seizure Location', val: ex.seizure_location || payload.raid_location },
                         { label: 'Seizing Officer', val: ex.seizure_officer },
-                        { label: 'Investigating Officer', val: ex.investigating_officer },
+                        { label: 'Investigating Officer', val: ex.investigating_officer || ex.investigation_officer || payload.investigating_officer },
                         { label: 'Originating Unit', val: ex.requesting_unit || payload.unit_name },
                         { label: 'Source of Exhibits', val: ex.source_of_exhibits },
                         { label: 'Reason for Seizure', val: ex.seizure_reason },
@@ -643,11 +643,19 @@
     function handleCaseEyeClick(event, button) {
         if (!button) return;
 
-        // Check if currently filtered to Vault Storage
-        const isVaultActive = (typeof currentStatusFilter !== 'undefined' && currentStatusFilter.toLowerCase().includes('vault'))
-            || (new URLSearchParams(window.location.search).get('status') || '').toLowerCase().includes('vault')
-            || (document.querySelector('.status-tab.active-tab')?.textContent || '').toLowerCase().includes('vault')
-            || (document.getElementById('vaultFilterBadge') && !document.getElementById('vaultFilterBadge').classList.contains('hidden'));
+        // Determine strictly whether Vault Storage filter is active
+        let isVaultActive = false;
+        if (typeof currentStatusFilter !== 'undefined') {
+            isVaultActive = (currentStatusFilter || '').toLowerCase().includes('vault');
+        } else {
+            const activeTab = document.querySelector('.status-tab.active-tab');
+            if (activeTab) {
+                isVaultActive = (activeTab.textContent || '').toLowerCase().includes('vault');
+            } else {
+                const urlParam = new URLSearchParams(window.location.search).get('status') || '';
+                isVaultActive = urlParam.toLowerCase().includes('vault');
+            }
+        }
 
         if (isVaultActive) {
             event.preventDefault();
@@ -657,6 +665,11 @@
             if (targetVaultUrl) {
                 window.location.href = targetVaultUrl;
                 return false;
+            }
+        } else {
+            const reviewUrl = button.getAttribute('data-review-url');
+            if (reviewUrl) {
+                button.href = reviewUrl;
             }
         }
     }
@@ -698,13 +711,21 @@
     document.addEventListener('click', function(e) {
         const eyeBtn = e.target.closest('.case-review-btn');
         if (eyeBtn) {
-            const isVaultActive = (typeof currentStatusFilter !== 'undefined' && currentStatusFilter.toLowerCase().includes('vault'))
-                || (new URLSearchParams(window.location.search).get('status') || '').toLowerCase().includes('vault')
-                || (document.querySelector('.status-tab.active-tab')?.textContent || '').toLowerCase().includes('vault')
-                || (document.getElementById('vaultFilterBadge') && !document.getElementById('vaultFilterBadge').classList.contains('hidden'));
+            let isVaultActive = false;
+            if (typeof currentStatusFilter !== 'undefined') {
+                isVaultActive = (currentStatusFilter || '').toLowerCase().includes('vault');
+            } else {
+                const urlStatus = (new URLSearchParams(window.location.search).get('status') || '').toLowerCase();
+                isVaultActive = urlStatus.includes('vault');
+            }
 
             if (isVaultActive) {
                 handleCaseEyeClick(e, eyeBtn);
+            } else {
+                const reviewUrl = eyeBtn.getAttribute('data-review-url');
+                if (reviewUrl) {
+                    eyeBtn.href = reviewUrl;
+                }
             }
         }
     });

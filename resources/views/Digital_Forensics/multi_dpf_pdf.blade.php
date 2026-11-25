@@ -49,6 +49,7 @@
         $suspectReports = [
             [
                 'case_number' => $caseNo,
+                'case_title' => $case->title ?? ($case->case_title ?? null),
                 'dpf_code' => $dpfCode,
                 'suspect_name' => strtoupper($sName),
                 'role' => 'PRIMARY SUSPECT',
@@ -121,11 +122,12 @@
             : 'CURRENT/NEW CASES';
     }
 
-    // Dynamic Total Dossier Pages Calculation: Cover Page (1) + Each Suspect (1 + attachments count)
+    // Dynamic Total Dossier Pages Calculation: Cover Page (1) + Each Suspect (1 + attachments count) + Executive Summary Page (1)
     $totalDossierPages = 1;
     foreach ($suspectReports as $sr) {
         $totalDossierPages += 1 + count($sr['attached_files'] ?? []);
     }
+    $totalDossierPages += 1;
 
     // Determine report type / period (Weekly, Monthly, Annual, Date Range, General Report)
     $rawPeriod = strtolower(trim((string)(request('period') ?: (request('preset') ?: (request('report_type') ?: '')))));
@@ -1067,6 +1069,235 @@
 
         @endforeach
 
+        <!-- ============================================================
+             CONSOLIDATED EXECUTIVE SUMMARY OF ALL GENERATED CASES
+             Placed under the last case (summarizing all cases in the dossier)
+             ============================================================ -->
+        @php
+            $summaryPageNum = ++$currentPageNumber;
+        @endphp
+
+        <div class="a4-page dynamic-dossier-page relative text-slate-900 section-summary-page">
+
+            <!-- SUBTLE NACOC WATERMARK -->
+            <div class="dossier-watermark absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden opacity-[0.07] select-none">
+                <img src="{{ asset('nacoc.jfif') }}" alt="NACOC Watermark" class="w-[900px] h-[900px] object-contain" />
+            </div>
+
+            <div class="relative z-10 flex flex-col justify-between h-full min-h-0">
+
+                <!-- PAGE HEADER BLOCK -->
+                <div class="page-header-block shrink-0">
+                    <div class="relative pt-1 pb-1.5 border-b border-slate-300 flex items-center justify-between avoid-break-after">
+                        <div>
+                            <span class="text-[9px] font-bold uppercase tracking-wider text-slate-900 font-serif-header">
+                                NACOC DIGITAL FORENSIC INVESTIGATION REPORT
+                            </span>
+                            <span class="ml-2 font-mono-code text-[8.5px] font-semibold text-slate-800">
+                                Consolidated Summary Register &bull; {{ count($suspectReports) }} Case{{ count($suspectReports) > 1 ? 's' : '' }}
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-900">Confidential</p>
+                            <p class="mt-0.5 text-[8.5px] font-bold uppercase text-slate-800 dpf-header-page-num">
+                                Executive Summary &bull; Page {{ $summaryPageNum }} of <span class="doc-total-pages">{{ $totalDossierPages }}</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- REPORT TITLE -->
+                    <div class="mt-1.5 pb-1.5 border-b border-slate-200 text-center avoid-break-after">
+                        <p class="text-[8px] font-bold uppercase tracking-[0.2em] text-emerald-800">
+                            OFFICIAL DOSSIER EXECUTIVE SUMMARY REGISTER
+                        </p>
+                        <h2 class="mt-0.5 text-sm font-bold uppercase tracking-wide text-slate-950 font-serif-header">
+                            DIGITAL FORENSIC INVESTIGATION STATUS LOG REGISTER
+                        </h2>
+                        <p class="mt-0.5 text-[11px] font-bold uppercase tracking-wide text-slate-800 font-serif-header">
+                            CONSOLIDATED SUMMARY OF ALL GENERATED CASES
+                        </p>
+                        <p class="mt-1 text-[13px] font-extrabold uppercase tracking-wider font-times text-emerald-800">
+                            {{ $coverCaseSectionLabel ?? 'CURRENT/NEW CASES' }}
+                        </p>
+                    </div>
+                </div>
+
+                <!-- FLOW CONTENT BODY -->
+                <div class="report-flow-body flex-1 min-h-0 flex flex-col justify-between mt-3">
+                    <div class="flow-sections-container">
+
+                        <!-- SECTION HEADER -->
+                        <div class="flow-block section-summary-heading mb-2">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                    &bull;
+                                </span>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                            Summary
+                                        </h3>
+                                        <span class="text-[7.5px] font-semibold uppercase tracking-wider text-slate-600">
+                                            Consolidated Forensic &amp; Warrant Status Log
+                                        </span>
+                                    </div>
+                                    <div class="mt-0.5 h-px bg-slate-200"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CONSOLIDATED SUMMARY TABLE -->
+                        <div class="flow-block section-summary overflow-hidden border border-slate-300 rounded-lg">
+                            <table class="w-full text-left border-collapse table-fixed">
+                                <thead>
+                                    <tr class="border-b border-slate-300 bg-slate-100/70 text-[8.5px] font-bold uppercase tracking-wider text-slate-900">
+                                        <th class="py-1.5 px-1 text-center w-[5%] border-r border-slate-300">No.</th>
+                                        <th class="py-1.5 px-2 text-left w-[22%] border-r border-slate-300">Case Name</th>
+                                        <th class="py-1.5 px-1.5 text-center w-[11%] border-r border-slate-300">Status</th>
+                                        <th class="py-1.5 px-2 text-left w-[20%] border-r border-slate-300">Device Model</th>
+                                        <th class="py-1.5 px-1 text-center w-[14%] border-r border-slate-300">Court Order Warrant Requested</th>
+                                        <th class="py-1.5 px-1 text-center w-[14%] border-r border-slate-300">Court Order Warrant Granted</th>
+                                        <th class="py-1.5 px-1 text-center w-[14%]">Extraction &amp; Forensic Analysis Conducted</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="text-[9.5px] text-slate-800">
+                                    @php
+                                        $summaryRowCounter = 0;
+                                    @endphp
+                                    @foreach($suspectReports as $srItem)
+                                        @php
+                                            $srItemDevices = !empty($srItem['device_specs']) && is_array($srItem['device_specs']) ? $srItem['device_specs'] : [];
+                                            if (empty($srItemDevices)) {
+                                                $fbName = !empty($srItem['exhibit_type_display']) && $srItem['exhibit_type_display'] !== 'Electronic Exhibits' && $srItem['exhibit_type_display'] !== 'Mobile Devices & Hardware Exhibits'
+                                                    ? $srItem['exhibit_type_display']
+                                                    : (!empty($reportObj->dev_model) ? $reportObj->dev_model : 'Electronic Device');
+                                                $srItemDevices = [
+                                                    ['model' => $fbName, 'device_name' => $fbName]
+                                                ];
+                                            }
+
+                                            $srItemCaseName = !empty($srItem['case_title'])
+                                                ? $srItem['case_title']
+                                                : (!empty($case->title) && !preg_match('/^republic\s+vs\.?$/i', trim($case->title)) && count($suspectReports) === 1
+                                                    ? $case->title 
+                                                    : ('Republic vs ' . ($srItem['suspect_name'] ?? 'Primary Suspect') . (!empty($srItem['co_suspects_display']) ? ' & ' . $srItem['co_suspects_display'] : '')));
+
+                                            $srItemIsOngoing = (strtoupper($srItem['court_granted'] ?? 'NO') === 'YES')
+                                                || (isset($srItem['case_section_label']) && str_contains(strtoupper($srItem['case_section_label']), 'ONGOING'));
+                                            $srItemSummaryStatus = $srItemIsOngoing ? 'Ongoing' : 'Current';
+                                            $srItemCourtReq = strtoupper($srItem['court_requested'] ?? 'NO');
+                                            $srItemCourtGrant = strtoupper($srItem['court_granted'] ?? 'NO');
+                                            $srItemExtraction = $srItem['extraction_status'] ?? 'NO';
+                                        @endphp
+
+                                        @foreach($srItemDevices as $dSpec)
+                                            @php
+                                                $summaryRowCounter++;
+                                                $devModelName = trim((string)($dSpec['model'] ?? ''));
+                                                if ($devModelName === '' || strtoupper($devModelName) === 'N/A' || $devModelName === 'Mobile Devices & Hardware Exhibits') {
+                                                    $devModelName = trim((string)($dSpec['device_name'] ?? ''));
+                                                }
+                                                if ($devModelName === '' || strtoupper($devModelName) === 'N/A' || $devModelName === 'Mobile Devices & Hardware Exhibits') {
+                                                    $devModelName = !empty($srItem['exhibit_type_display']) && !in_array($srItem['exhibit_type_display'], ['Mobile Devices & Hardware Exhibits', 'Mobile Devices & Exhibits', 'Electronic Exhibits', 'N/A'])
+                                                        ? trim($srItem['exhibit_type_display'])
+                                                        : (!empty($reportObj->dev_model) ? trim($reportObj->dev_model) : (!empty($case->dev_model) ? trim($case->dev_model) : 'Electronic Device'));
+                                                }
+                                                if ($devModelName === '' || strtoupper($devModelName) === 'N/A') {
+                                                    $devModelName = !empty($srItem['exhibit_type_display']) && $srItem['exhibit_type_display'] !== 'N/A' ? $srItem['exhibit_type_display'] : 'Electronic Device';
+                                                }
+                                            @endphp
+                                            <tr class="border-b border-slate-200 last:border-b-0">
+                                                <td class="py-1 px-1 text-center font-bold text-slate-700 border-r border-slate-300">{{ $summaryRowCounter }}</td>
+                                                <td class="py-1 px-2 font-bold text-slate-900 border-r border-slate-300 break-words">{{ $srItemCaseName }}</td>
+                                                <td class="py-1 px-1.5 text-center font-extrabold border-r border-slate-300 {{ strtoupper($srItemSummaryStatus) === 'ONGOING' ? 'text-emerald-800' : 'text-blue-800' }}">{{ $srItemSummaryStatus }}</td>
+                                                <td class="py-1 px-2 font-semibold text-slate-900 border-r border-slate-300 break-words">{{ $devModelName }}</td>
+                                                <td class="py-1 px-1 text-center font-extrabold border-r border-slate-300 {{ $srItemCourtReq === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $srItemCourtReq }}</td>
+                                                <td class="py-1 px-1 text-center font-extrabold border-r border-slate-300 {{ $srItemCourtGrant === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $srItemCourtGrant }}</td>
+                                                <td class="py-1 px-1 text-center font-extrabold {{ str_starts_with(strtoupper($srItemExtraction), 'YES') ? 'text-emerald-800' : (str_starts_with(strtoupper($srItemExtraction), 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $srItemExtraction }}</td>
+                                            </tr>
+                                        @endforeach
+                                    @endforeach
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- CONDITIONS NOTE (PLACED RIGHT UNDER THE SUMMARY TABLE) -->
+                        <div class="flow-block section-conditions mt-4 pt-1.5 border-t border-slate-200 avoid-break">
+                            <p class="text-[8.5px] font-semibold text-slate-800 mb-0.5 italic">
+                                Note: The result(s) relate only to the item(s) / digital exhibit(s) examined across all referenced forensic cases.
+                            </p>
+                            <p class="text-[8.5px] font-extrabold uppercase tracking-wider text-slate-900 mb-0.5">
+                                Conditions:
+                            </p>
+                            <ol class="list-decimal list-inside space-y-0.5 text-[8.5px] font-medium text-slate-700 leading-tight pl-0.5">
+                                <li>Not valid without NACOC Digital &amp; Physical Forensics Unit approval.</li>
+                                <li>Not to be used for litigation and advertisement without written consent of the Director General of NACOC.</li>
+                                <li>This report shall not be reproduced in part without the written approval of the Director General of NACOC.</li>
+                            </ol>
+                        </div>
+                    </div>
+
+                    <!-- SIGNATURE & ENDORSEMENT FOOTER WRAPPER -->
+                    <div class="flow-block section-signatures avoid-break mt-6 pb-2 footer">
+                        <div class="grid grid-cols-2 gap-8">
+                            <div class="flex flex-col">
+                                <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-700">Head of Digital &amp; Physical Forensics</p>
+                                
+                                <div class="relative h-20 flex items-end pb-0.5">
+                                    @if(!empty($dpfHeadSignature))
+                                        <img src="{{ $dpfHeadSignature }}" alt="Official Digital Signature - {{ $dpfHeadName }}" class="absolute bottom-0 left-0 h-24 max-h-[96px] max-w-[280px] w-auto object-contain object-left filter contrast-125 mix-blend-multiply pointer-events-none" />
+                                    @endif
+                                </div>
+
+                                <div class="border-b border-dashed border-slate-300 pb-0.5">
+                                    <span class="text-[7px] italic text-slate-700">Electronically Signed &amp; Validated</span>
+                                </div>
+                                <div class="mt-0.5">
+                                    <p class="text-[8.5px] font-bold text-slate-900 leading-tight">{{ $dpfHeadName }}</p>
+                                    <p class="text-[7px] text-slate-800 leading-tight">Head of Digital &amp; Physical Forensics Unit, NACOC</p>
+                                </div>
+                            </div>
+
+                            <div class="flex flex-col">
+                                <p class="text-[7.5px] font-bold uppercase tracking-wider text-slate-700">Head of Forensic Department</p>
+                                
+                                <div class="relative h-20 flex items-end pb-0.5">
+                                    @if(!empty($deptHeadSignature))
+                                        <img src="{{ $deptHeadSignature }}" alt="Official Digital Signature - {{ $deptHeadName }}" class="absolute bottom-0 left-0 h-24 max-h-[96px] max-w-[280px] w-auto object-contain object-left filter contrast-125 mix-blend-multiply pointer-events-none" />
+                                    @endif
+                                </div>
+
+                                <div class="border-b border-dashed border-slate-300 pb-0.5">
+                                    <span class="text-[7px] italic text-slate-700">Authorized &amp; Counter-signed</span>
+                                </div>
+                                <div class="mt-0.5">
+                                    <p class="text-[8.5px] font-bold text-slate-900 leading-tight">{{ $deptHeadName }}</p>
+                                    <p class="text-[7px] text-slate-800 leading-tight">Head of Forensic Department, NACOC</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FOOTER -->
+                <div class="page-footer-block shrink-0 mt-auto">
+                    <div class="mt-auto pb-2 border-t border-slate-200 flex items-center justify-between text-[7.5px] text-slate-500 font-mono-code select-none footer">
+                        <div class="flex items-center gap-2">
+                            <span class="font-bold text-slate-700 tracking-wider">NACOC / DPFU &bull; CONSOLIDATED SUMMARY REGISTER</span>
+                            <span>&bull;</span>
+                            <span>{{ count($suspectReports) }} Case{{ count($suspectReports) > 1 ? 's' : '' }} Recorded</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span>STRICTLY CONFIDENTIAL</span>
+                            <span>&bull;</span>
+                            <span class="font-bold text-slate-800 dpf-footer-page-num">Page {{ $summaryPageNum }} of <span class="doc-total-pages">{{ $totalDossierPages }}</span></span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
     </div>
 
     <!-- SCRIPT FOR PDF.JS RENDERING & AUTO-PRINT -->
@@ -1086,6 +1317,9 @@
 
             const reportRoots = document.querySelectorAll('#dpfReportSheet .auto-paginated-root');
             reportRoots.forEach(page => paginateReportPage(page));
+
+            const summaryPages = document.querySelectorAll('#dpfReportSheet .section-summary-page');
+            summaryPages.forEach(page => paginateSummaryRegisterPage(page));
         }
 
         function paginateReportPage(pageEl) {
@@ -1367,6 +1601,211 @@
             }
         }
 
+        const dpfSummaryPristineSnapshots = new WeakMap();
+
+        function paginateSummaryRegisterPage(pageEl) {
+            const inner = pageEl.querySelector('.relative.z-10');
+            const headerBlock = pageEl.querySelector('.page-header-block');
+            const footerBlock = pageEl.querySelector('.page-footer-block');
+            const flowBody = pageEl.querySelector('.report-flow-body');
+            if (!inner || !headerBlock || !footerBlock || !flowBody) return;
+
+            if (!dpfSummaryPristineSnapshots.has(pageEl)) {
+                const liveSectionsContainer = flowBody.querySelector('.flow-sections-container');
+                const liveSignaturesBlock = flowBody.querySelector('.section-signatures');
+                dpfSummaryPristineSnapshots.set(pageEl, {
+                    sectionsHtml: liveSectionsContainer ? liveSectionsContainer.innerHTML : '',
+                    signaturesHtml: liveSignaturesBlock ? liveSignaturesBlock.outerHTML : '',
+                    flowBodyClasses: flowBody.className,
+                });
+            } else {
+                const parentReportSheet = pageEl.closest('#dpfReportSheet') || document.getElementById('dpfReportSheet');
+                if (parentReportSheet) {
+                    let sib = pageEl.nextElementSibling;
+                    while (sib && sib.classList.contains('generated-summary-page')) {
+                        const next = sib.nextElementSibling;
+                        sib.remove();
+                        sib = next;
+                    }
+                }
+
+                const snap = dpfSummaryPristineSnapshots.get(pageEl);
+                flowBody.className = snap.flowBodyClasses;
+                const restoredSections = flowBody.querySelector('.flow-sections-container');
+                if (restoredSections) {
+                    restoredSections.innerHTML = snap.sectionsHtml;
+                }
+                flowBody.querySelectorAll('.section-signatures').forEach(el => el.remove());
+                if (snap.signaturesHtml) {
+                    flowBody.insertAdjacentHTML('beforeend', snap.signaturesHtml);
+                }
+            }
+
+            let sectionsContainer = flowBody.querySelector('.flow-sections-container');
+            let signaturesBlock = flowBody.querySelector('.section-signatures');
+            if (!sectionsContainer) return;
+
+            function getUsableHeight(page) {
+                const pInner = page.querySelector('.relative.z-10') || page;
+                const pHdr = page.querySelector('.page-header-block');
+                const pFtr = page.querySelector('.page-footer-block');
+                const hH = pHdr ? pHdr.offsetHeight : 0;
+                const fH = pFtr ? pFtr.offsetHeight : 0;
+                const innerH = pInner.clientHeight > 0 ? pInner.clientHeight : (page.clientHeight - 76);
+                return innerH - hH - fH - 18;
+            }
+
+            function getPageContentHeight(page) {
+                const bdy = page.querySelector('.report-flow-body');
+                if (!bdy) return 0;
+                const secCont = bdy.querySelector('.flow-sections-container');
+                const sigs = bdy.querySelector('.section-signatures');
+                const secH = secCont ? secCont.offsetHeight : 0;
+                const sigH = sigs ? (sigs.offsetHeight + 24) : 0;
+                return secH + sigH;
+            }
+
+            function isPageOverflowing(page) {
+                return getPageContentHeight(page) > getUsableHeight(page);
+            }
+
+            if (!isPageOverflowing(pageEl)) {
+                return;
+            }
+
+            const headingBlock = sectionsContainer.querySelector('.section-summary-heading');
+            const tableWrap = sectionsContainer.querySelector('.section-summary');
+            const tableEl = tableWrap ? tableWrap.querySelector('table') : null;
+            const theadEl = tableEl ? tableEl.querySelector('thead') : null;
+            const tbodyEl = tableEl ? tableEl.querySelector('tbody') : null;
+            const conditionsBlock = sectionsContainer.querySelector('.section-conditions');
+
+            if (!tableEl || !tbodyEl) return;
+
+            const allRows = Array.from(tbodyEl.children);
+            if (allRows.length === 0) return;
+
+            // Remove conditions and signatures temporarily while distributing table rows
+            if (conditionsBlock && conditionsBlock.parentNode) {
+                conditionsBlock.parentNode.removeChild(conditionsBlock);
+            }
+            if (signaturesBlock && signaturesBlock.parentNode) {
+                signaturesBlock.parentNode.removeChild(signaturesBlock);
+            }
+
+            tbodyEl.innerHTML = '';
+
+            let currentPage = pageEl;
+            let currentFlowBody = flowBody;
+            let currentSectionsContainer = sectionsContainer;
+            let currentTbody = tbodyEl;
+
+            function createNextSummaryPage() {
+                const nextPg = pageEl.cloneNode(false);
+                nextPg.className = pageEl.className;
+                if (!nextPg.classList.contains('page-break')) {
+                    nextPg.classList.add('page-break');
+                }
+                nextPg.classList.add('generated-summary-page');
+
+                const wm = pageEl.querySelector('.dossier-watermark, .absolute.inset-0');
+                if (wm) nextPg.appendChild(wm.cloneNode(true));
+
+                const nextInner = document.createElement('div');
+                nextInner.className = 'relative z-10 flex flex-col justify-between h-full min-h-0';
+
+                const nextHdr = headerBlock.cloneNode(true);
+                const nextBdy = document.createElement('div');
+                nextBdy.className = 'report-flow-body flex-1 min-h-0 flex flex-col justify-between mt-3';
+                const nextSecCont = document.createElement('div');
+                nextSecCont.className = 'flow-sections-container';
+                nextBdy.appendChild(nextSecCont);
+
+                const nextFtr = footerBlock.cloneNode(true);
+
+                nextInner.appendChild(nextHdr);
+                nextInner.appendChild(nextBdy);
+                nextInner.appendChild(nextFtr);
+                nextPg.appendChild(nextInner);
+
+                currentPage.parentNode.insertBefore(nextPg, currentPage.nextSibling);
+                currentPage = nextPg;
+                currentFlowBody = nextBdy;
+                currentSectionsContainer = nextSecCont;
+                currentTbody = null;
+            }
+
+            function getOrCreateCurrentTbody() {
+                if (currentTbody && currentTbody.parentNode && currentTbody.parentNode.parentNode) {
+                    return currentTbody;
+                }
+                const existingTbody = currentSectionsContainer.querySelector('.section-summary table tbody');
+                if (existingTbody) {
+                    currentTbody = existingTbody;
+                    return currentTbody;
+                }
+
+                const nextTableWrap = document.createElement('div');
+                nextTableWrap.className = tableWrap.className;
+                const nextTable = document.createElement('table');
+                nextTable.className = tableEl.className;
+                nextTable.appendChild(theadEl.cloneNode(true));
+                const newTbody = document.createElement('tbody');
+                newTbody.className = tbodyEl.className;
+                nextTable.appendChild(newTbody);
+                nextTableWrap.appendChild(nextTable);
+                currentSectionsContainer.appendChild(nextTableWrap);
+                currentTbody = newTbody;
+                return currentTbody;
+            }
+
+            for (let rIdx = 0; rIdx < allRows.length; rIdx++) {
+                const rowEl = allRows[rIdx];
+                const activeTbody = getOrCreateCurrentTbody();
+                activeTbody.appendChild(rowEl);
+
+                if (isPageOverflowing(currentPage)) {
+                    if (activeTbody.children.length > 1) {
+                        activeTbody.removeChild(rowEl);
+                        createNextSummaryPage();
+                        const newActiveTbody = getOrCreateCurrentTbody();
+                        newActiveTbody.appendChild(rowEl);
+                    }
+                }
+            }
+
+            // Append Conditions Block
+            if (conditionsBlock) {
+                currentSectionsContainer.appendChild(conditionsBlock);
+                if (isPageOverflowing(currentPage)) {
+                    currentSectionsContainer.removeChild(conditionsBlock);
+                    createNextSummaryPage();
+                    currentSectionsContainer.appendChild(conditionsBlock);
+                }
+            }
+
+            // Append Signatures Block
+            if (signaturesBlock) {
+                currentFlowBody.appendChild(signaturesBlock);
+                if (isPageOverflowing(currentPage)) {
+                    currentFlowBody.removeChild(signaturesBlock);
+
+                    let movedConditions = null;
+                    if (conditionsBlock && conditionsBlock.parentNode === currentSectionsContainer) {
+                        movedConditions = conditionsBlock;
+                        currentSectionsContainer.removeChild(conditionsBlock);
+                    }
+
+                    createNextSummaryPage();
+
+                    if (movedConditions) {
+                        currentSectionsContainer.appendChild(movedConditions);
+                    }
+                    currentFlowBody.appendChild(signaturesBlock);
+                }
+            }
+        }
+
         function renumberAllPages() {
             const pages = document.querySelectorAll('#dpfReportSheet .a4-page');
             const total = pages.length;
@@ -1384,6 +1823,8 @@
                     if (fullBadge.includes('Suspect') && fullBadge.includes('•')) {
                         const sLabel = fullBadge.split('•')[0].trim();
                         hBadge.innerHTML = `${sLabel} &bull; Page ${pageNum} of <span class="doc-total-pages">${total}</span>`;
+                    } else if (fullBadge.includes('Executive Summary') || fullBadge.includes('Summary')) {
+                        hBadge.innerHTML = `Executive Summary &bull; Page ${pageNum} of <span class="doc-total-pages">${total}</span>`;
                     } else {
                         hBadge.innerHTML = `Page ${pageNum} of <span class="doc-total-pages">${total}</span>`;
                     }

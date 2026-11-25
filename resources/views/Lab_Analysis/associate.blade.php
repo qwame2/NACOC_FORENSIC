@@ -246,6 +246,7 @@
     <link href="{{ asset('vendor/select2/select2.min.css') }}" rel="stylesheet" />
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
+    <script src="{{ asset('js/forensic-image-optimizer.js') }}"></script>
 
     <!-- Styles / Scripts -->
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
@@ -4367,8 +4368,7 @@
                                                 <span
                                                     class="text-xs font-extrabold text-slate-800 group-hover:text-black">Click
                                                     or drag &amp; drop to upload exhibit photos</span>
-                                                <span class="text-[10px] text-slate-500">Select one or multiple
-                                                    PNG, JPG, WEBP evidence photos (up to 15MB each)</span>
+                                                <span class="text-[10px] text-slate-500">Upload 10–15 photos per batch (under 3–5MB each, auto-optimized for fast upload)</span>
                                             </div>
                                         </div>
                                         <input type="file" id="fileSeizurePhoto" accept="image/*" multiple class="fileSeizurePhoto hidden" onchange="previewSeizurePhotos(event, this)">
@@ -8199,17 +8199,57 @@
             loadSeizurePhotoFiles(files, block);
         }
 
-        function loadSeizurePhotoFiles(files, block, callback) {
+        async function loadSeizurePhotoFiles(files, block, callback) {
             const targetBlock = block || document.querySelector('.seizure-block');
             const photos = getBlockSeizurePhotos(targetBlock);
-            let loadedCount = 0;
 
-            files.forEach(file => {
+            if (window.ForensicImageOptimizer) {
+                await window.ForensicImageOptimizer.loadOptimizedSeizurePhotos(files, targetBlock, photos, () => {
+                    renderSeizureBlockPhotosGrid(targetBlock);
+                    syncGlobalSeizurePhotos();
+                    if (typeof saveDocketFormDraft === 'function') {
+                        saveDocketFormDraft();
+                    }
+                    if (callback) callback();
+                });
+                return;
+            }
+
+            // Standalone Fallback Safeguard (Max 15 photos/batch, under 5MB)
+            let rawFiles = Array.from(files || []).filter(f => f && (!f.type || f.type.startsWith('image/')));
+            const maxAllowed = Math.max(0, 15 - photos.length);
+            if (maxAllowed <= 0) {
+                alert('Each exhibit block can hold up to 15 photos to stay within server limits.');
+                if (callback) callback();
+                return;
+            }
+            if (rawFiles.length > maxAllowed) {
+                alert(`Limiting upload to ${maxAllowed} photo(s) to stay within the 15-photo batch recommendation.`);
+                rawFiles = rawFiles.slice(0, maxAllowed);
+            }
+
+            let loadedCount = 0;
+            if (rawFiles.length === 0) {
+                if (callback) callback();
+                return;
+            }
+
+            rawFiles.forEach(file => {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`"${file.name}" exceeds 5 MB. Please select images under 5 MB.`);
+                    loadedCount++;
+                    if (loadedCount === rawFiles.length) {
+                        renderSeizureBlockPhotosGrid(targetBlock);
+                        syncGlobalSeizurePhotos();
+                        if (callback) callback();
+                    }
+                    return;
+                }
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     photos.push(e.target.result);
                     loadedCount++;
-                    if (loadedCount === files.length) {
+                    if (loadedCount === rawFiles.length) {
                         renderSeizureBlockPhotosGrid(targetBlock);
                         syncGlobalSeizurePhotos();
                         if (typeof saveDocketFormDraft === 'function') {

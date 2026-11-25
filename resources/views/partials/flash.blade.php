@@ -69,7 +69,7 @@
 
                 {{-- CONTENT --}}
                 <div class="flex-1 min-w-0 pr-1">
-                    <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider {{ $isError ? 'text-rose-700' : ($isWarning ? 'text-amber-700' : 'text-emerald-700') }}">
+                    <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider {{ $isError ? 'text-rose-700' : ($isWarning ? 'text-black font-extrabold' : 'text-emerald-700') }}">
                         <span>{{ $title }}</span>
                     </div>
 
@@ -94,7 +94,7 @@
                     @endif
 
                     @if ($warningMsg)
-                        <div class="text-xs text-amber-800 font-sans mt-1 leading-snug font-medium">
+                        <div class="text-xs text-black font-sans mt-1 leading-snug font-medium">
                             {{ $warningMsg }}
                         </div>
                     @endif
@@ -202,10 +202,10 @@
                         </div>
                     </div>
                     <div class="flex-1 min-w-0 pr-1">
-                        <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider ${isError ? 'text-rose-700' : (isWarning ? 'text-amber-700' : 'text-emerald-700')}">
+                        <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider ${isError ? 'text-rose-700' : (isWarning ? 'text-black font-extrabold' : 'text-emerald-700')}">
                             <span>${finalTitle}</span>
                         </div>
-                        <div class="text-xs ${isError ? 'text-rose-800' : (isWarning ? 'text-amber-800' : 'text-slate-700')} font-sans mt-1 leading-snug font-medium">
+                        <div class="text-xs ${isError ? 'text-rose-800' : (isWarning ? 'text-black' : 'text-slate-700')} font-sans mt-1 leading-snug font-medium">
                             ${message}
                         </div>
                     </div>

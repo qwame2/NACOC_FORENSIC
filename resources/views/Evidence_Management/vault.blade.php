@@ -1459,7 +1459,7 @@
             document.getElementById('modalReason').textContent = exhibit.seizure_reason || 'N/A';
 
             const invOfficerEl = document.getElementById('modalInvestigatingOfficer');
-            if (invOfficerEl) invOfficerEl.textContent = exhibit.investigating_officer || exhibit.seizure_officer || 'N/A';
+            if (invOfficerEl) invOfficerEl.textContent = exhibit.investigating_officer || exhibit.investigation_officer || exhibit.seizure_officer || 'N/A';
             const srcUnitEl = document.getElementById('modalSourceRequestingUnit');
             if (srcUnitEl) srcUnitEl.textContent = exhibit.source_requesting_unit || exhibit.source_of_exhibits || 'N/A';
 

@@ -423,21 +423,13 @@ class CaseShowReviewPresenter
         $initialActiveSuspectHasDrugExhibit = $activeSuspectHasDrugExhibit;
 
         // 4. Saved Lab State & Unit Progress
-        $allGsaForReview = SuspectGsaReport::forCase(
-            $case->case_number ?? $case->id ?? null,
-            $case->id ?? null,
-            $case->underlyingRecord?->id ?? null,
-        );
-        $allPreliminaryForReview = SuspectPreliminaryReport::forCase(
-            $case->case_number ?? $case->id ?? null,
-            $case->id ?? null,
-            $case->underlyingRecord?->id ?? null,
-        );
-        $allNlrForReview = SuspectNlrReport::forCase(
-            $case->case_number ?? $case->id ?? null,
-            $case->id ?? null,
-            $case->underlyingRecord?->id ?? null,
-        );
+        $reportCaseNo = $case->case_number ?? null;
+        $reportCaseId = (!empty($case->is_staff_submission) || empty($case->id)) ? null : $case->id;
+        $reportExtraId = (!empty($case->is_staff_submission) || empty($case->underlyingRecord?->id)) ? null : $case->underlyingRecord?->id;
+
+        $allGsaForReview = SuspectGsaReport::forCase($reportCaseNo, $reportCaseId, $reportExtraId);
+        $allPreliminaryForReview = SuspectPreliminaryReport::forCase($reportCaseNo, $reportCaseId, $reportExtraId);
+        $allNlrForReview = SuspectNlrReport::forCase($reportCaseNo, $reportCaseId, $reportExtraId);
         $allNlrForReview = $allPreliminaryForReview->merge($allNlrForReview)->unique('id')->values();
         $this->mergeDpfReportAttachments($case, $allGsaForReview);
         $hasGsaReports = $allGsaForReview->count() > 0;
@@ -540,7 +532,7 @@ class CaseShowReviewPresenter
             || !empty($suspectExhibitFlags['suspectHasDrug'])
             || !empty($activeSuspectHasDrugExhibit);
 
-        if ($caseHasDrugExhibits) {
+        if ($caseHasDrugExhibits && empty($case->is_staff_submission)) {
             try {
                 app(\App\Http\Controllers\CaseReportController::class)->storeOrSyncPreliminaryReport(
                     $case,
@@ -552,21 +544,9 @@ class CaseShowReviewPresenter
             }
         }
 
-        $allGsaForReview = SuspectGsaReport::forCase(
-            $case->case_number ?? $case->id ?? null,
-            $case->id ?? null,
-            $case->underlyingRecord?->id ?? null,
-        );
-        $allPreliminaryForReview = SuspectPreliminaryReport::forCase(
-            $case->case_number ?? $case->id ?? null,
-            $case->id ?? null,
-            $case->underlyingRecord?->id ?? null,
-        );
-        $allNlrForReview = SuspectNlrReport::forCase(
-            $case->case_number ?? $case->id ?? null,
-            $case->id ?? null,
-            $case->underlyingRecord?->id ?? null,
-        );
+        $allGsaForReview = SuspectGsaReport::forCase($reportCaseNo, $reportCaseId, $reportExtraId);
+        $allPreliminaryForReview = SuspectPreliminaryReport::forCase($reportCaseNo, $reportCaseId, $reportExtraId);
+        $allNlrForReview = SuspectNlrReport::forCase($reportCaseNo, $reportCaseId, $reportExtraId);
         $allNlrForReview = $allPreliminaryForReview->merge($allNlrForReview)->unique('id')->values();
         $this->mergeDpfReportAttachments($case, $allGsaForReview);
 
@@ -966,20 +946,49 @@ class CaseShowReviewPresenter
         if (empty($sAddr)) {
             $sAddr = 'N/A';
         }
-        $sMarital = $sItem['marital_status'] ?? ($sDocketSuspect['marital_status'] ?? ($sNum == 1 ? $case->marital_status : null));
-        $sSpouseN = $sItem['spouse_name'] ?? ($sDocketSuspect['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name : null));
-        $sSpouseP = $sItem['spouse_phone'] ?? ($sDocketSuspect['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone : null));
-        $sSpouseI = $sItem['spouse_info'] ?? ($sDocketSuspect['spouse_info'] ?? ($sNum == 1 ? $case->spouse_info : null));
-        $sPartnerN = $sItem['partner_name'] ?? ($sDocketSuspect['partner_name'] ?? ($sNum == 1 ? $case->partner_name : null));
-        $sPartnerP = $sItem['partner_phone'] ?? ($sDocketSuspect['partner_phone'] ?? ($sNum == 1 ? $case->partner_phone : null));
-        $sPartnerI = $sItem['partner_info'] ?? ($sDocketSuspect['partner_info'] ?? ($sNum == 1 ? $case->partner_info : null));
-        $sDependents =
-            $sItem['dependents'] ??
-            ($sDocketSuspect['dependents'] ??
-                ($sNum == 1
-                    ? $case->dependents ?? ($docketData['dependents'] ?? ($isUnassignedSuspect ? 'N/A' : 'No Children'))
-                    : ($isUnassignedSuspect ? 'N/A' : 'No Children')));
-        if (empty($sDependents)) {
+        $sMarital = $sItem['marital_status'] ?? ($sDocketSuspect['marital_status'] ?? ($sNum == 1 ? $case->marital_status ?? ($docketData['marital_status'] ?? null) : null));
+        $sSpouseN = $sItem['spouse_name'] ?? ($sDocketSuspect['spouse_name'] ?? ($sNum == 1 ? $case->spouse_name ?? ($docketData['spouse_name'] ?? null) : null));
+        $sSpouseP = $sItem['spouse_phone'] ?? ($sDocketSuspect['spouse_phone'] ?? ($sNum == 1 ? $case->spouse_phone ?? ($docketData['spouse_phone'] ?? null) : null));
+        $sSpouseI = $sItem['spouse_info'] ?? ($sDocketSuspect['spouse_info'] ?? ($sNum == 1 ? $case->spouse_info ?? ($docketData['spouse_info'] ?? null) : null));
+        $sPartnerN = $sItem['partner_name'] ?? ($sDocketSuspect['partner_name'] ?? ($sNum == 1 ? $case->partner_name ?? ($docketData['partner_name'] ?? null) : null));
+        $sPartnerP = $sItem['partner_phone'] ?? ($sDocketSuspect['partner_phone'] ?? ($sNum == 1 ? $case->partner_phone ?? ($docketData['partner_phone'] ?? null) : null));
+        $sPartnerI = $sItem['partner_info'] ?? ($sDocketSuspect['partner_info'] ?? ($sNum == 1 ? $case->partner_info ?? ($docketData['partner_info'] ?? null) : null));
+
+        $rawDepCandidate = $sItem['dependents']
+            ?? ($sDocketSuspect['dependents']
+                ?? ($sNum == 1
+                    ? ($case->dependents ?? ($docketData['dependents'] ?? ($docketData['suspects'][0]['dependents'] ?? null)))
+                    : null));
+
+        $childCountCandidate = $sItem['children_count']
+            ?? ($sDocketSuspect['children_count']
+                ?? ($sNum == 1
+                    ? ($case->children_count ?? ($docketData['children_count'] ?? ($docketData['suspects'][0]['children_count'] ?? null)))
+                    : null));
+
+        $hasChildrenCandidate = $sItem['has_children']
+            ?? ($sDocketSuspect['has_children']
+                ?? ($sNum == 1
+                    ? ($case->has_children ?? ($docketData['has_children'] ?? ($docketData['suspects'][0]['has_children'] ?? null)))
+                    : null));
+
+        $cleanDep = trim((string) ($rawDepCandidate ?? ''));
+        $isDepExplicitKids = !empty($cleanDep) && !in_array(strtoupper($cleanDep), ['N/A', 'NA', '-', 'NULL', 'NONE'], true);
+
+        if ($childCountCandidate !== null && $childCountCandidate !== '' && is_numeric($childCountCandidate)) {
+            $numKids = (int) $childCountCandidate;
+            if ($numKids > 0) {
+                $sDependents = $numKids . ($numKids === 1 ? ' Kid' : ' Kids');
+            } elseif (!empty($hasChildrenCandidate) && $hasChildrenCandidate !== false && $hasChildrenCandidate !== 'false') {
+                $sDependents = '1 Kid';
+            } else {
+                $sDependents = $isUnassignedSuspect ? 'N/A' : 'No Children';
+            }
+        } elseif ($isDepExplicitKids) {
+            $sDependents = $cleanDep;
+        } elseif (!empty($hasChildrenCandidate) && $hasChildrenCandidate !== false && $hasChildrenCandidate !== 'false') {
+            $sDependents = '1 Kid';
+        } else {
             $sDependents = $isUnassignedSuspect ? 'N/A' : 'No Children';
         }
         $rawRaidCandidate =
@@ -1048,34 +1057,51 @@ class CaseShowReviewPresenter
                 : 'N/A';
         }
 
-        $rawFront =
-            $sItem['mugshot_front'] ??
-            ($sItem['mugshots']['front'] ??
-                ($sItem['mugshots']['front-profile'] ??
-                    ($sDocketSuspect['mugshot_front'] ??
-                        ($sDocketSuspect['mugshots']['front'] ??
-                            ($sDocketSuspect['mugshots']['front-profile'] ??
-                                ($sNum == 1 ? $case->mugshot_front : null))))));
+        $pickMugshot = function (...$candidates) {
+            foreach ($candidates as $c) {
+                if (!empty($c) && is_string($c)) {
+                    $cTrim = trim($c);
+                    if ($cTrim !== '' && $cTrim !== 'null' && $cTrim !== 'undefined' && !str_ends_with($cTrim, '#') && !str_contains($cTrim, 'blank')) {
+                        return $cTrim;
+                    }
+                }
+            }
+            return null;
+        };
+
+        $rawFront = $pickMugshot(
+            $sItem['mugshot_front'] ?? null,
+            $sItem['photo'] ?? null,
+            $sItem['mugshots']['front'] ?? null,
+            $sItem['mugshots']['front-profile'] ?? null,
+            $sDocketSuspect['mugshot_front'] ?? null,
+            $sDocketSuspect['photo'] ?? null,
+            $sDocketSuspect['mugshots']['front'] ?? null,
+            $sDocketSuspect['mugshots']['front-profile'] ?? null,
+            ($sNum == 1 ? ($case->mugshot_front ?? ($case->photo ?? ($docketData['mugshot_front'] ?? ($docketData['photo'] ?? null)))) : null)
+        );
         $sFront = $this->photoResolver->formatMugshotUrl($rawFront);
 
-        $rawLeft =
-            $sItem['mugshot_left'] ??
-            ($sItem['mugshots']['left'] ??
-                ($sItem['mugshots']['left-profile'] ??
-                    ($sDocketSuspect['mugshot_left'] ??
-                        ($sDocketSuspect['mugshots']['left'] ??
-                            ($sDocketSuspect['mugshots']['left-profile'] ??
-                                ($sNum == 1 ? $case->mugshot_left : null))))));
+        $rawLeft = $pickMugshot(
+            $sItem['mugshot_left'] ?? null,
+            $sItem['mugshots']['left'] ?? null,
+            $sItem['mugshots']['left-profile'] ?? null,
+            $sDocketSuspect['mugshot_left'] ?? null,
+            $sDocketSuspect['mugshots']['left'] ?? null,
+            $sDocketSuspect['mugshots']['left-profile'] ?? null,
+            ($sNum == 1 ? ($case->mugshot_left ?? ($docketData['mugshot_left'] ?? null)) : null)
+        );
         $sLeft = $this->photoResolver->formatMugshotUrl($rawLeft);
 
-        $rawRight =
-            $sItem['mugshot_right'] ??
-            ($sItem['mugshots']['right'] ??
-                ($sItem['mugshots']['right-profile'] ??
-                    ($sDocketSuspect['mugshot_right'] ??
-                        ($sDocketSuspect['mugshots']['right'] ??
-                            ($sDocketSuspect['mugshots']['right-profile'] ??
-                                ($sNum == 1 ? $case->mugshot_right : null))))));
+        $rawRight = $pickMugshot(
+            $sItem['mugshot_right'] ?? null,
+            $sItem['mugshots']['right'] ?? null,
+            $sItem['mugshots']['right-profile'] ?? null,
+            $sDocketSuspect['mugshot_right'] ?? null,
+            $sDocketSuspect['mugshots']['right'] ?? null,
+            $sDocketSuspect['mugshots']['right-profile'] ?? null,
+            ($sNum == 1 ? ($case->mugshot_right ?? ($docketData['mugshot_right'] ?? null)) : null)
+        );
         $sRight = $this->photoResolver->formatMugshotUrl($rawRight);
 
         $isAssociate =

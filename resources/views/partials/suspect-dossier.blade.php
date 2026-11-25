@@ -394,16 +394,135 @@
                                                 </div>
                                             @endif
 
-                                            @if (!empty($aEx['source_of_exhibits']) || !empty($aEx['source']))
-                                                <div
-                                                    class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
-                                                    <div
-                                                        class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
-                                                        Source of Exhibits</div>
-                                                    <div class="font-bold text-slate-900 text-xs mt-0.5">
-                                                        {{ $aEx['source_of_exhibits'] ?? $aEx['source'] }}</div>
+                                            {{-- 1. Source/Requesting Unit --}}
+                                            @php
+                                                $aSourceReqUnit = $aEx['source_requesting_unit'] ?? ($aEx['requesting_unit'] ?? ($aEx['source_unit'] ?? ($aEx['source_of_exhibits'] ?? ($aEx['source'] ?? ($case->source_requesting_unit ?? ($case->requesting_unit ?? ($case->unit_name ?? null)))))));
+                                            @endphp
+                                            <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Source/Requesting Unit</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5">
+                                                    {{ !empty($aSourceReqUnit) ? $aSourceReqUnit : 'N/A' }}
                                                 </div>
-                                            @endif
+                                            </div>
+
+                                            {{-- 2. Investigating Officer --}}
+                                            @php
+                                                $aInvOfficer = !empty($aEx['investigating_officer']) && $aEx['investigating_officer'] !== 'N/A'
+                                                    ? $aEx['investigating_officer']
+                                                    : (!empty($aEx['investigation_officer']) && $aEx['investigation_officer'] !== 'N/A'
+                                                        ? $aEx['investigation_officer']
+                                                        : null);
+
+                                                if (empty($aInvOfficer) && !empty($aEx['id'])) {
+                                                    try { $aInvOfficer = \App\Models\Exhibit::where('id', $aEx['id'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                                                }
+                                                if (empty($aInvOfficer) && !empty($aEx['linked_exhibit_id'])) {
+                                                    try { $aInvOfficer = \App\Models\Exhibit::where('id', $aEx['linked_exhibit_id'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                                                }
+                                                if (empty($aInvOfficer) && !empty($aEx['exhibit_number'])) {
+                                                    try { $aInvOfficer = \App\Models\Exhibit::where('exhibit_number', $aEx['exhibit_number'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                                                }
+                                                if (empty($aInvOfficer) && isset($case->exhibits) && $case->exhibits instanceof \Illuminate\Support\Collection) {
+                                                    $mEx = $case->exhibits->first(function ($e) use ($aEx) {
+                                                        return (!empty($aEx['id']) && (int)$e->id === (int)$aEx['id'])
+                                                            || (!empty($aEx['exhibit_number']) && (string)$e->exhibit_number === (string)$aEx['exhibit_number'])
+                                                            || (!empty($aEx['commodity_name']) && strtolower(trim((string)$e->commodity_name)) === strtolower(trim((string)$aEx['commodity_name'])))
+                                                            || (!empty($aEx['seizure_name']) && strtolower(trim((string)$e->commodity_name)) === strtolower(trim((string)$aEx['seizure_name'])));
+                                                    });
+                                                    if ($mEx && !empty($mEx->investigating_officer) && $mEx->investigating_officer !== 'N/A') {
+                                                        $aInvOfficer = $mEx->investigating_officer;
+                                                    }
+                                                }
+                                                if (empty($aInvOfficer) && !empty($case->id)) {
+                                                    $uId = isset($case->underlyingRecord) ? $case->underlyingRecord->id : $case->id;
+                                                    try {
+                                                        $mDb = \App\Models\Exhibit::where(function ($q) use ($case, $uId) {
+                                                            $q->where('single_suspect_case_id', $case->id)
+                                                                ->orWhere('multiple_suspect_case_id', $case->id)
+                                                                ->orWhere('single_suspect_case_id', $uId)
+                                                                ->orWhere('multiple_suspect_case_id', $uId);
+                                                        })->where(function ($q) use ($aEx) {
+                                                            if (!empty($aEx['id'])) $q->orWhere('id', $aEx['id']);
+                                                            if (!empty($aEx['exhibit_number'])) $q->orWhere('exhibit_number', $aEx['exhibit_number']);
+                                                            if (!empty($aEx['commodity_name'])) $q->orWhere('commodity_name', $aEx['commodity_name']);
+                                                            if (!empty($aEx['seizure_name'])) $q->orWhere('commodity_name', $aEx['seizure_name']);
+                                                        })->whereNotNull('investigating_officer')->value('investigating_officer');
+                                                        if (!empty($mDb) && $mDb !== 'N/A') {
+                                                            $aInvOfficer = $mDb;
+                                                        }
+                                                    } catch (\Throwable $e) {}
+                                                }
+                                                if (empty($aInvOfficer) && !empty($case->id)) {
+                                                    $uId = isset($case->underlyingRecord) ? $case->underlyingRecord->id : $case->id;
+                                                    try {
+                                                        $firstCaseInv = \App\Models\Exhibit::where(function ($q) use ($case, $uId) {
+                                                            $q->where('single_suspect_case_id', $case->id)
+                                                                ->orWhere('multiple_suspect_case_id', $case->id)
+                                                                ->orWhere('single_suspect_case_id', $uId)
+                                                                ->orWhere('multiple_suspect_case_id', $uId);
+                                                        })->whereNotNull('investigating_officer')->value('investigating_officer');
+                                                        if (!empty($firstCaseInv) && $firstCaseInv !== 'N/A') {
+                                                            $aInvOfficer = $firstCaseInv;
+                                                        }
+                                                    } catch (\Throwable $e) {}
+                                                }
+                                                if (empty($aInvOfficer)) {
+                                                    $aInvOfficer = $case->investigating_officer
+                                                        ?? ($case->docket_data['investigating_officer']
+                                                        ?? ($payload['investigating_officer']
+                                                        ?? ($case->docket_data['seizures'][0]['investigating_officer'] ?? 'N/A')));
+                                                }
+                                                $aInvOfficer = !empty($aInvOfficer) ? $aInvOfficer : 'N/A';
+                                            @endphp
+                                            <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Investigating Officer</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5">
+                                                    {{ !empty($aInvOfficer) ? $aInvOfficer : 'N/A' }}
+                                                </div>
+                                            </div>
+
+                                            {{-- 3. Reason for Seizure --}}
+                                            @php
+                                                $aSeizureReason = $aEx['reason_for_seizure'] ?? ($aEx['seizure_reason'] ?? ($aEx['reason'] ?? ($case->reason_for_seizure ?? ($case->seizure_reason ?? null))));
+                                            @endphp
+                                            <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Reason for Seizure</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                                                    {{ !empty($aSeizureReason) ? $aSeizureReason : 'N/A' }}
+                                                </div>
+                                            </div>
+
+                                            {{-- 4. Concealment & Packaging Notes --}}
+                                            @php
+                                                $aPkgVal = $aEx['seizure_packaging'] ?? ($aEx['packaging'] ?? ($aEx['packaging_type'] ?? null));
+                                                $aConcealVal = $aEx['seizure_concealment'] ?? ($aEx['concealment_method'] ?? ($aEx['concealment'] ?? ($aEx['packaging_notes'] ?? null)));
+                                                $aConcealAndPkgNotes = implode(' — ', array_filter([$aPkgVal, $aConcealVal]));
+                                                if (empty($aConcealAndPkgNotes)) {
+                                                    $aConcealAndPkgNotes = $aConcealVal ?: ($aPkgVal ?: 'N/A');
+                                                }
+                                            @endphp
+                                            <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Concealment &amp; Packaging Notes</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                                                    {{ $aConcealAndPkgNotes }}
+                                                </div>
+                                            </div>
+
+                                            {{-- 5. Remarks / Observations --}}
+                                            @php
+                                                $aRemarksObs = $aEx['exhibit_remark'] ?? ($aEx['remarks'] ?? ($aEx['observations'] ?? ($aEx['remarks_observations'] ?? ($aEx['seizure_remarks'] ?? ($aEx['notes'] ?? ($case->remarks ?? null))))));
+                                            @endphp
+                                            <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Remarks / Observations</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed whitespace-pre-line">
+                                                    {{ !empty($aRemarksObs) ? $aRemarksObs : 'N/A' }}
+                                                </div>
+                                            </div>
 
                                             @if (!empty($aEx['other_exhibit_description']) || !empty($aEx['other_description']))
                                                 <div

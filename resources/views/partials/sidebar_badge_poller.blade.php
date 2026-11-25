@@ -50,6 +50,25 @@
                     if (data.field_officers !== undefined) {
                         updateBadgeElement('sidebarFieldOfficersBadge', data.field_officers);
                     }
+                    if (data.case_rollback !== undefined || data.staff_rollback !== undefined) {
+                        const rbCount = parseInt(data.case_rollback !== undefined ? data.case_rollback : data.staff_rollback, 10) || 0;
+                        const rbBadges = document.querySelectorAll('#sidebarStaffRollbackBadge, [data-rollback-badge="sidebar"]');
+                        rbBadges.forEach(function(badge) {
+                            badge.textContent = String(rbCount);
+                            if (rbCount > 0) {
+                                badge.className = 'inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-black font-mono-code text-white ' + 'bg-red-600 ' + 'rounded-full ' + 'animate-pulse shadow-xs shrink-0 ml-2';
+                                badge.title = rbCount + ' Case(s) awaiting corrections';
+                                badge.classList.remove('hidden');
+                                badge.style.removeProperty('display');
+                                badge.style.display = 'inline-flex';
+                            } else {
+                                badge.className = 'hidden';
+                                badge.title = '';
+                                badge.classList.add('hidden');
+                                badge.style.display = 'none';
+                            }
+                        });
+                    }
                     if (data.vault_pending !== undefined) {
                         const vBadges = document.querySelectorAll('#sidebarExhibitLogBadge, #sidebarStaffExhibitLogBadge');
                         const vCount = parseInt(data.vault_pending, 10) || 0;

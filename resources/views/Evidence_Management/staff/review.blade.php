@@ -7315,15 +7315,20 @@ function setSeizureBlocksCount(val) {
             const tokenEl = document.querySelector('meta[name="csrf-token"]');
             const csrfToken = tokenEl ? tokenEl.content : '';
 
-            const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+            let validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
             if (validFiles.length === 0) {
                 alert('Please select valid image files (JPEG, PNG, WEBP, GIF).');
                 return;
             }
 
+            if (validFiles.length > 15) {
+                alert('Best practice batch limit: Limiting to 15 photos per upload batch to stay within server limits.');
+                validFiles = validFiles.slice(0, 15);
+            }
+
             for (const file of validFiles) {
-                if (file.size > 10 * 1024 * 1024) {
-                    alert(`File "${file.name}" exceeds the 10MB maximum limit.`);
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`File "${file.name}" exceeds the 5MB maximum limit. Please keep individual photos under 3–5MB.`);
                     continue;
                 }
 

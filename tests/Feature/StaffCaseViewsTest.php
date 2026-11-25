@@ -1207,5 +1207,700 @@ class StaffCaseViewsTest extends TestCase
         $res->assertSee('id="newSeizureChainOfCustody"', false);
         $res->assertSee('updateChainOfCustodyValue', false);
     }
+
+    #[Test]
+    public function decision_history_table_displays_suspect_front_image(): void
+    {
+        $headUser = User::factory()->create([
+            'fullname' => 'Head of CSSU',
+            'unit' => 'Crime Scene Support',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $submissionWithPhoto = StaffCaseSubmission::create([
+            'submitted_by' => $headUser->id,
+            'submitted_by_name' => 'Staff Officer',
+            'unit_name' => 'Crime Scene Support',
+            'case_number_preview' => 'NCC-2026-IMG-001',
+            'title' => 'State vs Kwesi FrontPhoto',
+            'suspect_name' => 'Kwesi FrontPhoto',
+            'priority' => 'HIGH',
+            'status' => 'Approved',
+            'reviewed_by' => $headUser->id,
+            'reviewed_by_name' => $headUser->fullname,
+            'reviewed_at' => now(),
+            'approved_case_number' => 'CAS-CSSU-2026-0099',
+            'payload' => [
+                'title' => 'State vs Kwesi FrontPhoto',
+                'suspect_name' => 'Kwesi FrontPhoto',
+                'mugshot_front' => 'suspects/kwesi_front_mugshot.jpg',
+            ],
+        ]);
+
+        $submissionWithoutPhoto = StaffCaseSubmission::create([
+            'submitted_by' => $headUser->id,
+            'submitted_by_name' => 'Staff Officer',
+            'unit_name' => 'Crime Scene Support',
+            'case_number_preview' => 'NCC-2026-IMG-002',
+            'title' => 'State vs Kofi NoPhoto',
+            'suspect_name' => 'Kofi NoPhoto',
+            'priority' => 'MEDIUM',
+            'status' => 'Approved',
+            'reviewed_by' => $headUser->id,
+            'reviewed_by_name' => $headUser->fullname,
+            'reviewed_at' => now(),
+            'approved_case_number' => 'CAS-CSSU-2026-0100',
+            'payload' => [
+                'title' => 'State vs Kofi NoPhoto',
+                'suspect_name' => 'Kofi NoPhoto',
+            ],
+        ]);
+
+        $res = $this->actingAs($headUser)->get('/Crime_Scene_Support/reviews-approvals');
+        $res->assertStatus(200);
+
+        // Verify Decision History table contains the front image for submission with photo
+        $res->assertSee('suspects/kwesi_front_mugshot.jpg');
+        $res->assertSee('Kwesi FrontPhoto');
+
+        // Verify submission without photo renders cleanly with suspect name and title
+        $res->assertSee('Kofi NoPhoto');
+    }
+
+    #[Test]
+    public function staff_rollback_with_mugshot_correction_enables_mugshot_upload_and_change_photo(): void
+    {
+        $staffUser = User::factory()->create([
+            'fullname' => 'Kojo CSS Officer',
+            'unit' => 'Crime Scene Support',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        $submission = StaffCaseSubmission::create([
+            'submitted_by' => $staffUser->id,
+            'submitted_by_name' => $staffUser->fullname,
+            'unit_name' => 'Crime Scene Support',
+            'case_number_preview' => 'NCC-2026-MUG-001',
+            'title' => 'Republic vs MUGSHOT_SUSPECT',
+            'suspect_name' => 'John Doe Mugshot',
+            'priority' => 'HIGH',
+            'status' => 'Rolled Back',
+            'review_notes' => 'Please re-upload clearer facial mugshots for suspect.',
+            'rollback_corrections' => [
+                ['field' => 'Mugshot Captures', 'note' => 'Front mugshot blurry, please change and re-upload.'],
+            ],
+            'payload' => [
+                'title' => 'Republic vs MUGSHOT_SUSPECT',
+                'suspect_name' => 'John Doe Mugshot',
+                'mugshot_front' => 'data:image/jpeg;base64,' . base64_encode('fake-old-front'),
+                'mugshot_left' => 'data:image/jpeg;base64,' . base64_encode('fake-old-left'),
+                'mugshot_right' => 'data:image/jpeg;base64,' . base64_encode('fake-old-right'),
+            ],
+        ]);
+
+        $res = $this->actingAs($staffUser)->get("/Crime_Scene_Support/staff/case-rollback/{$submission->id}");
+        $res->assertStatus(200);
+
+        // Verify rollback mode is active
+        $res->assertSee('window.IS_ROLLBACK_MODE = true;', false);
+        $res->assertSee('Active Case Rollback &mdash; Fix Requested Corrections', false);
+        $res->assertSee('Mugshot Captures');
+        $res->assertSee('Front mugshot blurry, please change and re-upload.');
+
+        // Verify mugshot inputs and dropzones exist and rollback handler includes unlocking logic
+        $res->assertSee('id="dropzone-front"', false);
+        $res->assertSee('id="file-front"', false);
+        $res->assertSee('id="actions-front"', false);
+        $res->assertSee('triggerMugshotUpload(\'front\')', false);
+        $res->assertSee('isMugshotFlagged', false);
+        $res->assertSee('btn-change-mugshot', false);
+
+        // Verify the Change button exists inside actions overlay
+        $res->assertSee('<span>Change</span>', false);
+
+        // Verify suspect mugshot partial in review has rollback target data attributes
+        $reviewRes = $this->actingAs($staffUser)->get("/Crime_Scene_Support/staff/case-rollback");
+        $reviewRes->assertStatus(200);
+    }
+
+    #[Test]
+    public function staff_resubmitting_rolled_back_mugshot_updates_payload_and_docket_data(): void
+    {
+        $staffUser = User::factory()->create([
+            'fullname' => 'Resubmit Staff Officer',
+            'unit' => 'Digital Forensics',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        $submission = StaffCaseSubmission::create([
+            'submitted_by' => $staffUser->id,
+            'submitted_by_name' => $staffUser->fullname,
+            'unit_name' => 'Digital Forensics',
+            'case_number_preview' => 'NCC-2026-DF-MUG-002',
+            'title' => 'State vs Digital Suspect',
+            'suspect_name' => 'Digital Suspect',
+            'priority' => 'HIGH',
+            'status' => 'Rolled Back',
+            'review_notes' => 'Please update front profile photo.',
+            'rollback_corrections' => [
+                ['field' => 'Front Mugshot (Angle 1)', 'note' => 'Please provide sharp front angle.'],
+            ],
+            'payload' => [
+                'title' => 'State vs Digital Suspect',
+                'suspect_name' => 'Digital Suspect',
+                'mugshot_front' => 'data:image/jpeg;base64,OLD_FRONT_DATA',
+                'docket_data' => [
+                    'title' => 'State vs Digital Suspect',
+                    'full_name' => 'Digital Suspect',
+                    'mugshot_front' => 'data:image/jpeg;base64,OLD_FRONT_DATA',
+                    'suspects' => [
+                        [
+                            'suspect_name' => 'Digital Suspect',
+                            'mugshot_front' => 'data:image/jpeg;base64,OLD_FRONT_DATA',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $newFrontBase64 = 'data:image/jpeg;base64,' . base64_encode('NEW_FRONT_IMAGE_CONTENT');
+        $newLeftBase64 = 'data:image/jpeg;base64,' . base64_encode('NEW_LEFT_IMAGE_CONTENT');
+        $newRightBase64 = 'data:image/jpeg;base64,' . base64_encode('NEW_RIGHT_IMAGE_CONTENT');
+
+        $res = $this->actingAs($staffUser)->postJson("/Digital_Forensics/staff/case-rollback/{$submission->id}/resubmit", [
+            'suspect_name' => 'Digital Suspect',
+            'mugshot_front' => $newFrontBase64,
+            'mugshot_left' => $newLeftBase64,
+            'mugshot_right' => $newRightBase64,
+        ]);
+
+        $res->assertStatus(200);
+        $res->assertJson(['success' => true]);
+
+        $refreshed = $submission->fresh();
+        $this->assertEquals('Pending Approval', $refreshed->status);
+        $this->assertNull($refreshed->rollback_corrections);
+        $this->assertNotNull($refreshed->payload['mugshot_front']);
+        $this->assertEquals($refreshed->payload['mugshot_front'], $refreshed->payload['docket_data']['mugshot_front']);
+        $this->assertEquals($refreshed->payload['mugshot_front'], $refreshed->payload['suspects'][0]['mugshot_front']);
+    }
+
+    #[Test]
+    public function review_view_suspect_mugshots_renders_rollback_target_data_attributes(): void
+    {
+        $headUser = User::factory()->create([
+            'fullname' => 'Head Reviewer Officer',
+            'unit' => 'Crime Scene Support',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $submission = StaffCaseSubmission::create([
+            'submitted_by' => $headUser->id,
+            'submitted_by_name' => 'Submitting Staff',
+            'unit_name' => 'Crime Scene Support',
+            'case_number_preview' => 'NCC-2026-TGT-003',
+            'title' => 'State vs Target Suspect',
+            'suspect_name' => 'Target Suspect',
+            'priority' => 'HIGH',
+            'status' => 'Pending Approval',
+            'payload' => [
+                'title' => 'State vs Target Suspect',
+                'suspect_name' => 'Target Suspect',
+                'mugshot_front' => 'data:image/jpeg;base64,FRONT',
+                'mugshot_left' => 'data:image/jpeg;base64,LEFT',
+                'mugshot_right' => 'data:image/jpeg;base64,RIGHT',
+                'docket_data' => [
+                    'suspects' => [
+                        [
+                            'suspect_name' => 'Target Suspect',
+                            'mugshot_front' => 'data:image/jpeg;base64,FRONT',
+                            'mugshot_left' => 'data:image/jpeg;base64,LEFT',
+                            'mugshot_right' => 'data:image/jpeg;base64,RIGHT',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $res = $this->actingAs($headUser)->get("/reviews-approvals/{$submission->id}");
+        $res->assertStatus(200);
+
+        // Verify data-rollback-target attributes are rendered on the mugshot card and angles
+        $res->assertSee('data-rollback-target="Biometric Mugshots"', false);
+        $res->assertSee('data-rollback-target="Front Mugshot (Angle 1)"', false);
+        $res->assertSee('data-rollback-target="Left Profile Mugshot (Angle 2)"', false);
+        $res->assertSee('data-rollback-target="Right Profile Mugshot (Angle 3)"', false);
+    }
+
+    #[Test]
+    public function lab_analysis_rollback_previews_section4_and_section5_without_resetting_and_locks_unflagged_sections(): void
+    {
+        $staffUser = User::factory()->create([
+            'fullname' => 'Lab Analyst Staff',
+            'unit' => 'Lab Analysis',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        $submission = StaffCaseSubmission::create([
+            'user_id' => $staffUser->id,
+            'unit_name' => 'Lab Analysis',
+            'submitted_by' => 'Lab Analyst Staff',
+            'title' => 'Republic vs Narcotics Syndicate',
+            'case_number_preview' => 'LAB-2026-0042',
+            'status' => 'Rolled Back',
+            'review_notes' => 'Please correct suspect name spelling.',
+            'rollback_corrections' => [
+                ['field' => 'SUSPECT FULL NAME', 'note' => 'Please fix spelling of suspect name'],
+            ],
+            'payload' => [
+                'title' => 'Republic vs Narcotics Syndicate',
+                'suspect_name' => 'John Dope',
+                'suspect_alias' => 'JD',
+                'ghana_card' => 'GHA-123456789-0',
+                'gender' => 'Male',
+                'lab_workflow_mode' => 'nlr',
+                'lab_exam_reference' => 'NLA-FM-T9988-F',
+                'lab_case_reference' => 'LAB-2026-0042',
+                'laboratory_number' => 'LAB-NO-5555',
+                'lab_analyst' => 'Dr. Forensics',
+                'purpose_of_examination' => 'Qualitative and quantitative chemical analysis of suspected cocaine exhibit.',
+                'preliminary_exam_procedure' => 'Visual and microscopic examination performed.',
+                'screening_method' => ['Gas Chromatography-Mass Spectrometry (GC-MS)', 'FTIR Spectroscopy'],
+                'confirmatory_test_methods' => 'GSA-SM-T998-A',
+                'confirmatory_specifications' => 'Meets regulatory purity threshold.',
+                'confirmatory_remark' => 'Substance confirmed as cocaine hydrochloride.',
+                'disposition_of_exhibit' => 'Retained in forensic laboratory vault.',
+                'has_seizures' => true,
+                'seizures' => [
+                    [
+                        'item_number' => 1,
+                        'exhibit_category' => 'Drugs',
+                        'seizure_name_drug' => 'Cocaine',
+                        'commodity_name' => 'Cocaine Powder',
+                        'seizure_weight' => '2.5',
+                        'seizure_unit' => 'kg',
+                        'seizure_quantity' => '2',
+                        'seizure_packaging' => 'Taped Slabs',
+                        'lab_exhibit_no' => 'A1',
+                        'presumptive_result' => 'YES',
+                        'presumptive_presence' => 'Cocaine',
+                        'presumptive_percentage' => '88.5',
+                        'confirmatory_test_result' => 'YES',
+                        'sample_weight_taken' => '0.05',
+                        'sample_weight_reserved' => '2.45',
+                        'detected_substances' => [
+                            ['name' => 'Cocaine Base', 'purity' => '88.5%'],
+                        ],
+                    ],
+                ],
+                'docket_data' => [
+                    'title' => 'Republic vs Narcotics Syndicate',
+                    'case_number' => 'LAB-2026-0042',
+                    'lab_workflow_mode' => 'nlr',
+                    'lab_examination' => [
+                        'exam_reference' => 'NLA-FM-T9988-F',
+                        'laboratory_number' => 'LAB-NO-5555',
+                        'lab_analyst' => 'Dr. Forensics',
+                        'purpose_of_examination' => 'Qualitative and quantitative chemical analysis of suspected cocaine exhibit.',
+                        'preliminary_exam_procedure' => 'Visual and microscopic examination performed.',
+                        'screening_method' => ['Gas Chromatography-Mass Spectrometry (GC-MS)', 'FTIR Spectroscopy'],
+                        'test_methods' => 'GSA-SM-T998-A',
+                        'specifications' => 'Meets regulatory purity threshold.',
+                        'remark' => 'Substance confirmed as cocaine hydrochloride.',
+                        'disposition_of_exhibit' => 'Retained in forensic laboratory vault.',
+                    ],
+                    'seizures' => [
+                        [
+                            'item_number' => 1,
+                            'exhibit_category' => 'Drugs',
+                            'seizure_name_drug' => 'Cocaine',
+                            'commodity_name' => 'Cocaine Powder',
+                            'seizure_weight' => '2.5',
+                            'seizure_unit' => 'kg',
+                            'seizure_quantity' => '2',
+                            'seizure_packaging' => 'Taped Slabs',
+                            'lab_exhibit_no' => 'A1',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $res = $this->actingAs($staffUser)->get("/Lab_Analysis/staff/case-rollback/{$submission->id}");
+        $res->assertStatus(200);
+
+        // 1. Verify rollback mode is active with directives and ID
+        $res->assertSee('window.IS_ROLLBACK_MODE = true;', false);
+        $res->assertSee('window.ROLLBACK_SUBMISSION_ID = ' . $submission->id . ';', false);
+        $res->assertSee('Active Case Rollback &mdash; Fix Requested Corrections', false);
+
+        // 2. Verify previous Section 4 and Section 5 data are embedded in rollback payload
+        $res->assertSee('NLA-FM-T9988-F', false);
+        $res->assertSee('LAB-NO-5555', false);
+        $res->assertSee('Cocaine Powder', false);
+        $res->assertSee('Qualitative and quantitative chemical analysis of suspected cocaine exhibit', false);
+        $res->assertSee('GSA-SM-T998-A', false);
+        $res->assertSee('Gas Chromatography-Mass Spectrometry (GC-MS)', false);
+
+        // 3. Verify rollback script includes Section 5 hydration, preview lock pill, and openSeizurePanel readonly guard
+        $res->assertSee('isSection5Flagged', false);
+        $res->assertSee('rollback-section5-preview-pill', false);
+        $res->assertSee('rollback-section4-preview-pill', false);
+        $res->assertSee('syncSection4ExhibitsToLabSection', false);
+        $res->assertSee('if (window.IS_ROLLBACK_MODE && el)', false);
+    }
+
+    #[Test]
+    public function lab_analysis_rollback_resubmit_preserves_forensic_examination_and_seizures(): void
+    {
+        $staffUser = User::factory()->create([
+            'fullname' => 'Lab Analyst Staff Resubmit',
+            'unit' => 'Lab Analysis',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        $submission = StaffCaseSubmission::create([
+            'user_id' => $staffUser->id,
+            'unit_name' => 'Lab Analysis',
+            'submitted_by' => 'Lab Analyst Staff Resubmit',
+            'title' => 'State vs Contraband Courier',
+            'case_number_preview' => 'LAB-2026-0888',
+            'status' => 'Rolled Back',
+            'review_notes' => 'Please correct suspect full name.',
+            'rollback_corrections' => [
+                ['field' => 'SUSPECT FULL NAME', 'note' => 'Fix spelling to Johnathan Doe'],
+            ],
+            'payload' => [
+                'title' => 'State vs Contraband Courier',
+                'suspect_name' => 'John Doe',
+                'lab_workflow_mode' => 'nlr',
+                'lab_exam_reference' => 'NLA-FM-T7711-F',
+                'laboratory_number' => 'LAB-7711',
+                'lab_analyst' => 'Forensic Chemist A',
+                'purpose_of_examination' => 'Identification of seized drug powder.',
+                'preliminary_exam_procedure' => 'Color spot testing.',
+                'screening_method' => ['GC-MS'],
+                'confirmatory_test_methods' => 'ASTM E2329',
+                'confirmatory_specifications' => 'Purity verified.',
+                'confirmatory_remark' => 'Consistent with Cocaine HCl.',
+                'disposition_of_exhibit' => 'Secure Vault Room A',
+                'seizures' => [
+                    [
+                        'item_number' => 1,
+                        'exhibit_category' => 'Drugs',
+                        'commodity_name' => 'Heroin Pack',
+                        'seizure_weight' => '1.2',
+                        'seizure_unit' => 'kg',
+                        'lab_exhibit_no' => 'H-01',
+                    ],
+                ],
+                'docket_data' => [
+                    'lab_workflow_mode' => 'nlr',
+                    'lab_examination' => [
+                        'exam_reference' => 'NLA-FM-T7711-F',
+                        'laboratory_number' => 'LAB-7711',
+                    ],
+                ],
+            ],
+        ]);
+
+        $resubmitData = [
+            'suspect_name' => 'Johnathan Doe',
+            'full_name' => 'Johnathan Doe',
+            'title' => 'State vs Contraband Courier',
+            'lab_workflow_mode' => 'nlr',
+            'lab_exam_reference' => 'NLA-FM-T7711-F',
+            'exam_reference' => 'NLA-FM-T7711-F',
+            'laboratory_number' => 'LAB-7711',
+            'lab_analyst' => 'Forensic Chemist A',
+            'purpose_of_examination' => 'Identification of seized drug powder.',
+            'preliminary_exam_procedure' => 'Color spot testing.',
+            'screening_method' => ['GC-MS'],
+            'confirmatory_test_methods' => 'ASTM E2329',
+            'confirmatory_specifications' => 'Purity verified.',
+            'confirmatory_remark' => 'Consistent with Cocaine HCl.',
+            'disposition_of_exhibit' => 'Secure Vault Room A',
+            'seizures' => [
+                [
+                    'item_number' => 1,
+                    'exhibit_category' => 'Drugs',
+                    'commodity_name' => 'Heroin Pack',
+                    'seizure_weight' => '1.2',
+                    'seizure_unit' => 'kg',
+                    'lab_exhibit_no' => 'H-01',
+                ],
+            ],
+            'lab_examination' => [
+                'exam_reference' => 'NLA-FM-T7711-F',
+                'laboratory_number' => 'LAB-7711',
+                'lab_analyst' => 'Forensic Chemist A',
+                'purpose_of_examination' => 'Identification of seized drug powder.',
+                'preliminary_exam_procedure' => 'Color spot testing.',
+                'screening_method' => ['GC-MS'],
+                'test_methods' => 'ASTM E2329',
+                'specifications' => 'Purity verified.',
+                'remark' => 'Consistent with Cocaine HCl.',
+                'disposition_of_exhibit' => 'Secure Vault Room A',
+            ],
+        ];
+
+        $res = $this->actingAs($staffUser)->postJson("/Lab_Analysis/staff/case-rollback/{$submission->id}/resubmit", $resubmitData);
+        $res->assertStatus(200);
+        $res->assertJson(['success' => true]);
+
+        $refreshed = StaffCaseSubmission::find($submission->id);
+        $this->assertEquals('Pending Approval', $refreshed->status);
+        $this->assertEquals('Johnathan Doe', $refreshed->suspect_name);
+        $this->assertNull($refreshed->rollback_corrections);
+
+        // Verify Section 5 and Section 4 data were preserved in payload and docket_data
+        $this->assertEquals('nlr', $refreshed->payload['lab_workflow_mode']);
+        $this->assertEquals('NLA-FM-T7711-F', $refreshed->payload['lab_exam_reference']);
+        $this->assertEquals('LAB-7711', $refreshed->payload['laboratory_number']);
+        $this->assertEquals('Heroin Pack', $refreshed->payload['seizures'][0]['commodity_name']);
+        $this->assertEquals('H-01', $refreshed->payload['seizures'][0]['lab_exhibit_no']);
+        $this->assertEquals('NLA-FM-T7711-F', $refreshed->payload['docket_data']['lab_examination']['exam_reference']);
+        $this->assertEquals('Secure Vault Room A', $refreshed->payload['docket_data']['lab_examination']['disposition_of_exhibit']);
+    }
+
+    public function test_lab_analysis_reviews_approvals_renders_without_undefined_variable_db_exhibits(): void
+    {
+        $head = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_head' => true,
+        ]);
+
+        $staff = User::factory()->create([
+            'unit' => 'Lab Analysis',
+            'is_head' => false,
+        ]);
+
+        $submission = \App\Models\StaffCaseSubmission::create([
+            'case_number_preview' => 'NCC-2026-3851',
+            'title' => 'State vs Veronica Naa',
+            'unit_name' => 'Lab Analysis',
+            'suspect_name' => 'Veronica Naa',
+            'submitted_by' => $staff->id,
+            'submitted_by_name' => $staff->name,
+            'status' => 'Pending Approval',
+            'payload' => [
+                'case_number' => 'NCC-2026-3851',
+                'title' => 'State vs Veronica Naa',
+                'unit_name' => 'Lab Analysis',
+                'suspect_name' => 'Veronica Naa',
+                'status' => 'Pending Approval',
+                'seizures' => [
+                    [
+                        'item_number' => 1,
+                        'exhibit_category' => 'Drugs',
+                        'seizure_name' => 'Cocaine Powder',
+                        'associated_person' => 'Veronica Naa',
+                        'investigating_officer' => 'Insp. Darko',
+                    ],
+                ],
+                'docket_data' => [
+                    'suspect_name' => 'Veronica Naa',
+                    'suspects' => [
+                        [
+                            'suspect_number' => 1,
+                            'suspect_name' => 'Veronica Naa',
+                            'role' => 'Primary Suspect',
+                        ],
+                    ],
+                    'seizures' => [
+                        [
+                            'item_number' => 1,
+                            'exhibit_category' => 'Drugs',
+                            'seizure_name' => 'Cocaine Powder',
+                            'associated_person' => 'Veronica Naa',
+                            'investigating_officer' => 'Insp. Darko',
+                        ],
+                    ],
+                ],
+            ],
+        ]);
+
+        $res = $this->actingAs($head)->get("/Lab_Analysis/reviews-approvals/{$submission->id}");
+        $res->assertStatus(200);
+        $res->assertSee('Veronica Naa');
+        $res->assertSee('Cocaine Powder');
+        $res->assertSee('Insp. Darko');
+    }
+
+    #[Test]
+    public function staff_with_edit_cases_permission_can_access_edit_case_with_full_editability_and_exhibits_and_mugshots(): void
+    {
+        $singleCase = \App\Models\SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-EDIT-01',
+            'title' => 'Republic v Kojo Antwi',
+            'suspect_name' => 'Kojo Antwi',
+            'status' => 'Pending Approval',
+            'priority' => 'HIGH',
+            'unit_name' => 'Crime Scene Support',
+            'submitting_officer' => 'Insp. Darko',
+            'mugshot_front' => 'mugshots/kojo_front.jpg',
+            'mugshot_left' => 'mugshots/kojo_left.jpg',
+            'mugshot_right' => 'mugshots/kojo_right.jpg',
+            'arrest_date' => '2026-03-10',
+            'arrest_time' => '14:30',
+        ]);
+
+        $exhibit = \App\Models\Exhibit::create([
+            'single_suspect_case_id' => $singleCase->id,
+            'exhibit_number' => 'EX-2026-001',
+            'commodity_name' => 'High-Grade Heroin Bricks',
+            'exhibit_category' => 'Drugs / Narcotics',
+            'seizure_quantity' => '12',
+            'seizure_weight' => '14.5 kg',
+            'seizure_unit' => 'Kilograms (kg)',
+            'seizure_packaging' => 'Vacuum-sealed plastic blocks',
+            'seizure_reason' => 'Intercepted at port terminal checkpoint',
+            'associated_person' => 'Kojo Antwi',
+            'evidence_photos' => ['exhibits/heroin_pack.jpg'],
+        ]);
+
+        $staff = User::factory()->create([
+            'fullname' => 'Kofi Staff Editor',
+            'unit' => 'Lab Analysis',
+            'is_head' => false,
+            'is_approved' => true,
+            'permissions' => ['edit_cases' => true],
+        ]);
+
+        $res = $this->actingAs($staff)->get('/cases/' . $singleCase->case_number . '/edit');
+        $res->assertStatus(200);
+        $res->assertDontSee('Read-Only Mode — Crime Scene Support fields are restricted');
+        $res->assertDontSee('Read-Only Mode — Seized exhibit specifications are restricted');
+        $res->assertDontSee('id="input_suspect_name" name="suspect_name" value="Kojo Antwi" readonly', false);
+        $res->assertSee('High-Grade Heroin Bricks');
+        $res->assertSee('Vacuum-sealed plastic blocks');
+        $res->assertSee('Intercepted at port terminal checkpoint');
+        $res->assertSee('kojo_front.jpg');
+        $res->assertSee('heroin_pack.jpg');
+    }
+
+    public function test_staff_rollback_with_marital_and_children_corrections_allows_editing_and_persists(): void
+    {
+        $staff = User::factory()->create([
+            'fullname' => 'Christy Staff Officer',
+            'unit' => 'Lab Analysis',
+            'is_head' => false,
+            'is_approved' => true,
+        ]);
+
+        $submission = \App\Models\StaffCaseSubmission::create([
+            'submitted_by' => $staff->id,
+            'submitted_by_name' => $staff->fullname,
+            'unit_name' => 'Lab Analysis',
+            'title' => 'State v Christy Brown',
+            'suspect_name' => 'CHRISTY BROWN',
+            'priority' => 'MEDIUM',
+            'status' => 'Rolled Back',
+            'rollback_corrections' => [
+                ['field' => 'SPOUSE / PARTNER DETAILS', 'note' => 'ADD IT'],
+                ['field' => 'CHILDREN & DEPENDENTS', 'note' => 'AND THIS TOO'],
+            ],
+            'review_notes' => 'Please provide spouse and children details.',
+            'payload' => [
+                'case_number' => 'NCC-2026-ROLL-01',
+                'title' => 'State v Christy Brown',
+                'suspect_name' => 'CHRISTY BROWN',
+                'marital_status' => 'Single',
+                'has_children' => false,
+                'children_count' => 0,
+                'spouse_name' => '',
+                'spouse_phone' => '',
+                'spouse_info' => '',
+                'suspects' => [
+                    [
+                        'suspect_name' => 'CHRISTY BROWN',
+                        'marital_status' => 'Single',
+                        'has_children' => false,
+                        'children_count' => 0,
+                    ]
+                ],
+                'docket_data' => [
+                    'marital_status' => 'Single',
+                    'has_children' => false,
+                    'children_count' => 0,
+                ]
+            ],
+        ]);
+
+        // 1. Staff opens the rollback view
+        $viewRes = $this->actingAs($staff)->get("/Lab_Analysis/staff/case-rollback/{$submission->id}");
+        $viewRes->assertStatus(200);
+        $viewRes->assertSee('window.IS_ROLLBACK_MODE = true;', false);
+        $viewRes->assertSee('SPOUSE / PARTNER DETAILS');
+        $viewRes->assertSee('CHILDREN &amp; DEPENDENTS', false);
+        $viewRes->assertSee('ADD IT');
+        $viewRes->assertSee('AND THIS TOO');
+        $viewRes->assertSee('id="newArrestedMarital"', false);
+        $viewRes->assertSee('id="hasChildrenCheckbox"', false);
+        $viewRes->assertSee('id="newArrestedChildren"', false);
+        $viewRes->assertSee('id="newArrestedSpouseName"', false);
+        $viewRes->assertSee('id="relationshipDetailsBox"', false);
+
+        // 2. Staff resubmits with updated marital status and children count
+        $resubmitRes = $this->actingAs($staff)->postJson("/Lab_Analysis/staff/case-rollback/{$submission->id}/resubmit", [
+            'marital_status' => 'Married',
+            'has_children' => 1,
+            'children_count' => 3,
+            'spouse_name' => 'Adwoa Mansa',
+            'spouse_phone' => '0244998877',
+            'spouse_info' => 'Teacher, Tema',
+        ]);
+        $resubmitRes->assertStatus(200);
+        $resubmitRes->assertJson([
+            'success' => true,
+        ]);
+
+        $submission->refresh();
+        $this->assertEquals('Pending Approval', $submission->status);
+        $this->assertNull($submission->rollback_corrections);
+
+        // Verify payload persistence
+        $this->assertEquals('Married', $submission->payload['marital_status']);
+        $this->assertTrue($submission->payload['has_children']);
+        $this->assertEquals(3, (int) $submission->payload['children_count']);
+        $this->assertEquals('Adwoa Mansa', $submission->payload['spouse_name']);
+        $this->assertEquals('0244998877', $submission->payload['spouse_phone']);
+        $this->assertEquals('Teacher, Tema', $submission->payload['spouse_info']);
+
+        // Verify docket_data persistence
+        $this->assertEquals('Married', $submission->payload['docket_data']['marital_status']);
+        $this->assertTrue($submission->payload['docket_data']['has_children']);
+        $this->assertEquals('Adwoa Mansa', $submission->payload['docket_data']['spouse_name']);
+
+        // Verify first suspect persistence
+        $this->assertEquals('Married', $submission->payload['suspects'][0]['marital_status']);
+        $this->assertTrue($submission->payload['suspects'][0]['has_children']);
+        $this->assertEquals('Adwoa Mansa', $submission->payload['suspects'][0]['spouse_name']);
+        $this->assertEquals('3 Kids', $submission->payload['dependents']);
+        $this->assertEquals('3 Kids', $submission->payload['docket_data']['dependents']);
+        $this->assertEquals('3 Kids', $submission->payload['suspects'][0]['dependents']);
+
+        // 3. Unit Head views the resubmitted case in reviews and approvals
+        $head = User::factory()->create([
+            'fullname' => 'Dr. Unit Head',
+            'unit' => 'Lab Analysis',
+            'is_head' => true,
+            'is_approved' => true,
+        ]);
+
+        $headReviewRes = $this->actingAs($head)->get("/Lab_Analysis/reviews-approvals/{$submission->id}");
+        $headReviewRes->assertStatus(200);
+        $headReviewRes->assertSee('3 Kids');
+        $headReviewRes->assertSee('Married');
+        $headReviewRes->assertSee('Adwoa Mansa');
+        $headReviewRes->assertSee('0244998877');
+        $headReviewRes->assertSee('Teacher, Tema');
+    }
 }
 

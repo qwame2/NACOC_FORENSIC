@@ -216,11 +216,15 @@ class NotificationsController extends Controller
 
         $fieldOfficersCount = \App\Http\Controllers\FieldOfficersController::countPendingApprovalsForContext((string) $unitLabel, $viewer);
 
+        $rollbackCount = \App\Models\StaffCaseSubmission::countRollbacksForContext((string) $unitLabel, $viewer);
+
         return response()->json([
             'success' => true,
             'notifications' => $notificationsCount,
             'reviews_approvals' => $approvalsCount,
             'field_officers' => $fieldOfficersCount,
+            'case_rollback' => $rollbackCount,
+            'staff_rollback' => $rollbackCount,
             'vault_pending' => \App\Models\Exhibit::countPendingQrOrClassification(),
             'unit' => $unitLabel,
         ]);

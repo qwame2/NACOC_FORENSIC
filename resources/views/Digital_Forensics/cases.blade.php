@@ -143,7 +143,7 @@
             window.digitalCasesAjaxTable = initAjaxTable({
                 container: '#digitalCasesTableContainer',
                 table: '#regMasterCaseTable',
-                columns: 7,
+                columns: 5,
                 rows: 6,
                 onAfterUpdate: (container) => {
                     const rows = container.querySelectorAll('.case-register-row');

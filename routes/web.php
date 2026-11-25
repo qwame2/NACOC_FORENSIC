@@ -1004,6 +1004,22 @@ Route::middleware(['auth'])->group(function () {
                     }
                 }
             }
+            if (empty($caseSpecs) && !empty($cItem->dev_model) && $cItem->dev_model !== 'N/A') {
+                $caseSpecs[] = [
+                    'exhibit_no' => 'EX-01',
+                    'device_name' => $cItem->dev_model,
+                    'quantity' => '1',
+                    'model' => $cItem->dev_model,
+                    'serial' => $cItem->dev_serial_no ?? 'N/A',
+                    'imei1' => $cItem->dev_imei1 ?? 'N/A',
+                    'imei2' => $cItem->dev_imei2 ?? 'N/A',
+                    'mac' => $cItem->dev_mac_address ?? 'N/A',
+                    'storage' => $cItem->dev_storage ?? 'N/A',
+                    'colour' => $cItem->dev_colour ?? 'N/A',
+                    'marks' => $cItem->dev_marks ?? 'N/A',
+                ];
+                $exParts[] = $cItem->dev_model;
+            }
             $caseExhibitDisplay = !empty($exParts) ? implode(', ', array_unique($exParts)) : ($rItem->devices_retrieved ?? ($cItem->dev_model ?? 'Mobile Devices & Exhibits'));
 
             $cBrief = $rItem->brief_case_description ?? ($cItem->description ?? 'Target intercepted with encrypted mobile hardware. Write-blocked forensic imaging executed under judicial authorization.');
@@ -1081,6 +1097,7 @@ Route::middleware(['auth'])->group(function () {
 
             return [
                 'case_number' => $cNo,
+                'case_title' => $cItem->title ?? ($cItem->case_title ?? null),
                 'dpf_code' => $rItem->dpf_code ?? ('DPF-' . $cNo),
                 'suspect_name' => $sName,
                 'role' => $sRole,
@@ -2203,6 +2220,9 @@ Route::middleware(['auth'])->group(function () {
                     if (str_contains($sLower, 'authoriz') || str_contains($sLower, 'approv') || str_contains($sLower, 'court')) {
                         return str_contains($cStat, 'approv') || str_contains($cStat, 'authoriz') || str_contains($cStat, 'court') || str_contains($cStat, 'completed') || str_contains($cStat, 'certified');
                     }
+                    if (str_contains($sLower, 'investigat')) {
+                        return str_contains($cStat, 'investigat') || str_contains($cStat, 'progress') || str_contains($cStat, 'multi-unit') || str_contains($cStat, 'active');
+                    }
                     if (str_contains($sLower, 'vault')) {
                         $hasEx = (method_exists($c, 'hasExhibits') && $c->hasExhibits());
                         return str_contains($cStat, 'vault') || str_contains(strtolower($c->unit_name ?? ''), 'evidence') || $hasEx;
@@ -2247,8 +2267,18 @@ Route::middleware(['auth'])->group(function () {
                     if (str_contains($uLower, 'lab')) {
                         return str_contains($cUnit, 'lab');
                     }
-                    if (str_contains($uLower, 'digital') || str_contains($uLower, 'physical')) {
-                        return str_contains($cUnit, 'digital') || str_contains($cUnit, 'physical') || str_contains($cUnit, 'dpf');
+                    if (str_contains($uLower, 'digital') || str_contains($uLower, 'physical') || str_contains($uLower, 'dpf')) {
+                        $isDigital = (method_exists($c, 'isDigitalCase') && $c->isDigitalCase());
+                        if (!$isDigital && method_exists($c, 'classifyExhibits')) {
+                            $flags = $c->classifyExhibits();
+                            $isDigital = !empty($flags['has_electronic']);
+                        }
+                        if (!$isDigital) {
+                            try {
+                                $isDigital = \App\Models\DpfReport::forCase($c->id, $c->case_number) !== null;
+                            } catch (\Throwable $e) {}
+                        }
+                        return str_contains($cUnit, 'digital') || str_contains($cUnit, 'physical') || str_contains($cUnit, 'dpf') || $isDigital;
                     }
                     return str_contains($cUnit, $uLower);
                 })->values();
@@ -2256,8 +2286,8 @@ Route::middleware(['auth'])->group(function () {
 
             $pendingCasesCount = $allCases->filter(fn($c) => in_array($c->status, ['Awaiting Sign-off', 'Pending Approval', 'Pending']))->count();
             $pendingCount = User::where('is_approved', false)->count();
-            $perPage = (int) $request->input('per_page', 15);
-            if ($perPage < 1) $perPage = 15;
+            $perPage = (int) $request->input('per_page', 25);
+            if ($perPage < 1) $perPage = 25;
             if ($perPage > 100) $perPage = 100;
             $cases = ForensicCase::paginateCases($filtered, $perPage);
 
@@ -2269,6 +2299,7 @@ Route::middleware(['auth'])->group(function () {
         });
 
         Route::get('/Forensic_Head/cases/{id}/review', [ForensicHeadCaseController::class, 'showReview'])->name('forensic_head.cases.review');
+        Route::get('/Forensic_Head/cases/suspect-report-preview', [DGCaseController::class, 'suspectReportPreview'])->name('forensic_head.cases.suspect_report_preview');
         Route::get('/Forensic_Head/cases/{id}/vault-exhibits', [ForensicHeadCaseController::class, 'showVaultExhibits'])->name('forensic_head.cases.vault_exhibits');
         Route::get('/Forensic_Head/cases/{id}/pdf', [CaseController::class, 'showPdf']);
         Route::get('/Forensic_Head/personnel-roster', [PersonnelRosterController::class, 'index'])->name('forensic_head.personnel_roster');

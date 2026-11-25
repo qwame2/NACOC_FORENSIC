@@ -27,12 +27,7 @@
     }
 
     $resolveImg = function ($raw) {
-        if (empty($raw)) return null;
-        $raw = trim((string) $raw);
-        if (str_starts_with($raw, 'data:image') || str_starts_with($raw, 'http://') || str_starts_with($raw, 'https://')) {
-            return $raw;
-        }
-        return asset(ltrim($raw, '/'));
+        return \App\Services\CasePhotoResolver::resolveMugshotUrl($raw);
     };
 
     $dData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
@@ -92,6 +87,16 @@
     }
     if (empty($exhibitsList) && !empty($dData['seizures']) && is_array($dData['seizures'])) {
         foreach ($dData['seizures'] as $idx => $sz) {
+            $szInvOff = $sz['investigating_officer'] ?? null;
+            if (empty($szInvOff) && !empty($sz['id'])) {
+                try { $szInvOff = \App\Models\Exhibit::where('id', $sz['id'])->value('investigating_officer'); } catch (\Throwable $e) {}
+            }
+            if (empty($szInvOff) && !empty($sz['exhibit_number'])) {
+                try { $szInvOff = \App\Models\Exhibit::where('exhibit_number', $sz['exhibit_number'])->value('investigating_officer'); } catch (\Throwable $e) {}
+            }
+            if (empty($szInvOff)) {
+                $szInvOff = $case->investigating_officer ?? 'N/A';
+            }
             $exhibitsList[] = [
                 'item_name'              => $sz['drug_type'] ?? $sz['device_name'] ?? $sz['exhibit_type'] ?? $sz['commodity'] ?? 'Seized Exhibit #' . ($idx + 1),
                 'category'               => $sz['category'] ?? 'Seized Item',
@@ -99,7 +104,7 @@
                 'packaging'              => $sz['packaging'] ?? 'N/A',
                 'concealment'            => $sz['concealment'] ?? 'N/A',
                 'source_of_exhibits'     => $sz['source_of_exhibits'] ?? ($sz['source'] ?? 'N/A'),
-                'investigating_officer'  => $sz['investigating_officer'] ?? 'N/A',
+                'investigating_officer'  => $szInvOff ?: 'N/A',
                 'source_requesting_unit' => $sz['source_requesting_unit'] ?? 'N/A',
                 'remark'                 => $sz['exhibit_remark'] ?? ($sz['remarks'] ?? ''),
                 'barcode'                => $sz['barcode'] ?? ('TAG-' . substr(md5($case->case_number . $idx), 0, 8)),

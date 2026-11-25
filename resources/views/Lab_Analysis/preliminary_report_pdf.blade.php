@@ -293,33 +293,193 @@
         }
     }
 
-    // Remarks, Specific Remarks, Disposition
-    $remark = $pickValid([
-        $primaryLabResult->remark ?? null,
-        $pickFromCollection($allCaseLabResults, ['remark']),
-        $case->confirmatory_remark ?? null,
-        $case->remark ?? null,
-        $labDataFromDocket['remark'] ?? null,
-        $pickFromCollection($docketData['seizures'] ?? [], ['lab_remark', 'confirmatory_remark', 'remark']),
-        $pickFromCollection($allCaseExhibits, ['lab_remark']),
-    ]) ?? 'Unspecified';
+    // Helper to responsively resolve section content (Remarks, Specific Remarks, Disposition)
+    $resolveResponsiveSectionContent = static function (array $fieldKeys, string $default = 'Unspecified') use (
+        $drugExhibits, $labResults, $primaryLabResult, $case, $labDataFromDocket,
+        $docketData, $allCaseExhibits, $allCaseLabResults, $isValidRefValue
+    ): string {
+        $singleCandidates = [];
 
-    $specifications = $pickValid([
-        $primaryLabResult->specifications ?? null,
-        $pickFromCollection($allCaseLabResults, ['specifications']),
-        $case->confirmatory_specifications ?? null,
-        $case->specifications ?? null,
-        $labDataFromDocket['specifications'] ?? null,
-        $pickFromCollection($docketData['seizures'] ?? [], ['specifications']),
-    ]) ?? 'Unspecified';
+        // Check primary lab result first
+        if ($primaryLabResult) {
+            foreach ($fieldKeys as $k) {
+                $val = is_object($primaryLabResult) ? ($primaryLabResult->{$k} ?? null) : ($primaryLabResult[$k] ?? null);
+                if ($isValidRefValue($val)) {
+                    $singleCandidates[] = trim((string)$val);
+                    break;
+                }
+            }
+        }
 
-    $dispositionOfExhibit = $pickValid([
-        $primaryLabResult->disposition_of_exhibit ?? null,
-        $pickFromCollection($allCaseLabResults, ['disposition_of_exhibit']),
-        $case->disposition_of_exhibit ?? null,
-        $labDataFromDocket['disposition_of_exhibit'] ?? null,
-        $pickFromCollection($docketData['seizures'] ?? [], ['disposition_of_exhibit']),
-    ]) ?? 'Unspecified';
+        // Check case attributes & underlying record
+        if ($case) {
+            foreach ($fieldKeys as $k) {
+                $val = is_object($case) ? ($case->{$k} ?? null) : ($case[$k] ?? null);
+                if (!$isValidRefValue($val) && isset($case->underlyingRecord)) {
+                    $uRec = $case->underlyingRecord;
+                    $val = is_object($uRec) ? ($uRec->{$k} ?? null) : ($uRec[$k] ?? null);
+                }
+                if ($isValidRefValue($val)) {
+                    $singleCandidates[] = trim((string)$val);
+                    break;
+                }
+            }
+        }
+
+        // Check docket data lab examination & top-level docketData
+        if (!empty($labDataFromDocket)) {
+            foreach ($fieldKeys as $k) {
+                if ($isValidRefValue($labDataFromDocket[$k] ?? null)) {
+                    $singleCandidates[] = trim((string)$labDataFromDocket[$k]);
+                    break;
+                }
+            }
+        }
+        if (!empty($docketData['lab_examination'])) {
+            foreach ($fieldKeys as $k) {
+                if ($isValidRefValue($docketData['lab_examination'][$k] ?? null)) {
+                    $singleCandidates[] = trim((string)$docketData['lab_examination'][$k]);
+                    break;
+                }
+            }
+        }
+        if (!empty($docketData)) {
+            foreach ($fieldKeys as $k) {
+                if ($isValidRefValue($docketData[$k] ?? null)) {
+                    $singleCandidates[] = trim((string)$docketData[$k]);
+                    break;
+                }
+            }
+        }
+        // Check docket data lab examination
+        if (!empty($labDataFromDocket)) {
+            foreach ($fieldKeys as $k) {
+                if ($isValidRefValue($labDataFromDocket[$k] ?? null)) {
+                    $singleCandidates[] = trim((string)$labDataFromDocket[$k]);
+                    break;
+                }
+            }
+        }
+        if (!empty($docketData['lab_examination'])) {
+            foreach ($fieldKeys as $k) {
+                if ($isValidRefValue($docketData['lab_examination'][$k] ?? null)) {
+                    $singleCandidates[] = trim((string)$docketData['lab_examination'][$k]);
+                    break;
+                }
+            }
+        }
+
+        // Check per-exhibit values if multiple drug exhibits exist
+        $exhibitValues = [];
+        if (!empty($drugExhibits) && count($drugExhibits) > 1) {
+            foreach ($drugExhibits as $idx => $ex) {
+                $matchedLab = null;
+                if (!empty($labResults)) {
+                    $exId = is_object($ex) ? ($ex->id ?? null) : ($ex['id'] ?? null);
+                    $exLabNo = is_object($ex) ? ($ex->lab_exhibit_no ?? null) : ($ex['lab_exhibit_no'] ?? null);
+                    if ($exId) {
+                        $matchedLab = $labResults->firstWhere('exhibit_id', $exId);
+                    }
+                    if (!$matchedLab && $exLabNo) {
+                        $matchedLab = $labResults->firstWhere('lab_exhibit_no', $exLabNo);
+                    }
+                    if (!$matchedLab) {
+                        $matchedLab = $labResults->get($idx);
+                    }
+                }
+                $sz = $docketData['seizures'][$idx] ?? null;
+
+                $foundVal = null;
+                if ($matchedLab) {
+                    foreach ($fieldKeys as $k) {
+                        $v = is_object($matchedLab) ? ($matchedLab->{$k} ?? null) : ($matchedLab[$k] ?? null);
+                        if ($isValidRefValue($v)) { $foundVal = trim((string)$v); break; }
+                    }
+                }
+                if (!$foundVal && $sz) {
+                    foreach ($fieldKeys as $k) {
+                        if ($isValidRefValue($sz[$k] ?? null)) { $foundVal = trim((string)$sz[$k]); break; }
+                    }
+                }
+                if (!$foundVal && $ex) {
+                    foreach ($fieldKeys as $k) {
+                        $v = is_object($ex) ? ($ex->{$k} ?? null) : ($ex[$k] ?? null);
+                        if ($isValidRefValue($v)) { $foundVal = trim((string)$v); break; }
+                    }
+                }
+
+                $labLabel = (is_object($ex) ? ($ex->lab_exhibit_no ?? null) : ($ex['lab_exhibit_no'] ?? null))
+                    ?: ($matchedLab ? (is_object($matchedLab) ? ($matchedLab->lab_exhibit_no ?? null) : ($matchedLab['lab_exhibit_no'] ?? null)) : null)
+                    ?: chr(65 + $idx);
+
+                if ($foundVal !== null) {
+                    $exhibitValues[$labLabel] = $foundVal;
+                }
+            }
+        }
+
+        // If multiple exhibits have distinct non-identical values, format responsively per exhibit
+        $uniqueValues = array_unique(array_values($exhibitValues));
+        if (count($uniqueValues) > 1) {
+            $lines = [];
+            foreach ($exhibitValues as $label => $val) {
+                $lines[] = "Exhibit {$label}: {$val}";
+            }
+            return implode("\n", $lines);
+        }
+
+        if (count($uniqueValues) === 1) {
+            return reset($uniqueValues);
+        }
+
+        if (!empty($singleCandidates)) {
+            return $singleCandidates[0];
+        }
+
+        // Deep search all lab results
+        if (!empty($allCaseLabResults)) {
+            foreach ($allCaseLabResults as $lr) {
+                foreach ($fieldKeys as $k) {
+                    $v = is_object($lr) ? ($lr->{$k} ?? null) : ($lr[$k] ?? null);
+                    if ($isValidRefValue($v)) return trim((string)$v);
+                }
+            }
+        }
+
+        // Deep search all exhibits
+        if (!empty($allCaseExhibits)) {
+            foreach ($allCaseExhibits as $ex) {
+                foreach ($fieldKeys as $k) {
+                    $v = is_object($ex) ? ($ex->{$k} ?? null) : ($ex[$k] ?? null);
+                    if ($isValidRefValue($v)) return trim((string)$v);
+                }
+            }
+        }
+
+        // Deep search seizures in docket
+        if (!empty($docketData['seizures'])) {
+            foreach ($docketData['seizures'] as $sz) {
+                foreach ($fieldKeys as $k) {
+                    if ($isValidRefValue($sz[$k] ?? null)) return trim((string)$sz[$k]);
+                }
+            }
+        }
+
+        return $default;
+    };
+
+    // Remarks, Specific Remarks, Disposition (Responsive Content)
+    $remark = $resolveResponsiveSectionContent([
+        'remark', 'confirmatory_remark', 'lab_remark', 'exhibit_remark', 'remarks'
+    ]);
+
+    $specifications = $resolveResponsiveSectionContent([
+        'specifications', 'confirmatory_specifications', 'specs'
+    ]);
+
+    $dispositionOfExhibit = $resolveResponsiveSectionContent([
+        'disposition_of_exhibit', 'confirmatory_disposition_of_exhibit', 'disposition'
+    ]);
 
 
     // Helper to resolve the identified drug name for an exhibit
@@ -877,7 +1037,50 @@
             text-align: center !important;
         }
 
-        /* Screen Only Action Toolbar */
+        /* Responsive Remarks, Specific Remarks & Disposition Section */
+        .doc-remarks-section {
+            width: 100%;
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .doc-remark-item {
+            width: 100%;
+            break-inside: avoid;
+            page-break-inside: avoid;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            margin-bottom: 0;
+        }
+
+        .doc-remark-title {
+            font-size: 13pt;
+            font-weight: 800;
+            text-transform: uppercase;
+            color: #000000;
+            margin-top: 0;
+            margin-bottom: 2px;
+            letter-spacing: 0.02em;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        .doc-remark-body {
+            font-size: 12pt;
+            line-height: 1.35;
+            color: #000000;
+            margin-top: 0;
+            margin-bottom: 0;
+            white-space: pre-wrap;
+            word-break: break-word;
+            overflow-wrap: break-word;
+        }
+
+        /* Screen Only Action Toolbar & Responsiveness */
         @media screen {
             .no-print-toolbar {
                 max-width: 210mm;
@@ -890,6 +1093,69 @@
                 display: flex;
                 align-items: center;
                 justify-content: space-between;
+            }
+        }
+
+        @media screen and (max-width: 820px) {
+            body {
+                padding: 10px 8px !important;
+                background: #f1f5f9 !important;
+            }
+
+            .a4-page {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: auto !important;
+                height: auto !important;
+                padding: 18px 14px !important;
+                margin-bottom: 16px !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+            }
+
+            .no-print-toolbar {
+                max-width: 100% !important;
+                border-radius: 8px !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+                align-items: stretch !important;
+                text-align: center !important;
+            }
+
+            .doc-remarks-section {
+                gap: 10px !important;
+                margin-top: 8px !important;
+            }
+
+            .doc-remark-title {
+                font-size: 12pt !important;
+                margin-top: 0 !important;
+                margin-bottom: 2px !important;
+            }
+
+            .doc-remark-body {
+                font-size: 11pt !important;
+                line-height: 1.35 !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+            }
+
+            .doc-table {
+                font-size: 10pt !important;
+            }
+
+            .doc-table th, .doc-table td {
+                padding: 4px 6px !important;
+                font-size: 10pt !important;
+            }
+
+            .doc-table th, .doc-table th * {
+                font-size: 10pt !important;
+            }
+
+            .doc-table-2col tbody td:first-child,
+            .doc-table-2col tbody td:first-child * {
+                width: 42% !important;
+                font-size: 10pt !important;
             }
         }
 
@@ -1076,6 +1342,47 @@
                 max-height: 282% !important;
                 object-fit: contain !important;
                 opacity: 0.12 !important;
+            }
+
+            .doc-remarks-section {
+                width: 100% !important;
+                margin-top: 8px !important;
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 12px !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+            }
+
+            .doc-remark-item {
+                width: 100% !important;
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+                margin-bottom: 0 !important;
+            }
+
+            .doc-remark-title {
+                font-size: 13pt !important;
+                font-weight: 800 !important;
+                text-transform: uppercase !important;
+                color: #000000 !important;
+                margin-top: 0 !important;
+                margin-bottom: 2px !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
+            }
+
+            .doc-remark-body {
+                font-size: 12pt !important;
+                line-height: 1.35 !important;
+                color: #000000 !important;
+                margin-top: 0 !important;
+                margin-bottom: 0 !important;
+                white-space: pre-wrap !important;
+                word-break: break-word !important;
+                overflow-wrap: break-word !important;
             }
         }
     </style>
@@ -1468,33 +1775,24 @@
                 </tbody>
             </table>
 
-            <!-- SECTION: REMARKS -->
-            <div style="margin-bottom: 24px;">
-                <div style="font-size: 14pt; font-weight: 800; text-transform: uppercase; color: #000000; margin-bottom: 4px;">
-                    REMARKS
+            <!-- RESPONSIVE SECTION: REMARKS, SPECIFIC REMARKS & DISPOSITION -->
+            <div class="doc-remarks-section" style="width: 100%; margin-top: 8px; display: flex; flex-direction: column; gap: 12px; word-break: break-word; overflow-wrap: break-word;">
+                <!-- SECTION: REMARKS -->
+                <div class="doc-remark-item" style="width: 100%; break-inside: avoid; page-break-inside: avoid; word-break: break-word; overflow-wrap: break-word;">
+                    <div class="doc-remark-title" style="font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #000000; margin-top: 0; margin-bottom: 2px; word-break: break-word; overflow-wrap: break-word;">REMARKS</div>
+                    <div class="doc-remark-body" style="font-size: 12pt; line-height: 1.35; color: #000000; margin-top: 0; margin-bottom: 0; word-break: break-word; overflow-wrap: break-word;">{!! nl2br(e(trim($remark))) !!}</div>
                 </div>
-                <div class="doc-body-text">
-                    {{ $remark }}
-                </div>
-            </div>
 
-            <!-- SECTION: SPECIFIC REMARKS -->
-            <div style="margin-bottom: 24px;">
-                <div style="font-size: 14pt; font-weight: 800; text-transform: uppercase; color: #000000; margin-bottom: 4px;">
-                    Specific Remarks<span style="display:none;">SPECIFIC REMARKS</span>
+                <!-- SECTION: SPECIFIC REMARKS -->
+                <div class="doc-remark-item" style="width: 100%; break-inside: avoid; page-break-inside: avoid; word-break: break-word; overflow-wrap: break-word;">
+                    <div class="doc-remark-title" style="font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #000000; margin-top: 0; margin-bottom: 2px; word-break: break-word; overflow-wrap: break-word;">Specific Remarks<span style="display:none;">SPECIFIC REMARKS</span></div>
+                    <div class="doc-remark-body" style="font-size: 12pt; line-height: 1.35; color: #000000; margin-top: 0; margin-bottom: 0; word-break: break-word; overflow-wrap: break-word;">{!! nl2br(e(trim($specifications))) !!}</div>
                 </div>
-                <div class="doc-body-text">
-                    {{ $specifications }}
-                </div>
-            </div>
 
-            <!-- SECTION: DISPOSITION OF EXHIBIT(S) -->
-            <div style="margin-bottom: 24px;">
-                <div style="font-size: 14pt; font-weight: 800; text-transform: uppercase; color: #000000; margin-bottom: 4px;">
-                    DISPOSITION OF EXHIBIT(S)
-                </div>
-                <div class="doc-body-text">
-                    {{ $dispositionOfExhibit }}
+                <!-- SECTION: DISPOSITION OF EXHIBIT(S) -->
+                <div class="doc-remark-item" style="width: 100%; break-inside: avoid; page-break-inside: avoid; word-break: break-word; overflow-wrap: break-word;">
+                    <div class="doc-remark-title" style="font-size: 13pt; font-weight: 800; text-transform: uppercase; color: #000000; margin-top: 0; margin-bottom: 2px; word-break: break-word; overflow-wrap: break-word;">DISPOSITION OF EXHIBIT(S)</div>
+                    <div class="doc-remark-body" style="font-size: 12pt; line-height: 1.35; color: #000000; margin-top: 0; margin-bottom: 0; word-break: break-word; overflow-wrap: break-word;">{!! nl2br(e(trim($dispositionOfExhibit))) !!}</div>
                 </div>
             </div>
 

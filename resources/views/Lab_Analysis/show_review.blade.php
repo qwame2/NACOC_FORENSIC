@@ -2734,6 +2734,17 @@
                             <td class="p-3 font-black text-slate-900 font-mono-code bg-white">{{ $assocLabNumber }}
                             </td>
                         </tr>
+                        @php
+                            $assocPurposeOfExam = $assocLabInfo['purpose_of_examination'] ?? ($assocLabExam['purpose_of_examination'] ?? ($assocPurposeOfExamination ?? ($case->purpose_of_examination ?? 'N/A')));
+                        @endphp
+                        <tr class="bg-amber-100/60 border-b border-amber-200">
+                            <td
+                                class="p-3 font-mono-code font-black text-amber-950 uppercase border-r border-amber-200">
+                                Purpose of Examination:</td>
+                            <td class="p-3 font-bold text-slate-900 bg-white" colspan="3">
+                                {{ !empty($assocPurposeOfExam) ? $assocPurposeOfExam : 'N/A' }}
+                            </td>
+                        </tr>
                         <tr class="bg-amber-100/60 border-b border-amber-200">
                             <td
                                 class="p-3 font-mono-code font-black text-amber-950 uppercase border-r border-amber-200">
@@ -2763,6 +2774,17 @@
                                         </tr>
                                     </tbody>
                                 </table>
+                            </td>
+                        </tr>
+                        @php
+                            $assocPrelimExamProc = $assocLabInfo['preliminary_exam_procedure'] ?? ($assocLabExam['preliminary_exam_procedure'] ?? ($assocPreliminaryExamProcedure ?? ($case->preliminary_exam_procedure ?? 'N/A')));
+                        @endphp
+                        <tr class="border-b border-amber-200">
+                            <td
+                                class="p-3 font-mono-code font-black text-slate-950 uppercase border-r border-amber-200 bg-amber-50/70">
+                                PRELIMINARY EXAMINATION PROCEDURE:</td>
+                            <td class="p-3 font-bold text-slate-900 bg-white" colspan="3">
+                                {{ !empty($assocPrelimExamProc) ? $assocPrelimExamProc : 'N/A' }}
                             </td>
                         </tr>
                         <tr class="border-b border-amber-200">
@@ -8146,15 +8168,20 @@ function setSeizureBlocksCount(val) {
             const tokenEl = document.querySelector('meta[name="csrf-token"]');
             const csrfToken = tokenEl ? tokenEl.content : '';
 
-            const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+            let validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
             if (validFiles.length === 0) {
                 alert('Please select valid image files (JPEG, PNG, WEBP, GIF).');
                 return;
             }
 
+            if (validFiles.length > 15) {
+                alert('Best practice batch limit: Limiting to 15 photos per upload batch to stay within server limits.');
+                validFiles = validFiles.slice(0, 15);
+            }
+
             for (const file of validFiles) {
-                if (file.size > 10 * 1024 * 1024) {
-                    alert(`File "${file.name}" exceeds the 10MB maximum limit.`);
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`File "${file.name}" exceeds the 5MB maximum limit. Please keep individual photos under 3–5MB.`);
                     continue;
                 }
 

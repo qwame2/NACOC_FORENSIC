@@ -10,6 +10,7 @@ use App\Services\CaseDocketService;
 use App\Services\CaseShowReviewPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class StaffCaseSubmissionController extends Controller
 {
@@ -102,12 +103,18 @@ class StaffCaseSubmissionController extends Controller
     {
         $user = Auth::user();
         if (!$user || !$user->is_head) {
+            if ($request->ajax() || $request->wantsJson() || $request->has('poll')) {
+                return response()->json(['success' => false, 'message' => 'Only Unit Heads can access Reviews & Approvals.'], 403);
+            }
             return redirect('/staff/dashboard')->with('error', 'Only Unit Heads can access Reviews & Approvals.');
         }
 
         $unitCtx = $this->resolveUnitContext($request);
         $headUnitKey = $this->normalizeUnitKey($user->unit);
         if ($headUnitKey && $headUnitKey !== 'forensic_head' && $headUnitKey !== $unitCtx['key']) {
+            if ($request->ajax() || $request->wantsJson() || $request->has('poll')) {
+                return response()->json(['success' => false, 'message' => 'You are not authorized to review submissions for another unit.'], 403);
+            }
             abort(403, 'You are not authorized to review submissions for another unit.');
         }
 
@@ -125,15 +132,70 @@ class StaffCaseSubmissionController extends Controller
         $reviewedSubmissions = (clone $baseQuery)
             ->where('status', 'Approved')
             ->orderByDesc('reviewed_at')
-            ->limit(25)
             ->get();
+
+        $urgentPendingCount = $pendingSubmissions->filter(function ($s) {
+            return in_array(strtoupper((string) $s->priority), ['HIGH', 'CRITICAL'], true);
+        })->count();
+        $awaitingReviewCount = $pendingSubmissions->where('status', 'Pending Approval')->count();
+        $rolledBackCount = $pendingSubmissions->where('status', 'Rolled Back')->count();
+        $approvedHistoryCount = $reviewedSubmissions->where('status', 'Approved')->count();
+
+        $unitKey = $unitCtx['key'] ?? 'crime_scene_support';
+        $reviewUrlFor = function ($id) use ($unitKey) {
+            return match ($unitKey) {
+                'lab_analysis' => url('/Lab_Analysis/reviews-approvals/' . $id),
+                'evidence_management' => url('/Evidence_Management/reviews-approvals/' . $id),
+                'digital_forensics' => url('/Digital_Forensics/reviews-approvals/' . $id),
+                'forensic_head' => url('/Forensic_Head/reviews-approvals/' . $id),
+                default => url('/Crime_Scene_Support/reviews-approvals/' . $id),
+            };
+        };
+        $extractSubmissionMeta = fn($sub) => $this->extractSubmissionMeta($sub);
+
+        if ($request->ajax() || $request->wantsJson() || $request->has('poll')) {
+            $pendingHtml = view('head.partials.pending_queue', [
+                'unitContext'           => $unitCtx,
+                'unitKey'               => $unitKey,
+                'unitLabel'             => $unitCtx['label'] ?? 'Crime Scene Support Unit',
+                'pendingSubmissions'    => $pendingSubmissions,
+                'reviewUrlFor'          => $reviewUrlFor,
+                'extractSubmissionMeta' => $extractSubmissionMeta,
+                'awaitingReviewCount'   => $awaitingReviewCount,
+                'rolledBackCount'       => $rolledBackCount,
+                'urgentPendingCount'    => $urgentPendingCount,
+            ])->render();
+
+            return response()->json([
+                'success' => true,
+                'counts' => [
+                    'pending_total'     => $pendingSubmissions->count(),
+                    'awaiting_review'   => $awaitingReviewCount,
+                    'rolled_back'       => $rolledBackCount,
+                    'urgent'            => $urgentPendingCount,
+                    'approved_history'  => $approvedHistoryCount,
+                ],
+                'html' => $pendingHtml,
+                'signature' => md5($pendingHtml . '|' . $pendingSubmissions->count() . '|' . $rolledBackCount . '|' . $awaitingReviewCount),
+            ]);
+        }
 
         return view('head.reviews_approvals', [
             'unitContext' => $unitCtx,
             'sidebarUnit' => $unitCtx['sidebar'],
             'pendingSubmissions' => $pendingSubmissions,
             'reviewedSubmissions' => $reviewedSubmissions,
+            'reviewUrlFor' => $reviewUrlFor,
+            'extractSubmissionMeta' => $extractSubmissionMeta,
         ]);
+    }
+
+    /**
+     * Extract structured meta information for displaying this submission in queue cards and tables.
+     */
+    public function extractSubmissionMeta(StaffCaseSubmission $sub): array
+    {
+        return $sub->getSubmissionMeta();
     }
 
     public function show(Request $request, $id)
@@ -163,39 +225,163 @@ class StaffCaseSubmissionController extends Controller
             ]);
         }
 
-        // Build a virtual ForensicCase instance populated from submission payload
-        $case = new ForensicCase();
-        $case->id = $submission->id;
-        $case->user_id = $submission->submitted_by;
-        if ($submitterUser) {
-            $case->setRelation('user', $submitterUser);
+        // If submission was already approved, link to its persisted case record
+        $realApprovedCase = null;
+        if (!empty($submission->approved_case_number)) {
+            $realApprovedCase = \App\Models\SingleSuspectCase::where('case_number', $submission->approved_case_number)->first()
+                ?? \App\Models\MultipleSuspectCase::where('case_number', $submission->approved_case_number)->first();
         }
-        $case->case_number = $submission->case_number_preview ?? ($payload['case_number'] ?? ('SUB-' . $submission->id));
-        $case->title = $submission->title ?? ($payload['title'] ?? 'Staff Case Submission');
-        $case->unit_name = $submission->unit_name ?? ($payload['unit_name'] ?? $unitCtx['sidebar']);
-        $case->operation_code_name = $payload['operation_code_name'] ?? ($payload['operation_code'] ?? null);
-        $case->operation_code = $payload['operation_code'] ?? null;
-        $case->status = $submission->status ?? ($payload['status'] ?? 'Pending Approval');
-        $case->priority = $payload['priority'] ?? 'Medium';
-        $case->suspect_name = $submission->suspect_name ?? ($payload['suspect_name'] ?? null);
-        $case->ghana_card = $payload['ghana_card'] ?? null;
-        $case->location = $payload['location'] ?? ($payload['raid_location'] ?? null);
-        $case->description = $payload['description'] ?? ($payload['offense_description'] ?? null);
-        $case->arresting_officer = $payload['arresting_officer'] ?? null;
-        $case->investigating_officer = $payload['investigating_officer'] ?? null;
-        $case->submitting_officer = $payload['submitting_officer'] ?? ($submission->submitted_by_name ?? null);
-        $case->created_at = $submission->created_at ?? now();
-        $case->updated_at = $submission->updated_at ?? now();
 
-        $docketData = is_array($payload['docket_data'] ?? null) ? $payload['docket_data'] : [];
-        $docketData['created_by_name'] = $submission->submitted_by_name ?? ($submitterUser?->fullname ?? 'Staff Officer');
-        $docketData['created_by_unit'] = $submission->unit_name ?? $unitCtx['sidebar'];
-        $case->docket_data = $docketData;
+        if ($realApprovedCase) {
+            $case = ForensicCase::wrapRecord($realApprovedCase);
+        } else {
+            // Build a virtual ForensicCase instance populated strictly from submission payload
+            $case = new ForensicCase();
+            $case->is_staff_submission = true;
+            $case->submission_id = $submission->id;
+            $case->id = null; // Staged submission: Must remain null to prevent collision with SingleSuspectCase/MultipleSuspectCase IDs
+            $case->user_id = $submission->submitted_by;
+            if ($submitterUser) {
+                $case->setRelation('user', $submitterUser);
+            }
+            $case->case_number = $submission->case_number_preview ?? ($payload['case_number'] ?? ('SUB-' . $submission->id));
+            $case->title = $submission->title ?? ($payload['title'] ?? 'Staff Case Submission');
+            $case->unit_name = $submission->unit_name ?? ($payload['unit_name'] ?? $unitCtx['sidebar']);
+            $case->operation_code_name = $payload['operation_code_name'] ?? ($payload['operation_code'] ?? null);
+            $case->operation_code = $payload['operation_code'] ?? null;
+            $case->status = $submission->status ?? ($payload['status'] ?? 'Pending Approval');
+            $case->priority = $payload['priority'] ?? 'Medium';
+            $case->suspect_name = $submission->suspect_name ?? ($payload['suspect_name'] ?? null);
+            $case->ghana_card = $payload['ghana_card'] ?? null;
+            $case->location = $payload['location'] ?? ($payload['raid_location'] ?? null);
+            $case->description = $payload['description'] ?? ($payload['offense_description'] ?? null);
+            $case->arresting_officer = $payload['arresting_officer'] ?? null;
+            $case->investigating_officer = $payload['investigating_officer'] ?? null;
+            $case->submitting_officer = $payload['submitting_officer'] ?? ($submission->submitted_by_name ?? null);
+            $case->created_at = $submission->created_at ?? now();
+            $case->updated_at = $submission->updated_at ?? now();
 
-        $case->seizures = is_array($payload['seizures'] ?? null) ? $payload['seizures'] : [];
-        $case->search_warrant_document = $payload['search_warrant_document'] ?? null;
-        $case->description_of_exhibits = $payload['description_of_exhibits'] ?? null;
-        $case->laboratory_number = $payload['laboratory_number'] ?? null;
+            $docketData = is_array($payload['docket_data'] ?? null) ? $payload['docket_data'] : [];
+            $docketSuspect0 = $docketData['suspects'][0] ?? ($payload['suspects'][0] ?? []);
+
+            $case->gender = $payload['gender'] ?? ($docketSuspect0['gender'] ?? ($docketData['gender'] ?? null));
+            $case->dob = $payload['dob'] ?? ($docketSuspect0['dob'] ?? ($docketData['dob'] ?? null));
+            $case->age = $payload['age'] ?? ($docketSuspect0['age'] ?? ($docketData['age'] ?? null));
+            $case->height = $payload['height'] ?? ($docketSuspect0['height'] ?? ($docketData['height'] ?? null));
+            $case->height_unit = $payload['height_unit'] ?? ($docketSuspect0['height_unit'] ?? ($docketData['height_unit'] ?? null));
+            $case->eye_color = $payload['eye_color'] ?? ($docketSuspect0['eye_color'] ?? ($docketData['eye_color'] ?? null));
+            $case->nationality = $payload['nationality'] ?? ($docketSuspect0['nationality'] ?? ($docketData['nationality'] ?? null));
+            $case->pob = $payload['pob'] ?? ($docketSuspect0['pob'] ?? ($docketData['pob'] ?? null));
+            $case->phone = $payload['phone'] ?? ($docketSuspect0['phone'] ?? ($docketData['phone'] ?? null));
+            $case->address = $payload['address'] ?? ($docketSuspect0['address'] ?? ($docketData['address'] ?? null));
+            $case->marital_status = $payload['marital_status'] ?? ($docketSuspect0['marital_status'] ?? ($docketData['marital_status'] ?? null));
+            $case->has_children = $payload['has_children'] ?? ($docketSuspect0['has_children'] ?? ($docketData['has_children'] ?? null));
+            $case->children_count = $payload['children_count'] ?? ($docketSuspect0['children_count'] ?? ($docketData['children_count'] ?? null));
+            $case->dependents = $payload['dependents'] ?? ($docketSuspect0['dependents'] ?? ($docketData['dependents'] ?? null));
+            $case->spouse_name = $payload['spouse_name'] ?? ($docketSuspect0['spouse_name'] ?? ($docketData['spouse_name'] ?? null));
+            $case->spouse_phone = $payload['spouse_phone'] ?? ($docketSuspect0['spouse_phone'] ?? ($docketData['spouse_phone'] ?? null));
+            $case->spouse_info = $payload['spouse_info'] ?? ($docketSuspect0['spouse_info'] ?? ($docketData['spouse_info'] ?? null));
+            $case->partner_name = $payload['partner_name'] ?? ($docketSuspect0['partner_name'] ?? ($docketData['partner_name'] ?? null));
+            $case->partner_phone = $payload['partner_phone'] ?? ($docketSuspect0['partner_phone'] ?? ($docketData['partner_phone'] ?? null));
+            $case->partner_info = $payload['partner_info'] ?? ($docketSuspect0['partner_info'] ?? ($docketData['partner_info'] ?? null));
+            $case->arrest_date = $payload['arrest_date'] ?? ($docketSuspect0['arrest_date'] ?? ($docketData['arrest_date'] ?? null));
+            $case->arrest_time = $payload['arrest_time'] ?? ($docketSuspect0['arrest_time'] ?? ($docketData['arrest_time'] ?? null));
+            $case->holding_facility = $payload['holding_facility'] ?? ($docketSuspect0['holding_facility'] ?? ($docketData['holding_facility'] ?? null));
+            $case->raid_location = $payload['raid_location'] ?? ($payload['location'] ?? ($docketSuspect0['raid_location'] ?? ($docketData['raid_location'] ?? null)));
+
+            $caseNumCandidate = $submission->approved_case_number ?? ($submission->case_number_preview ?? ($payload['case_number'] ?? null));
+            $matchedCase = null;
+            if ($caseNumCandidate) {
+                $matchedCase = \App\Models\SingleSuspectCase::where('case_number', $caseNumCandidate)->first()
+                    ?? \App\Models\ForensicCase::where('case_number', $caseNumCandidate)->first();
+            }
+
+            $pickMug = static function (...$candidates): ?string {
+                foreach ($candidates as $c) {
+                    if ($c !== null && $c !== false) {
+                        $s = trim((string) $c);
+                        if ($s !== '' && $s !== 'null' && $s !== 'undefined' && $s !== '#' && !str_ends_with($s, '#') && !str_contains($s, 'blank')) {
+                            return $s;
+                        }
+                    }
+                }
+                return null;
+            };
+
+            // Populate biometric mugshots from submission payload or docket data with fallback to matched case
+            $case->mugshot_front = $pickMug(
+                $payload['mugshot_front'] ?? null,
+                $docketSuspect0['mugshot_front'] ?? null,
+                $docketSuspect0['photo'] ?? null,
+                $docketSuspect0['mugshots']['front'] ?? null,
+                $docketSuspect0['mugshots']['front-profile'] ?? null,
+                $payload['docket_data']['mugshot_front'] ?? null,
+                $payload['docket_data']['photo'] ?? null,
+                $payload['docket_data']['suspects'][0]['mugshot_front'] ?? null,
+                $payload['docket_data']['suspects'][0]['photo'] ?? null,
+                $matchedCase?->mugshot_front ?? null,
+                $matchedCase?->photo ?? null
+            );
+            $case->mugshot_left = $pickMug(
+                $payload['mugshot_left'] ?? null,
+                $payload['mugshot_side'] ?? null,
+                $docketSuspect0['mugshot_left'] ?? null,
+                $docketSuspect0['mugshots']['left'] ?? null,
+                $docketSuspect0['mugshots']['left-profile'] ?? null,
+                $payload['docket_data']['mugshot_left'] ?? null,
+                $payload['docket_data']['suspects'][0]['mugshot_left'] ?? null,
+                $matchedCase?->mugshot_left ?? null
+            );
+            $case->mugshot_right = $pickMug(
+                $payload['mugshot_right'] ?? null,
+                $docketSuspect0['mugshot_right'] ?? null,
+                $docketSuspect0['mugshots']['right'] ?? null,
+                $docketSuspect0['mugshots']['right-profile'] ?? null,
+                $payload['docket_data']['mugshot_right'] ?? null,
+                $payload['docket_data']['suspects'][0]['mugshot_right'] ?? null,
+                $matchedCase?->mugshot_right ?? null
+            );
+            $case->mugshot_back = $pickMug($payload['mugshot_back'] ?? null);
+
+            $docketData = is_array($payload['docket_data'] ?? null) ? $payload['docket_data'] : [];
+            $docketData['created_by_name'] = $submission->submitted_by_name ?? ($submitterUser?->fullname ?? 'Staff Officer');
+            $docketData['created_by_unit'] = $submission->unit_name ?? $unitCtx['sidebar'];
+            if (empty($docketData['mugshot_front']) && !empty($case->mugshot_front)) {
+                $docketData['mugshot_front'] = $case->mugshot_front;
+            }
+            if (empty($docketData['mugshot_left']) && !empty($case->mugshot_left)) {
+                $docketData['mugshot_left'] = $case->mugshot_left;
+            }
+            if (empty($docketData['mugshot_right']) && !empty($case->mugshot_right)) {
+                $docketData['mugshot_right'] = $case->mugshot_right;
+            }
+            if (!empty($docketData['suspects'][0])) {
+                if (empty($docketData['suspects'][0]['mugshot_front']) && !empty($case->mugshot_front)) {
+                    $docketData['suspects'][0]['mugshot_front'] = $case->mugshot_front;
+                    $docketData['suspects'][0]['mugshots']['front'] = $case->mugshot_front;
+                }
+                if (empty($docketData['suspects'][0]['mugshot_left']) && !empty($case->mugshot_left)) {
+                    $docketData['suspects'][0]['mugshot_left'] = $case->mugshot_left;
+                    $docketData['suspects'][0]['mugshots']['left'] = $case->mugshot_left;
+                }
+                if (empty($docketData['suspects'][0]['mugshot_right']) && !empty($case->mugshot_right)) {
+                    $docketData['suspects'][0]['mugshot_right'] = $case->mugshot_right;
+                    $docketData['suspects'][0]['mugshots']['right'] = $case->mugshot_right;
+                }
+            }
+            $case->docket_data = $docketData;
+
+            $case->seizures = (is_array($payload['seizures'] ?? null) && !empty($payload['seizures']))
+                ? $payload['seizures']
+                : ($docketData['seizures'] ?? []);
+            $case->search_warrant_document = $payload['search_warrant_document'] ?? null;
+            $case->description_of_exhibits = $payload['description_of_exhibits'] ?? ($docketData['description_of_exhibits'] ?? null);
+            $case->laboratory_number = $payload['laboratory_number'] ?? ($docketData['lab_examination']['laboratory_number'] ?? null);
+            $case->lab_exam_reference = $payload['lab_exam_reference'] ?? ($payload['exam_reference'] ?? ($docketData['lab_examination']['exam_reference'] ?? null));
+            $case->exhibit_category = $payload['exhibit_category'] ?? null;
+            $case->seizure_name_drug = $payload['seizure_name_drug'] ?? null;
+            $case->seizure_name = $payload['seizure_name'] ?? null;
+        }
 
         // Map unit key for CaseShowReviewPresenter: css, lab, dpf, em, hof
         $presenterKey = match ($unitCtx['key']) {
@@ -363,8 +549,19 @@ class StaffCaseSubmissionController extends Controller
             $corrections = $rawCorrections;
         }
 
+        if (empty($corrections)) {
+            $validationMsg = 'Please select at least one section for correction before sending a rollback to staff.';
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => $validationMsg,
+                ], 422);
+            }
+            return back()->with('warning', $validationMsg);
+        }
+
         $reviewNotes = trim((string) $request->input('review_notes'));
-        if (empty($reviewNotes) && empty($corrections)) {
+        if (empty($reviewNotes)) {
             $reviewNotes = 'Case rolled back for requested corrections. Please review the highlighted suspect details.';
         }
 
@@ -503,8 +700,15 @@ class StaffCaseSubmissionController extends Controller
             $firstSuspect['ghana_card'] = $cardVal;
         }
 
-        foreach (['gender', 'dob', 'age', 'height', 'eye_color', 'nationality', 'pob', 'phone', 'address', 'marital_status', 'offense_description', 'raid_location', 'holding_facility', 'arrest_date', 'arrest_time', 'arresting_officer', 'supervising_officer', 'investigating_officer'] as $field) {
-            if ($request->filled($field)) {
+        foreach ([
+            'gender', 'dob', 'age', 'height', 'eye_color', 'nationality', 'pob', 'phone', 'address',
+            'marital_status', 'children_count',
+            'spouse_name', 'spouse_phone', 'spouse_info',
+            'partner_name', 'partner_phone', 'partner_info',
+            'offense_description', 'raid_location', 'holding_facility',
+            'arrest_date', 'arrest_time', 'arresting_officer', 'supervising_officer', 'investigating_officer'
+        ] as $field) {
+            if ($request->has($field) && $request->input($field) !== null && $request->input($field) !== '') {
                 $fVal = $request->input($field);
                 $payload[$field] = $fVal;
                 $docketData[$field] = $fVal;
@@ -512,9 +716,80 @@ class StaffCaseSubmissionController extends Controller
             }
         }
 
+        if ($request->has('has_children') || $request->has('children_count') || $request->has('dependents')) {
+            $rawKids = $request->input('has_children');
+            $rawCount = $request->input('children_count');
+            $childCount = ($rawCount !== null && $rawCount !== '') ? (int) $rawCount : (int) ($payload['children_count'] ?? 0);
+            $hasKids = filter_var($rawKids, FILTER_VALIDATE_BOOLEAN) || $rawKids === '1' || $rawKids === 1 || $childCount > 0;
+            $payload['has_children'] = $hasKids;
+            $docketData['has_children'] = $hasKids;
+            $firstSuspect['has_children'] = $hasKids;
+            $finalCount = $hasKids ? ($childCount > 0 ? $childCount : 1) : 0;
+            $payload['children_count'] = $finalCount;
+            $docketData['children_count'] = $finalCount;
+            $firstSuspect['children_count'] = $finalCount;
+
+            $depText = $hasKids ? ($finalCount . ($finalCount === 1 ? ' Kid' : ' Kids')) : 'No Children';
+            $payload['dependents'] = $depText;
+            $docketData['dependents'] = $depText;
+            $firstSuspect['dependents'] = $depText;
+        }
+
+        foreach (['mugshot_front', 'mugshot_left', 'mugshot_right'] as $mugKey) {
+            $mVal = null;
+            if ($request->hasFile($mugKey)) {
+                $file = $request->file($mugKey);
+                if ($file && $file->isValid()) {
+                    $yearMonth = date('Y/m');
+                    $cNum = $submission->case_number_preview ?? ($payload['case_number'] ?? 'CASE');
+                    $filename = preg_replace('/[^A-Za-z0-9_-]/', '_', $cNum) . '_' . $mugKey . '_s0_' . strtolower(Str::random(10)) . '.' . ($file->getClientOriginalExtension() ?: 'jpg');
+                    $stored = $file->storeAs("suspects/{$yearMonth}", $filename, 'public');
+                    if ($stored) {
+                        $mVal = "suspects/{$yearMonth}/{$filename}";
+                    }
+                }
+            } elseif ($request->filled($mugKey)) {
+                $rawInput = trim((string) $request->input($mugKey));
+                if ($rawInput !== '' && $rawInput !== 'null' && $rawInput !== 'undefined' && !str_ends_with($rawInput, '#')) {
+                    $mVal = $rawInput;
+                }
+            }
+
+            if ($mVal !== null) {
+                $payload[$mugKey] = $mVal;
+                $docketData[$mugKey] = $mVal;
+                $firstSuspect[$mugKey] = $mVal;
+                $angle = str_replace('mugshot_', '', $mugKey);
+                if (!isset($firstSuspect['mugshots']) || !is_array($firstSuspect['mugshots'])) {
+                    $firstSuspect['mugshots'] = [];
+                }
+                $firstSuspect['mugshots'][$angle] = $mVal;
+            }
+        }
+
         if ($request->has('seizures') && is_array($request->input('seizures'))) {
             $payload['seizures'] = $request->input('seizures');
             $docketData['seizures'] = $request->input('seizures');
+        }
+
+        $labKeys = [
+            'lab_workflow_mode', 'section5_completed', 'lab_exam_reference', 'exam_reference',
+            'lab_case_reference', 'lab_exhibit_number', 'lab_exhibit_no', 'lab_exhibit_description',
+            'exhibit_description', 'laboratory_number', 'lab_analyst', 'lab_date_received',
+            'lab_date_started', 'lab_date_completed', 'purpose_of_examination', 'preliminary_exam_procedure',
+            'screening_method', 'confirmatory_test_methods', 'test_methods', 'confirmatory_specifications',
+            'specifications', 'confirmatory_remark', 'remark', 'disposition_of_exhibit',
+            'gsa_lab_number', 'gsa_case_reference', 'gsa_status', 'exhibit_type', 'lab_exhibit_nos',
+            'lab_examination'
+        ];
+        foreach ($labKeys as $lKey) {
+            if ($request->has($lKey)) {
+                $payload[$lKey] = $request->input($lKey);
+                $docketData[$lKey] = $request->input($lKey);
+            }
+        }
+        if (isset($payload['lab_examination']) && is_array($payload['lab_examination'])) {
+            $docketData['lab_examination'] = $payload['lab_examination'];
         }
 
         if (!empty($firstSuspect)) {
@@ -536,6 +811,39 @@ class StaffCaseSubmissionController extends Controller
 
         $payload['was_corrected'] = true;
         $payload['resubmitted_at'] = now()->toDateTimeString();
+        $payload = app(\App\Services\MediaStorageService::class)->processPayloadImages(
+            $payload,
+            $submission->case_number_preview ?? ('SUB-' . $submission->id)
+        );
+
+        // Deduplicate and sync processed mugshot paths across docket_data and suspects
+        if (isset($payload['docket_data']) && is_array($payload['docket_data'])) {
+            foreach (['mugshot_front', 'mugshot_left', 'mugshot_right'] as $mugKey) {
+                if (!empty($payload[$mugKey])) {
+                    $payload['docket_data'][$mugKey] = $payload[$mugKey];
+                    if (isset($payload['docket_data']['suspects'][0]) && is_array($payload['docket_data']['suspects'][0])) {
+                        $payload['docket_data']['suspects'][0][$mugKey] = $payload[$mugKey];
+                        $angle = str_replace('mugshot_', '', $mugKey);
+                        if (!isset($payload['docket_data']['suspects'][0]['mugshots']) || !is_array($payload['docket_data']['suspects'][0]['mugshots'])) {
+                            $payload['docket_data']['suspects'][0]['mugshots'] = [];
+                        }
+                        $payload['docket_data']['suspects'][0]['mugshots'][$angle] = $payload[$mugKey];
+                    }
+                }
+            }
+        }
+        if (isset($payload['suspects'][0]) && is_array($payload['suspects'][0])) {
+            foreach (['mugshot_front', 'mugshot_left', 'mugshot_right'] as $mugKey) {
+                if (!empty($payload[$mugKey])) {
+                    $payload['suspects'][0][$mugKey] = $payload[$mugKey];
+                    $angle = str_replace('mugshot_', '', $mugKey);
+                    if (!isset($payload['suspects'][0]['mugshots']) || !is_array($payload['suspects'][0]['mugshots'])) {
+                        $payload['suspects'][0]['mugshots'] = [];
+                    }
+                    $payload['suspects'][0]['mugshots'][$angle] = $payload[$mugKey];
+                }
+            }
+        }
         $submission->payload = $payload;
         $submission->status = 'Pending Approval';
         $submission->rollback_corrections = null;

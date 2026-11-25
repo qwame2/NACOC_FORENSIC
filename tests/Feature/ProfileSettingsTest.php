@@ -204,6 +204,7 @@ class ProfileSettingsTest extends TestCase
             'username' => 'kmanu_sig',
             'phone_number' => '0244123456',
             'is_approved' => true,
+            'is_head' => true,
             'signature' => null,
         ]);
 
@@ -231,6 +232,7 @@ class ProfileSettingsTest extends TestCase
             'username' => 'kmanu_draw',
             'phone_number' => '0244123456',
             'is_approved' => true,
+            'is_head' => true,
             'signature' => null,
         ]);
 
@@ -257,6 +259,7 @@ class ProfileSettingsTest extends TestCase
             'username' => 'kmanu_clear',
             'phone_number' => '0244123456',
             'is_approved' => true,
+            'is_head' => true,
             'signature' => 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
         ]);
 
@@ -276,6 +279,7 @@ class ProfileSettingsTest extends TestCase
             'username' => 'kmanu_pdf',
             'phone_number' => '0244123456',
             'is_approved' => true,
+            'is_head' => true,
         ]);
 
         $fakeDoc = UploadedFile::fake()->create('signature.pdf', 100, 'application/pdf');
@@ -288,6 +292,80 @@ class ProfileSettingsTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors(['signature_file']);
+    }
+
+    #[Test]
+    public function staff_members_of_all_units_do_not_see_official_forensic_digital_signature_on_profile_settings_page()
+    {
+        $units = ['Crime Scene Support', 'Digital Forensics', 'Lab Analysis', 'Evidence Management'];
+        foreach ($units as $idx => $unit) {
+            $staff = User::factory()->create([
+                'fullname' => 'Staff Member ' . $unit,
+                'username' => 'staff_' . $idx . '_' . strtolower(str_replace(' ', '_', $unit)),
+                'unit' => $unit,
+                'phone_number' => '02000000' . str_pad($idx, 2, '0', STR_PAD_LEFT),
+                'is_approved' => true,
+                'is_head' => false,
+            ]);
+
+            $response = $this->actingAs($staff)->get('/profile/settings');
+            $response->assertStatus(200);
+            $response->assertDontSee('Official Forensic Digital Signature');
+            $response->assertDontSee('signature_file');
+            $response->assertDontSee('signatureCanvas');
+            $response->assertDontSee('SIGN-OFF AUTH');
+            $response->assertDontSee('removeSignatureForm');
+        }
+    }
+
+    #[Test]
+    public function unit_heads_see_official_forensic_digital_signature_on_profile_settings_page()
+    {
+        $head = User::factory()->create([
+            'fullname' => 'Head of Unit Officer',
+            'username' => 'head_unit_view',
+            'unit' => 'Digital Forensics',
+            'phone_number' => '0200000099',
+            'is_approved' => true,
+            'is_head' => true,
+        ]);
+
+        $response = $this->actingAs($head)->get('/profile/settings');
+        $response->assertStatus(200);
+        $response->assertSee('Official Forensic Digital Signature');
+        $response->assertSee('signature_file');
+        $response->assertSee('signatureCanvas');
+        $response->assertSee('SIGN-OFF AUTH');
+        $response->assertSee('removeSignatureForm');
+    }
+
+    #[Test]
+    public function staff_member_cannot_update_or_set_signature_via_profile_settings()
+    {
+        $staff = User::factory()->create([
+            'fullname' => 'Staff Member Field Officer',
+            'username' => 'staff_no_sig',
+            'unit' => 'Evidence Management',
+            'phone_number' => '0200000088',
+            'is_approved' => true,
+            'is_head' => false,
+            'signature' => null,
+        ]);
+
+        $fakeSignature = UploadedFile::fake()->create('signature.png', 40, 'image/png');
+
+        $response = $this->actingAs($staff)->put('/profile/settings', [
+            'fullname' => 'Staff Member Field Officer',
+            'username' => 'staff_no_sig',
+            'phone_number' => '0200000088',
+            'signature_file' => $fakeSignature,
+            'signature_data' => 'data:image/png;base64,fakeSignatureData',
+        ]);
+
+        $response->assertSessionHas('status', 'Officer profile information successfully updated.');
+
+        $staff->refresh();
+        $this->assertNull($staff->signature);
     }
 
     #[Test]

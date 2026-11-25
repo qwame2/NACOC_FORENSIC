@@ -757,11 +757,13 @@
                             <div class="shrink-0 flex flex-wrap items-center gap-3">
                                 @foreach($rawSuspects as $sIdx => $sItem)
                                     @php
-                                        $sFrontMug = $sItem['mugshot_front']
-                                            ?? ($sItem['mugshots']['front'] ?? ($docketData['mugshot_front'] ?? ($case->mugshot_front ?? null)));
-                                        if (!empty($sFrontMug) && !str_starts_with($sFrontMug, 'data:image') && !str_starts_with($sFrontMug, 'http://') && !str_starts_with($sFrontMug, 'https://') && !str_starts_with($sFrontMug, '/')) {
-                                            $sFrontMug = asset($sFrontMug);
-                                        }
+                                        $sFrontMug = \App\Services\CasePhotoResolver::resolveMugshotUrl(
+                                            $sItem['mugshot_front']
+                                            ?? ($sItem['photo']
+                                            ?? ($sItem['mugshots']['front']
+                                            ?? ($docketData['mugshot_front']
+                                            ?? ($case->mugshot_front ?? ($case->photo ?? null)))))
+                                        );
                                         $sNameDisp = $sItem['suspect_name'] ?? ($sItem['name'] ?? 'SUSPECT');
                                     @endphp
                                     <div class="flex flex-col items-center">
@@ -1000,6 +1002,83 @@
 
                             <div class="flow-text text-[12px] leading-[2] text-slate-900 text-justify whitespace-pre-line pt-0">
                                 {{ $remarkVal }}
+                            </div>
+                        </div>
+
+                        <!-- SECTION 04: SUMMARY -->
+                        <div class="flow-block section-summary mt-3 avoid-break">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">
+                                    04
+                                </span>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between">
+                                        <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">
+                                            Summary
+                                        </h3>
+                                        <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">
+                                            Case &amp; Forensic Status Overview
+                                        </span>
+                                    </div>
+                                    <div class="mt-0.5 h-px bg-slate-200"></div>
+                                </div>
+                            </div>
+
+                            @php
+                                $summaryCaseName = !empty($case->title) && !preg_match('/^republic\s+vs\.?$/i', trim($case->title))
+                                    ? $case->title 
+                                    : (!empty($case->case_name) 
+                                        ? $case->case_name 
+                                        : (!empty($reportObj->case_title) 
+                                            ? $reportObj->case_title 
+                                            : (!empty($suspectName) && strtoupper($suspectName) !== 'PRIMARY SUSPECT' 
+                                                ? 'Republic vs ' . $suspectName 
+                                                : ($caseNo !== 'N/A' ? 'Case ' . $caseNo : 'Republic vs Primary Suspect'))));
+
+                                $summaryIsOngoing = (strtoupper($courtGranted ?? 'NO') === 'YES')
+                                    || (isset($caseSectionLabel) && str_contains(strtoupper($caseSectionLabel), 'ONGOING'));
+                                $summaryStatus = $summaryIsOngoing ? 'Ongoing' : 'Current';
+                            @endphp
+
+                            <div class="overflow-hidden border border-slate-300 rounded-lg">
+                                <table class="w-full text-left border-collapse table-fixed">
+                                    <thead>
+                                        <tr class="border-b border-slate-300 bg-slate-100/70 text-[8.5px] font-bold uppercase tracking-wider text-slate-900">
+                                            <th class="py-1.5 px-1 text-center w-[5%] border-r border-slate-300">No.</th>
+                                            <th class="py-1.5 px-2 text-left w-[22%] border-r border-slate-300">Case Name</th>
+                                            <th class="py-1.5 px-1.5 text-center w-[11%] border-r border-slate-300">Status</th>
+                                            <th class="py-1.5 px-2 text-left w-[20%] border-r border-slate-300">Device Model</th>
+                                            <th class="py-1.5 px-1 text-center w-[14%] border-r border-slate-300">Court Order Warrant Requested</th>
+                                            <th class="py-1.5 px-1 text-center w-[14%] border-r border-slate-300">Court Order Warrant Granted</th>
+                                            <th class="py-1.5 px-1 text-center w-[14%]">Extraction &amp; Forensic Analysis Conducted</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="text-[9.5px] text-slate-800">
+                                        @foreach($deviceSpecsList as $dIdx => $dSpec)
+                                            @php
+                                                $devModelName = trim((string)($dSpec['model'] ?? ''));
+                                                if ($devModelName === '' || strtoupper($devModelName) === 'N/A' || $devModelName === 'Mobile Devices & Hardware Exhibits') {
+                                                    $devModelName = trim((string)($dSpec['device_name'] ?? ''));
+                                                }
+                                                if ($devModelName === '' || strtoupper($devModelName) === 'N/A' || $devModelName === 'Mobile Devices & Hardware Exhibits') {
+                                                    $devModelName = !empty($reportObj->dev_model) ? trim($reportObj->dev_model) : (!empty($case->dev_model) ? trim($case->dev_model) : 'N/A');
+                                                }
+                                                if ($devModelName === '' || strtoupper($devModelName) === 'N/A') {
+                                                    $devModelName = !empty($devicesRetrieved) && $devicesRetrieved !== 'N/A' ? $devicesRetrieved : 'Electronic Device';
+                                                }
+                                            @endphp
+                                            <tr class="border-b border-slate-200 last:border-b-0">
+                                                <td class="py-1 px-1 text-center font-bold text-slate-700 border-r border-slate-300">{{ $loop->iteration }}</td>
+                                                <td class="py-1 px-2 font-bold text-slate-900 border-r border-slate-300 break-words">{{ $summaryCaseName }}</td>
+                                                <td class="py-1 px-1.5 text-center font-extrabold border-r border-slate-300 {{ strtoupper($summaryStatus) === 'ONGOING' ? 'text-emerald-800' : 'text-blue-800' }}">{{ $summaryStatus }}</td>
+                                                <td class="py-1 px-2 font-semibold text-slate-900 border-r border-slate-300 break-words">{{ $devModelName }}</td>
+                                                <td class="py-1 px-1 text-center font-extrabold border-r border-slate-300 {{ $courtRequested === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $courtRequested }}</td>
+                                                <td class="py-1 px-1 text-center font-extrabold border-r border-slate-300 {{ $courtGranted === 'YES' ? 'text-emerald-800' : 'text-slate-900' }}">{{ $courtGranted }}</td>
+                                                <td class="py-1 px-1 text-center font-extrabold {{ str_starts_with(strtoupper($extractionConducted), 'YES') ? 'text-emerald-800' : (str_starts_with(strtoupper($extractionConducted), 'NO') ? 'text-rose-800' : 'text-slate-900') }}">{{ $extractionConducted }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
                             </div>
                         </div>
 
@@ -1360,6 +1439,8 @@
             reportRoots.forEach(page => paginateReportPage(page));
         }
 
+        const dpfPristineSnapshots = new WeakMap();
+
         function paginateReportPage(pageEl) {
             const inner = pageEl.querySelector('.relative.z-10');
             const headerBlock = pageEl.querySelector('.page-header-block');
@@ -1367,8 +1448,39 @@
             const flowBody = pageEl.querySelector('.report-flow-body');
             if (!inner || !headerBlock || !footerBlock || !flowBody) return;
 
-            const sectionsContainer = flowBody.querySelector('.flow-sections-container');
-            const signaturesBlock = flowBody.querySelector('.section-signatures');
+            if (!dpfPristineSnapshots.has(pageEl)) {
+                const liveSectionsContainer = flowBody.querySelector('.flow-sections-container');
+                const liveSignaturesBlock = flowBody.querySelector('.section-signatures');
+                dpfPristineSnapshots.set(pageEl, {
+                    sectionsHtml: liveSectionsContainer ? liveSectionsContainer.innerHTML : '',
+                    signaturesHtml: liveSignaturesBlock ? liveSignaturesBlock.outerHTML : '',
+                    flowBodyClasses: flowBody.className,
+                });
+            } else {
+                const parentReportSheet = pageEl.closest('#dpfReportSheet') || document.getElementById('dpfReportSheet');
+                if (parentReportSheet) {
+                    let sib = pageEl.nextElementSibling;
+                    while (sib && sib.classList.contains('generated-flow-page')) {
+                        const next = sib.nextElementSibling;
+                        sib.remove();
+                        sib = next;
+                    }
+                }
+
+                const snap = dpfPristineSnapshots.get(pageEl);
+                flowBody.className = snap.flowBodyClasses;
+                const restoredSections = flowBody.querySelector('.flow-sections-container');
+                if (restoredSections) {
+                    restoredSections.innerHTML = snap.sectionsHtml;
+                }
+                flowBody.querySelectorAll('.section-signatures').forEach(el => el.remove());
+                if (snap.signaturesHtml) {
+                    flowBody.insertAdjacentHTML('beforeend', snap.signaturesHtml);
+                }
+            }
+
+            let sectionsContainer = flowBody.querySelector('.flow-sections-container');
+            let signaturesBlock = flowBody.querySelector('.section-signatures');
             if (!sectionsContainer) return;
 
             function getUsableHeight(page) {
@@ -1421,6 +1533,9 @@
 
             const preRemarksBlocks = rawBlocks.slice(0, remarksIndex);
             const postRemarksBlocks = rawBlocks.slice(remarksIndex + 1);
+
+            const summaryIndex = postRemarksBlocks.findIndex(b => b.classList.contains('section-summary'));
+            const summaryBlock = summaryIndex !== -1 ? postRemarksBlocks[summaryIndex] : null;
 
             const conditionsIndex = postRemarksBlocks.findIndex(b => b.classList.contains('section-conditions'));
             const conditionsBlock = conditionsIndex !== -1 ? postRemarksBlocks[conditionsIndex] : null;
@@ -1559,6 +1674,89 @@
                             }
 
                             remarksTextPlacedOnCurrentPage = false;
+                        }
+                    }
+                }
+            }
+
+            // 3.5. Append Summary Block
+            if (summaryBlock) {
+                const summaryTable = summaryBlock.querySelector('table');
+                const summaryThead = summaryTable ? summaryTable.querySelector('thead') : null;
+                const summaryTbody = summaryTable ? summaryTable.querySelector('tbody') : null;
+                const summaryRows = summaryTbody ? Array.from(summaryTbody.children) : [];
+
+                currentSectionsContainer.appendChild(summaryBlock);
+
+                if (isPageOverflowing(currentPage)) {
+                    currentSectionsContainer.removeChild(summaryBlock);
+
+                    if (summaryRows.length <= 1 || !summaryTable || !summaryThead || !summaryTbody) {
+                        createNextPage();
+                        currentSectionsContainer.appendChild(summaryBlock);
+                    } else {
+                        const summaryHeadingEl = summaryBlock.querySelector('.flex.items-center')?.parentElement;
+                        const summaryTableWrap = summaryBlock.querySelector('.overflow-hidden.border');
+
+                        function createSummaryTableBlock(isFirst) {
+                            const wrap = document.createElement('div');
+                            wrap.className = 'flow-block section-summary mt-3';
+
+                            if (isFirst && summaryHeadingEl) {
+                                wrap.appendChild(summaryHeadingEl.cloneNode(true));
+                            } else {
+                                const contHeading = document.createElement('div');
+                                contHeading.className = 'flex items-center gap-2 mb-1';
+                                contHeading.innerHTML = `
+                                    <span class="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-50 text-[8.5px] font-bold text-emerald-700">04</span>
+                                    <div class="flex-1">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-[12px] font-bold uppercase tracking-[0.12em] text-slate-900">Summary (Cont.)</h3>
+                                            <span class="text-[8px] font-semibold uppercase tracking-wider text-slate-700">Case &amp; Forensic Status Overview</span>
+                                        </div>
+                                        <div class="mt-0.5 h-px bg-slate-200"></div>
+                                    </div>
+                                `;
+                                wrap.appendChild(contHeading);
+                            }
+
+                            const tblWrap = document.createElement('div');
+                            tblWrap.className = summaryTableWrap ? summaryTableWrap.className : 'overflow-hidden border border-slate-300 rounded-lg';
+                            const tbl = document.createElement('table');
+                            tbl.className = summaryTable.className;
+                            tbl.appendChild(summaryThead.cloneNode(true));
+                            const tb = document.createElement('tbody');
+                            tb.className = summaryTbody.className;
+                            tbl.appendChild(tb);
+                            tblWrap.appendChild(tbl);
+                            wrap.appendChild(tblWrap);
+
+                            return { wrap, tbody: tb };
+                        }
+
+                        let curTableObj = createSummaryTableBlock(true);
+                        currentSectionsContainer.appendChild(curTableObj.wrap);
+
+                        if (isPageOverflowing(currentPage)) {
+                            currentSectionsContainer.removeChild(curTableObj.wrap);
+                            createNextPage();
+                            curTableObj = createSummaryTableBlock(true);
+                            currentSectionsContainer.appendChild(curTableObj.wrap);
+                        }
+
+                        for (let r = 0; r < summaryRows.length; r++) {
+                            const row = summaryRows[r];
+                            curTableObj.tbody.appendChild(row);
+
+                            if (isPageOverflowing(currentPage)) {
+                                if (curTableObj.tbody.children.length > 1) {
+                                    curTableObj.tbody.removeChild(row);
+                                    createNextPage();
+                                    curTableObj = createSummaryTableBlock(false);
+                                    currentSectionsContainer.appendChild(curTableObj.wrap);
+                                    curTableObj.tbody.appendChild(row);
+                                }
+                            }
                         }
                     }
                 }

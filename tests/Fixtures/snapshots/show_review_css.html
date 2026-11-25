@@ -15,7 +15,7 @@
         rel="stylesheet">
 
     <!-- Tailwind / Vite & Barcode Engine -->
-            <script type="module" src="http://[::1]:5173/@vite/client"></script><link rel="stylesheet" href="http://[::1]:5173/resources/css/app.css" /><script type="module" src="http://[::1]:5173/resources/js/app.js"></script>    
+            <link rel="preload" as="style" href="http://127.0.0.1:8000/build/assets/app-B7JEFtL6.css" /><link rel="modulepreload" as="script" href="http://127.0.0.1:8000/build/assets/app-Dkr6oIi9.js" /><link rel="stylesheet" href="http://127.0.0.1:8000/build/assets/app-B7JEFtL6.css" /><script type="module" src="http://127.0.0.1:8000/build/assets/app-Dkr6oIi9.js"></script>    
 
     <style>
         * {
@@ -690,10 +690,10 @@
                         </div>
                     </div>
                     <div class="flex-1 min-w-0 pr-1">
-                        <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider ${isError ? 'text-rose-700' : (isWarning ? 'text-amber-700' : 'text-emerald-700')}">
+                        <div class="flex items-center gap-1.5 font-mono-code font-bold text-[10.5px] uppercase tracking-wider ${isError ? 'text-rose-700' : (isWarning ? 'text-black font-extrabold' : 'text-emerald-700')}">
                             <span>${finalTitle}</span>
                         </div>
-                        <div class="text-xs ${isError ? 'text-rose-800' : (isWarning ? 'text-amber-800' : 'text-slate-700')} font-sans mt-1 leading-snug font-medium">
+                        <div class="text-xs ${isError ? 'text-rose-800' : (isWarning ? 'text-black' : 'text-slate-700')} font-sans mt-1 leading-snug font-medium">
                             ${message}
                         </div>
                     </div>
@@ -1010,7 +1010,7 @@
                                 <span
                                     class="font-black text-slate-900 font-mono-code text-xs px-2.5 py-1 bg-white border border-slate-200 rounded-lg shadow-2xs">
                                     Officer Creator <span class="text-emerald-700 font-bold">(Crime Scene Support)</span>
-                                                                            <span class="text-slate-400 font-normal text-[10px] ml-1">• 15 Mar 2026, 10:30</span>
+                                                                            <span class="text-slate-400 font-normal text-[10px] ml-1">• 10 Mar 2026, 08:00</span>
                                                                     </span>
                             </div>
 
@@ -1113,7 +1113,7 @@
                 
                                     
                     <!-- MUGSHOT (MULTI-ANGLE PHOTO CAPTURE FOR SUSPECT #1) -->
-                    <div class="dossier-card p-6 border border-slate-200">
+                    <div class="dossier-card p-6 border border-slate-200" data-rollback-target="Biometric Mugshots">
                         <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span
@@ -1132,7 +1132,7 @@
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <!-- Angle 1: Frontal View -->
-                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3" data-rollback-target="Front Mugshot (Angle 1)">
                                 <div class="flex items-center justify-between text-xs font-mono-code">
                                     <span
                                         class="px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">ANGLE
@@ -1142,7 +1142,7 @@
                                         class="font-bold text-[10px] text-slate-400">NOT CAPTURED</span>
                                 </div>
                                 <div
-                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden relative">
                                                                             <div class="text-center p-3 text-slate-400">
                                             <svg class="w-8 h-8 mx-auto mb-1 text-slate-300" fill="none"
                                                 stroke="currentColor" viewBox="0 0 24 24">
@@ -1155,7 +1155,7 @@
                             </div>
 
                             <!-- Angle 2: Left Profile -->
-                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3" data-rollback-target="Left Profile Mugshot (Angle 2)">
                                 <div class="flex items-center justify-between text-xs font-mono-code">
                                     <span
                                         class="px-2 py-0.5 rounded bg-slate-800 text-white font-bold text-[10px]">ANGLE
@@ -1165,7 +1165,7 @@
                                         class="font-bold text-[10px] text-slate-400">NOT CAPTURED</span>
                                 </div>
                                 <div
-                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden relative">
                                                                             <div class="text-center p-3 text-slate-400">
                                             <svg class="w-8 h-8 mx-auto mb-1 text-slate-300" fill="none"
                                                 stroke="currentColor" viewBox="0 0 24 24">
@@ -1178,7 +1178,7 @@
                             </div>
 
                             <!-- Angle 3: Right Profile -->
-                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3" data-rollback-target="Right Profile Mugshot (Angle 3)">
                                 <div class="flex items-center justify-between text-xs font-mono-code">
                                     <span
                                         class="px-2 py-0.5 rounded bg-slate-800 text-white font-bold text-[10px]">ANGLE
@@ -1188,7 +1188,7 @@
                                         class="font-bold text-[10px] text-slate-400">NOT CAPTURED</span>
                                 </div>
                                 <div
-                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden relative">
                                                                             <div class="text-center p-3 text-slate-400">
                                             <svg class="w-8 h-8 mx-auto mb-1 text-slate-300" fill="none"
                                                 stroke="currentColor" viewBox="0 0 24 24">
@@ -1232,7 +1232,7 @@
                             <div class="flex items-center gap-2" data-no-rollback="true">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Case Created By:</span>
                                 <span class="font-bold text-slate-900 font-mono-code">Officer Creator <span class="text-emerald-700 font-bold">(Crime Scene Support)</span></span>
-                                                                    <span class="text-slate-400 text-[10px] font-mono-code">• 15 Mar 2026, 10:30</span>
+                                                                    <span class="text-slate-400 text-[10px] font-mono-code">• 10 Mar 2026, 08:00</span>
                                                             </div>
                             <div class="flex items-center gap-2 p-1.5 rounded-lg border border-transparent transition-all rollback-allowed-item" data-rollback-allowed="true" data-rollback-target="Arresting Officer">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Arresting Officer:</span>
@@ -1407,7 +1407,7 @@
                                 <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Brief Facts/
                                     Charge Description</div>
                                 <p class="text-slate-800 leading-relaxed font-semibold">
-                                    On Sunday, 15 March 2026, officers of the Narcotics Control Commission (NACOC) conducted a forensic operation at N/A to curb the use and sale of narcotic drugs within the area. During the operation, Kwame Mensah was arrested and subsequently conveyed to N/A for further investigation.
+                                    On Tuesday, 10 March 2026, officers of the Narcotics Control Commission (NACOC) conducted a forensic operation at N/A to curb the use and sale of narcotic drugs within the area. During the operation, Kwame Mensah was arrested and subsequently conveyed to N/A for further investigation.
                                 </p>
                             </div>
                         </div>
@@ -1473,7 +1473,15 @@
                         Off-white compressed powder
                     </td>
                 </tr>
-                                <tr class="border-b border-slate-300">
+                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        Purpose of Examination:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPurposeOfExamination">
+                        N/A
+                    </td>
+                </tr>
+                <tr class="border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Analyst / Examiner:</td>
@@ -1483,7 +1491,7 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Examination Timeline:</td>
                     <td class="p-2 bg-white">
-                                                <div
+                        <div
                             class="flex items-center gap-2 font-mono-code text-[11px] font-bold">
                             <span>Received: <strong class="text-blue-900">2026-03-11</strong></span>
                             <span>|</span>
@@ -1493,7 +1501,15 @@
                         </div>
                     </td>
                 </tr>
-                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <tr class="border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        PRELIMINARY EXAMINATION PROCEDURE:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPreliminaryExamProcedure">
+                        N/A
+                    </td>
+                </tr>
+                <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Presumptive Reaction:</td>
@@ -1685,7 +1701,15 @@
                         Off-white compressed powder
                     </td>
                 </tr>
-                                <tr class="border-b border-slate-300">
+                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        Purpose of Examination:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPurposeOfExamination">
+                        N/A
+                    </td>
+                </tr>
+                <tr class="border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Analyst / Examiner:</td>
@@ -1695,7 +1719,7 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Examination Timeline:</td>
                     <td class="p-2 bg-white">
-                                                <div
+                        <div
                             class="flex items-center gap-2 font-mono-code text-[11px] font-bold">
                             <span>Received: <strong class="text-blue-900">2026-03-11</strong></span>
                             <span>|</span>
@@ -1705,7 +1729,15 @@
                         </div>
                     </td>
                 </tr>
-                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <tr class="border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        PRELIMINARY EXAMINATION PROCEDURE:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPreliminaryExamProcedure">
+                        N/A
+                    </td>
+                </tr>
+                <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Presumptive Reaction:</td>
@@ -1919,7 +1951,7 @@
                     </div>
                                     
                     <!-- MUGSHOT (MULTI-ANGLE PHOTO CAPTURE FOR SUSPECT #2) -->
-                    <div class="dossier-card p-6 border border-slate-200">
+                    <div class="dossier-card p-6 border border-slate-200" data-rollback-target="Biometric Mugshots">
                         <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span
@@ -1942,7 +1974,7 @@
                         </div>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                             <!-- Angle 1: Frontal View -->
-                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3" data-rollback-target="Front Mugshot (Angle 1)">
                                 <div class="flex items-center justify-between text-xs font-mono-code">
                                     <span
                                         class="px-2 py-0.5 rounded bg-emerald-600 text-white font-bold text-[10px]">ANGLE
@@ -1952,7 +1984,7 @@
                                         class="font-bold text-[10px] text-slate-400">NOT CAPTURED</span>
                                 </div>
                                 <div
-                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden relative">
                                                                             <div class="text-center p-3 text-slate-400">
                                             <svg class="w-8 h-8 mx-auto mb-1 text-slate-300" fill="none"
                                                 stroke="currentColor" viewBox="0 0 24 24">
@@ -1965,7 +1997,7 @@
                             </div>
 
                             <!-- Angle 2: Left Profile -->
-                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3" data-rollback-target="Left Profile Mugshot (Angle 2)">
                                 <div class="flex items-center justify-between text-xs font-mono-code">
                                     <span
                                         class="px-2 py-0.5 rounded bg-slate-800 text-white font-bold text-[10px]">ANGLE
@@ -1975,7 +2007,7 @@
                                         class="font-bold text-[10px] text-slate-400">NOT CAPTURED</span>
                                 </div>
                                 <div
-                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden relative">
                                                                             <div class="text-center p-3 text-slate-400">
                                             <svg class="w-8 h-8 mx-auto mb-1 text-slate-300" fill="none"
                                                 stroke="currentColor" viewBox="0 0 24 24">
@@ -1988,7 +2020,7 @@
                             </div>
 
                             <!-- Angle 3: Right Profile -->
-                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3">
+                            <div class="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center space-y-3" data-rollback-target="Right Profile Mugshot (Angle 3)">
                                 <div class="flex items-center justify-between text-xs font-mono-code">
                                     <span
                                         class="px-2 py-0.5 rounded bg-slate-800 text-white font-bold text-[10px]">ANGLE
@@ -1998,7 +2030,7 @@
                                         class="font-bold text-[10px] text-slate-400">NOT CAPTURED</span>
                                 </div>
                                 <div
-                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden">
+                                    class="h-44 w-full bg-slate-100 rounded-lg border border-slate-300 flex items-center justify-center overflow-hidden relative">
                                                                             <div class="text-center p-3 text-slate-400">
                                             <svg class="w-8 h-8 mx-auto mb-1 text-slate-300" fill="none"
                                                 stroke="currentColor" viewBox="0 0 24 24">
@@ -2041,7 +2073,7 @@
                             <div class="flex items-center gap-2" data-no-rollback="true">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Case Created By:</span>
                                 <span class="font-bold text-slate-900 font-mono-code">Officer Creator <span class="text-emerald-700 font-bold">(Crime Scene Support)</span></span>
-                                                                    <span class="text-slate-400 text-[10px] font-mono-code">• 15 Mar 2026, 10:30</span>
+                                                                    <span class="text-slate-400 text-[10px] font-mono-code">• 10 Mar 2026, 08:00</span>
                                                             </div>
                             <div class="flex items-center gap-2 p-1.5 rounded-lg border border-transparent transition-all rollback-allowed-item" data-rollback-allowed="true" data-rollback-target="Arresting Officer">
                                 <span class="text-[10px] font-mono-code font-extrabold text-slate-500 uppercase tracking-wider">Arresting Officer:</span>
@@ -2216,7 +2248,7 @@
                                 <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Brief Facts/
                                     Charge Description</div>
                                 <p class="text-slate-800 leading-relaxed font-semibold">
-                                    On Sunday, 15 March 2026, officers of the Narcotics Control Commission (NACOC) conducted a forensic operation at N/A to curb the use and sale of narcotic drugs within the area. During the operation, Kwame Mensah was arrested and subsequently conveyed to N/A for further investigation.
+                                    On Tuesday, 10 March 2026, officers of the Narcotics Control Commission (NACOC) conducted a forensic operation at N/A to curb the use and sale of narcotic drugs within the area. During the operation, Kwame Mensah was arrested and subsequently conveyed to N/A for further investigation.
                                 </p>
                             </div>
                         </div>
@@ -2282,6 +2314,50 @@
                                             </div>
                                             
                                             
+                                                                                        <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Source/Requesting Unit</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5">
+                                                    Lab Analysis
+                                                </div>
+                                            </div>
+
+                                            
+                                                                                        <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Investigating Officer</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5">
+                                                    N/A
+                                                </div>
+                                            </div>
+
+                                            
+                                                                                        <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Reason for Seizure</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                                                    N/A
+                                                </div>
+                                            </div>
+
+                                            
+                                                                                        <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Concealment &amp; Packaging Notes</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                                                    N/A
+                                                </div>
+                                            </div>
+
+                                            
+                                                                                        <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-1 sm:col-span-2">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Remarks / Observations</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed whitespace-pre-line">
+                                                    N/A
+                                                </div>
+                                            </div>
+
                                             
                                                                                                                                         <div
                                                     class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs col-span-full space-y-2">
@@ -2420,7 +2496,15 @@
                         Off-white compressed powder
                     </td>
                 </tr>
-                                <tr class="border-b border-slate-300">
+                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        Purpose of Examination:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPurposeOfExamination">
+                        N/A
+                    </td>
+                </tr>
+                <tr class="border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Analyst / Examiner:</td>
@@ -2430,7 +2514,7 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Examination Timeline:</td>
                     <td class="p-2 bg-white">
-                                                <div
+                        <div
                             class="flex items-center gap-2 font-mono-code text-[11px] font-bold">
                             <span>Received: <strong class="text-blue-900">2026-03-11</strong></span>
                             <span>|</span>
@@ -2440,7 +2524,15 @@
                         </div>
                     </td>
                 </tr>
-                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <tr class="border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        PRELIMINARY EXAMINATION PROCEDURE:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPreliminaryExamProcedure">
+                        N/A
+                    </td>
+                </tr>
+                <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Presumptive Reaction:</td>
@@ -2632,7 +2724,15 @@
                         Off-white compressed powder
                     </td>
                 </tr>
-                                <tr class="border-b border-slate-300">
+                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        Purpose of Examination:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPurposeOfExamination">
+                        N/A
+                    </td>
+                </tr>
+                <tr class="border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Analyst / Examiner:</td>
@@ -2642,7 +2742,7 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Examination Timeline:</td>
                     <td class="p-2 bg-white">
-                                                <div
+                        <div
                             class="flex items-center gap-2 font-mono-code text-[11px] font-bold">
                             <span>Received: <strong class="text-blue-900">2026-03-11</strong></span>
                             <span>|</span>
@@ -2652,7 +2752,15 @@
                         </div>
                     </td>
                 </tr>
-                                <tr class="bg-slate-100/90 border-b border-slate-300">
+                                <tr class="border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        PRELIMINARY EXAMINATION PROCEDURE:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPreliminaryExamProcedure">
+                        N/A
+                    </td>
+                </tr>
+                <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Presumptive Reaction:</td>
@@ -2843,6 +2951,50 @@
                 </div>
 
                 
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Source/Requesting Unit</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5">
+                        Lab Analysis
+                    </div>
+                </div>
+
+                
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Investigating Officer</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5">
+                        N/A
+                    </div>
+                </div>
+
+                
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Reason for Seizure</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                        N/A
+                    </div>
+                </div>
+
+                
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Concealment &amp; Packaging Notes</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                        Brown cello tape
+                    </div>
+                </div>
+
+                
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Remarks / Observations</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed whitespace-pre-line">
+                        N/A
+                    </div>
+                </div>
+
                 
                                                     <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-full space-y-2">
                         <div class="flex items-center justify-between">
@@ -2898,6 +3050,50 @@
                 </div>
 
                 
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Source/Requesting Unit</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5">
+                        Lab Analysis
+                    </div>
+                </div>
+
+                
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Investigating Officer</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5">
+                        N/A
+                    </div>
+                </div>
+
+                
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Reason for Seizure</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                        N/A
+                    </div>
+                </div>
+
+                
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Concealment &amp; Packaging Notes</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed">
+                        N/A
+                    </div>
+                </div>
+
+                
+                                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-1 sm:col-span-2">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Remarks / Observations</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5 leading-relaxed whitespace-pre-line">
+                        N/A
+                    </div>
+                </div>
+
                 
                                                     <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs col-span-full space-y-2">
                         <div class="flex items-center justify-between">
@@ -8374,7 +8570,7 @@
             return document.querySelector('.seizure-block') || document;
         }
 
-        window._savedCaseExhibitsData = [{"id":1,"case_type":"multiple","single_suspect_case_id":null,"multiple_suspect_case_id":1,"suspect_id":1,"exhibit_number":"EXH\/2026\/0001","exhibit_category":"Drugs","commodity_name":"Cocaine Hydrochloride","seizure_quantity":"5 parcels","seizure_packaging":"Brown cello tape","seizure_weight":"500.00","seizure_unit":"g","seizure_value":null,"seizure_concealment":null,"seizure_date":null,"seizure_time":null,"seizure_location":"Airport Cargo Village","seizure_officer":null,"seizure_reason":null,"veh_make":null,"veh_model":null,"veh_type":null,"veh_year":null,"veh_colour":null,"veh_reg_no":null,"veh_vin":null,"veh_engine_no":null,"veh_country_reg":null,"veh_owner":null,"veh_driver":null,"wpn_model":null,"wpn_serial_no":null,"wpn_calibre":null,"wpn_colour":null,"wpn_size":null,"dev_model":null,"dev_serial_no":null,"dev_imei1":null,"dev_imei2":null,"dev_mac_address":null,"dev_storage":null,"dev_colour":null,"dev_marks":null,"evidence_photos":["exhibits\/cocaine_parcel.jpg"],"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","ammunition_details":null,"exhibit_type":"Drugs","drug_classification":"Narcotic","other_exhibit_description":null,"associated_person":"Kwame Mensah","source_of_exhibits":null,"exhibit_remark":null,"lab_remark":"High purity sample.","veh_owner_contact":null,"veh_docs_available":null,"veh_doc_ref":null,"veh_condition":null,"veh_fuel":null,"veh_keys_recv":null,"veh_key_count":null,"veh_damage":null,"veh_mods":null,"veh_features":null,"wpn_marks":null,"wpn_location_found":null,"wpn_loaded_status":null,"wpn_condition":null,"tag_url":null,"property_id":null,"custodial_status":"Seized","qr_token":"fixed-qr-token-exh-0001","contents":null,"description_of_exhibits":null,"amount":null,"investigating_officer":null,"source_requesting_unit":null,"lab_exhibit_no":null,"chain_of_custody":null,"case_number":"NACOC\/2026\/0500","case_review_url":"http:\/\/127.0.0.1:8000\/cases\/NACOC%2F2026%2F0500\/review?from=Evidence_Management","associated_suspects":[{"id":1,"name":"Kwame Mensah","alias":null,"ghana_card":null,"gender":"Male","age":"35","nationality":"Ghanaian","mugshot":null,"role":"Primary Suspect","is_directly_linked":true,"case_type":"Multiple Suspect Case","case_number":"NACOC\/2026\/0500","suspect_disposition":"Active \u2014 Under Investigation"}],"tag_image":null,"qr_url":"http:\/\/127.0.0.1:8000\/exhibits\/tag\/fixed-qr-token-exh-0001","source_of_exhibit":null,"resolved_chain_of_custody":"Airport Cargo Village \u2794 Seized","single_suspect_case":null,"multiple_suspect_case":{"id":1,"case_number":"NACOC\/2026\/0500","laboratory_number":"Lab No. 042\/2026","title":"Republic vs Kwame Mensah \u0026 Abena Owusu","unit_name":"Lab Analysis","unit_id":null,"user_id":1,"arresting_officer":null,"operation_code":null,"operation_code_name":null,"raid_location":null,"offense_description":null,"incident_date":"2026-03-15 10:30:00","docket_summary":null,"total_suspects_count":2,"total_exhibits_count":2,"priority":"HIGH","status":"Under Multi-Unit Processing","hash_log":"HASH-FIXED-VERIFIED","created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","confirmatory_remark":"High purity sample.","case_status":"Under Investigation","controller_user_id":1,"suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"description_of_exhibits":null,"search_warrant_document":null,"latitude":null,"longitude":null},"suspect":{"id":1,"multiple_suspect_case_id":1,"suspect_number":1,"role":"Primary Suspect","associate_id":null,"suspect_name":"Kwame Mensah","suspect_alias":null,"ghana_card":null,"gender":"Male","dob":"1990-05-12","age":"35","height":null,"height_unit":"CM","eye_color":null,"nationality":"Ghanaian","pob":null,"phone":null,"address":null,"marital_status":null,"has_children":false,"children_count":"0","spouse_info":null,"spouse_name":null,"spouse_phone":null,"partner_name":null,"partner_phone":null,"partner_info":null,"dependents":null,"holding_facility":null,"raid_location":null,"offense_description":null,"arrest_date":null,"arrest_time":null,"mugshot_front":null,"mugshot_left":null,"mugshot_right":null,"extra_mugshots":null,"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","case_status":"Under Investigation","suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"phones":[],"single_suspect_case_id":null,"latitude":null,"longitude":null},"category":"Drugs","seizure_name":"Cocaine Hydrochloride","owner_name":"Kwame Mensah","weapon_model":null,"weapon_serial_number":null,"weapon_calibre":null,"weapon_color":null,"weapon_size_length":null,"dev":{"model":null,"serial_no":null,"imei1":null,"imei2":null,"mac_address":null,"storage":null,"colour":null,"marks":null},"device_model":null,"device_serial":null,"resolved_owner":"Kwame Mensah","resolved_item_photos":["exhibits\/cocaine_parcel.jpg"],"formatted_item_photos":["http:\/\/127.0.0.1:8000\/storage\/exhibits\/cocaine_parcel.jpg"],"formatted_case_gallery_photos":["http:\/\/127.0.0.1:8000\/storage\/exhibits\/cocaine_parcel.jpg","http:\/\/127.0.0.1:8000\/storage\/exhibits\/cannabis_slab.jpg"]},{"id":1,"case_type":"multiple","single_suspect_case_id":null,"multiple_suspect_case_id":1,"suspect_id":1,"exhibit_number":"EXH\/2026\/0002","exhibit_category":"Drugs","commodity_name":"Cannabis Sativa","seizure_quantity":"2 slabs","seizure_packaging":null,"seizure_weight":"150.50","seizure_unit":"g","seizure_value":null,"seizure_concealment":null,"seizure_date":null,"seizure_time":null,"seizure_location":null,"seizure_officer":null,"seizure_reason":null,"veh_make":null,"veh_model":null,"veh_type":null,"veh_year":null,"veh_colour":null,"veh_reg_no":null,"veh_vin":null,"veh_engine_no":null,"veh_country_reg":null,"veh_owner":null,"veh_driver":null,"wpn_model":null,"wpn_serial_no":null,"wpn_calibre":null,"wpn_colour":null,"wpn_size":null,"dev_model":null,"dev_serial_no":null,"dev_imei1":null,"dev_imei2":null,"dev_mac_address":null,"dev_storage":null,"dev_colour":null,"dev_marks":null,"evidence_photos":["exhibits\/cannabis_slab.jpg"],"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","ammunition_details":null,"exhibit_type":"Drugs","drug_classification":"Narcotic","other_exhibit_description":null,"associated_person":"Abena Owusu","source_of_exhibits":null,"exhibit_remark":null,"lab_remark":null,"veh_owner_contact":null,"veh_docs_available":null,"veh_doc_ref":null,"veh_condition":null,"veh_fuel":null,"veh_keys_recv":null,"veh_key_count":null,"veh_damage":null,"veh_mods":null,"veh_features":null,"wpn_marks":null,"wpn_location_found":null,"wpn_loaded_status":null,"wpn_condition":null,"tag_url":null,"property_id":null,"custodial_status":"Seized","qr_token":"fixed-qr-token-exh-0002","contents":null,"description_of_exhibits":null,"amount":null,"investigating_officer":null,"source_requesting_unit":null,"lab_exhibit_no":null,"chain_of_custody":null,"case_number":"NACOC\/2026\/0500","case_review_url":"http:\/\/127.0.0.1:8000\/cases\/NACOC%2F2026%2F0500\/review?from=Evidence_Management","associated_suspects":[{"id":1,"name":"Abena Owusu","alias":null,"ghana_card":null,"gender":"Female","age":"31","nationality":"Ghanaian","mugshot":null,"role":"Associate Suspect","is_directly_linked":true,"case_type":"Multiple Suspect Case","case_number":"NACOC\/2026\/0500","suspect_disposition":"Active \u2014 Under Investigation"}],"tag_image":null,"qr_url":"http:\/\/127.0.0.1:8000\/exhibits\/tag\/fixed-qr-token-exh-0002","source_of_exhibit":null,"resolved_chain_of_custody":"Seizure Site \u2794 Seized","single_suspect_case":null,"multiple_suspect_case":{"id":1,"case_number":"NACOC\/2026\/0500","laboratory_number":"Lab No. 042\/2026","title":"Republic vs Kwame Mensah \u0026 Abena Owusu","unit_name":"Lab Analysis","unit_id":null,"user_id":1,"arresting_officer":null,"operation_code":null,"operation_code_name":null,"raid_location":null,"offense_description":null,"incident_date":"2026-03-15 10:30:00","docket_summary":null,"total_suspects_count":2,"total_exhibits_count":2,"priority":"HIGH","status":"Under Multi-Unit Processing","hash_log":"HASH-FIXED-VERIFIED","created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","confirmatory_remark":"High purity sample.","case_status":"Under Investigation","controller_user_id":1,"suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"description_of_exhibits":null,"search_warrant_document":null,"latitude":null,"longitude":null},"suspect":{"id":1,"multiple_suspect_case_id":1,"suspect_number":2,"role":"Associate Suspect","associate_id":null,"suspect_name":"Abena Owusu","suspect_alias":null,"ghana_card":null,"gender":"Female","dob":"1994-08-20","age":"31","height":null,"height_unit":"CM","eye_color":null,"nationality":"Ghanaian","pob":null,"phone":null,"address":null,"marital_status":null,"has_children":false,"children_count":"0","spouse_info":null,"spouse_name":null,"spouse_phone":null,"partner_name":null,"partner_phone":null,"partner_info":null,"dependents":null,"holding_facility":null,"raid_location":null,"offense_description":null,"arrest_date":null,"arrest_time":null,"mugshot_front":null,"mugshot_left":null,"mugshot_right":null,"extra_mugshots":null,"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","case_status":"Under Investigation","suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"phones":[],"single_suspect_case_id":null,"latitude":null,"longitude":null},"category":"Drugs","seizure_name":"Cannabis Sativa","owner_name":"Abena Owusu","weapon_model":null,"weapon_serial_number":null,"weapon_calibre":null,"weapon_color":null,"weapon_size_length":null,"dev":{"model":null,"serial_no":null,"imei1":null,"imei2":null,"mac_address":null,"storage":null,"colour":null,"marks":null},"device_model":null,"device_serial":null,"resolved_owner":"Abena Owusu","resolved_item_photos":["exhibits\/cannabis_slab.jpg"],"formatted_item_photos":["http:\/\/127.0.0.1:8000\/storage\/exhibits\/cannabis_slab.jpg"]}];
+        window._savedCaseExhibitsData = [{"id":1,"case_type":"multiple","single_suspect_case_id":null,"multiple_suspect_case_id":1,"suspect_id":1,"exhibit_number":"EXH\/2026\/0001","exhibit_category":"Drugs","commodity_name":"Cocaine Hydrochloride","seizure_quantity":"5 parcels","seizure_packaging":"Brown cello tape","seizure_weight":"500.00","seizure_unit":"g","seizure_value":null,"seizure_concealment":null,"seizure_date":null,"seizure_time":null,"seizure_location":"Airport Cargo Village","seizure_officer":null,"seizure_reason":null,"veh_make":null,"veh_model":null,"veh_type":null,"veh_year":null,"veh_colour":null,"veh_reg_no":null,"veh_vin":null,"veh_engine_no":null,"veh_country_reg":null,"veh_owner":null,"veh_driver":null,"wpn_model":null,"wpn_serial_no":null,"wpn_calibre":null,"wpn_colour":null,"wpn_size":null,"dev_model":null,"dev_serial_no":null,"dev_imei1":null,"dev_imei2":null,"dev_mac_address":null,"dev_storage":null,"dev_colour":null,"dev_marks":null,"evidence_photos":["exhibits\/cocaine_parcel.jpg"],"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","ammunition_details":null,"exhibit_type":"Drugs","drug_classification":"Narcotic","other_exhibit_description":null,"associated_person":"Kwame Mensah","source_of_exhibits":null,"exhibit_remark":null,"lab_remark":null,"veh_owner_contact":null,"veh_docs_available":null,"veh_doc_ref":null,"veh_condition":null,"veh_fuel":null,"veh_keys_recv":null,"veh_key_count":null,"veh_damage":null,"veh_mods":null,"veh_features":null,"wpn_marks":null,"wpn_location_found":null,"wpn_loaded_status":null,"wpn_condition":null,"tag_url":null,"property_id":null,"custodial_status":"Seized","qr_token":"fixed-qr-token-exh-0001","contents":null,"description_of_exhibits":null,"amount":null,"investigating_officer":null,"source_requesting_unit":null,"lab_exhibit_no":null,"chain_of_custody":null,"case_number":"NACOC\/2026\/0500","case_review_url":"http:\/\/127.0.0.1:8000\/cases\/NACOC%2F2026%2F0500\/review?from=Evidence_Management","associated_suspects":[{"id":1,"name":"Kwame Mensah","alias":null,"ghana_card":null,"gender":"Male","age":"35","nationality":"Ghanaian","mugshot":null,"role":"Primary Suspect","is_directly_linked":true,"case_type":"Multiple Suspect Case","case_number":"NACOC\/2026\/0500","suspect_disposition":"Active \u2014 Under Investigation"}],"tag_image":null,"qr_url":"http:\/\/127.0.0.1:8000\/exhibits\/tag\/fixed-qr-token-exh-0001","source_of_exhibit":null,"resolved_chain_of_custody":"Airport Cargo Village \u2794 Seized","suspect":{"id":1,"multiple_suspect_case_id":1,"suspect_number":1,"role":"Primary Suspect","associate_id":null,"suspect_name":"Kwame Mensah","suspect_alias":null,"ghana_card":null,"gender":"Male","dob":"1990-05-12","age":"35","height":null,"height_unit":"CM","eye_color":null,"nationality":"Ghanaian","pob":null,"phone":null,"address":null,"marital_status":null,"has_children":false,"children_count":"0","spouse_info":null,"spouse_name":null,"spouse_phone":null,"partner_name":null,"partner_phone":null,"partner_info":null,"dependents":null,"holding_facility":null,"raid_location":null,"offense_description":null,"arrest_date":null,"arrest_time":null,"mugshot_front":null,"mugshot_left":null,"mugshot_right":null,"extra_mugshots":null,"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","case_status":"Under Investigation","suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"phones":[],"single_suspect_case_id":null,"latitude":null,"longitude":null},"lab_result":{"id":1,"case_type":"multiple","single_suspect_case_id":null,"multiple_suspect_case_id":1,"suspect_id":1,"exhibit_id":3,"laboratory_number":"Lab No. 042\/2026","exam_reference":"NACOC\/FSD\/LAB\/2026\/0042","analyst":"Lab Analyst","date_received":"2026-03-11","date_started":"2026-03-12","date_completed":"2026-03-14","presumptive_result":"1. Parcel A | Marquis: Positive | Scott: Positive (Blue)","confirmatory_result":"GC-MS confirmed Cocaine Hydrochloride (88% purity)","sample_weight_description":"Off-white compressed powder","sample_weight_units":"g","sample_weight_gross":"500.00","sample_weight_taken":"5.00","sample_weight_reserved":"495.00","detected_substances":["Cocaine"],"test_methods":"Scott Test, GC-MS","specifications":"USP Reference Standard matched","findings":"The submitted exhibit tested positive for Cocaine Hydrochloride.","has_saved":true,"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","remark":"High purity sample.","gsa_lab_number":null,"purpose_of_examination":null,"preliminary_exam_procedure":null,"screening_method":null,"disposition_of_exhibit":null,"presumptive_presence":null,"presumptive_percentage":null,"detected_subtances_percentage":[]},"single_suspect_case":null,"multiple_suspect_case":{"id":1,"case_number":"NACOC\/2026\/0500","laboratory_number":"Lab No. 042\/2026","title":"Republic vs Kwame Mensah \u0026 Abena Owusu","unit_name":"Lab Analysis","unit_id":null,"user_id":1,"arresting_officer":null,"operation_code":null,"operation_code_name":null,"raid_location":null,"offense_description":null,"incident_date":"2026-03-15 10:30:00","docket_summary":null,"total_suspects_count":2,"total_exhibits_count":2,"priority":"HIGH","status":"Under Multi-Unit Processing","hash_log":"HASH-FIXED-VERIFIED","created_at":"2026-03-10T08:00:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","confirmatory_remark":"High purity sample.","case_status":"Under Investigation","controller_user_id":1,"suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"description_of_exhibits":null,"search_warrant_document":null,"latitude":null,"longitude":null},"category":"Drugs","seizure_name":"Cocaine Hydrochloride","owner_name":"Kwame Mensah","weapon_model":null,"weapon_serial_number":null,"weapon_calibre":null,"weapon_color":null,"weapon_size_length":null,"dev":{"model":null,"serial_no":null,"imei1":null,"imei2":null,"mac_address":null,"storage":null,"colour":null,"marks":null},"device_model":null,"device_serial":null,"resolved_owner":"Kwame Mensah","resolved_item_photos":["exhibits\/cocaine_parcel.jpg"],"formatted_item_photos":["http:\/\/127.0.0.1:8000\/storage\/exhibits\/cocaine_parcel.jpg"],"formatted_case_gallery_photos":["http:\/\/127.0.0.1:8000\/storage\/exhibits\/cocaine_parcel.jpg","http:\/\/127.0.0.1:8000\/storage\/exhibits\/cannabis_slab.jpg"]},{"id":1,"case_type":"multiple","single_suspect_case_id":null,"multiple_suspect_case_id":1,"suspect_id":1,"exhibit_number":"EXH\/2026\/0002","exhibit_category":"Drugs","commodity_name":"Cannabis Sativa","seizure_quantity":"2 slabs","seizure_packaging":null,"seizure_weight":"150.50","seizure_unit":"g","seizure_value":null,"seizure_concealment":null,"seizure_date":null,"seizure_time":null,"seizure_location":null,"seizure_officer":null,"seizure_reason":null,"veh_make":null,"veh_model":null,"veh_type":null,"veh_year":null,"veh_colour":null,"veh_reg_no":null,"veh_vin":null,"veh_engine_no":null,"veh_country_reg":null,"veh_owner":null,"veh_driver":null,"wpn_model":null,"wpn_serial_no":null,"wpn_calibre":null,"wpn_colour":null,"wpn_size":null,"dev_model":null,"dev_serial_no":null,"dev_imei1":null,"dev_imei2":null,"dev_mac_address":null,"dev_storage":null,"dev_colour":null,"dev_marks":null,"evidence_photos":["exhibits\/cannabis_slab.jpg"],"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","ammunition_details":null,"exhibit_type":"Drugs","drug_classification":"Narcotic","other_exhibit_description":null,"associated_person":"Abena Owusu","source_of_exhibits":null,"exhibit_remark":null,"lab_remark":null,"veh_owner_contact":null,"veh_docs_available":null,"veh_doc_ref":null,"veh_condition":null,"veh_fuel":null,"veh_keys_recv":null,"veh_key_count":null,"veh_damage":null,"veh_mods":null,"veh_features":null,"wpn_marks":null,"wpn_location_found":null,"wpn_loaded_status":null,"wpn_condition":null,"tag_url":null,"property_id":null,"custodial_status":"Seized","qr_token":"fixed-qr-token-exh-0002","contents":null,"description_of_exhibits":null,"amount":null,"investigating_officer":null,"source_requesting_unit":null,"lab_exhibit_no":null,"chain_of_custody":null,"case_number":"NACOC\/2026\/0500","case_review_url":"http:\/\/127.0.0.1:8000\/cases\/NACOC%2F2026%2F0500\/review?from=Evidence_Management","associated_suspects":[{"id":1,"name":"Abena Owusu","alias":null,"ghana_card":null,"gender":"Female","age":"31","nationality":"Ghanaian","mugshot":null,"role":"Associate Suspect","is_directly_linked":true,"case_type":"Multiple Suspect Case","case_number":"NACOC\/2026\/0500","suspect_disposition":"Active \u2014 Under Investigation"}],"tag_image":null,"qr_url":"http:\/\/127.0.0.1:8000\/exhibits\/tag\/fixed-qr-token-exh-0002","source_of_exhibit":null,"resolved_chain_of_custody":"Seizure Site \u2794 Seized","suspect":{"id":1,"multiple_suspect_case_id":1,"suspect_number":2,"role":"Associate Suspect","associate_id":null,"suspect_name":"Abena Owusu","suspect_alias":null,"ghana_card":null,"gender":"Female","dob":"1994-08-20","age":"31","height":null,"height_unit":"CM","eye_color":null,"nationality":"Ghanaian","pob":null,"phone":null,"address":null,"marital_status":null,"has_children":false,"children_count":"0","spouse_info":null,"spouse_name":null,"spouse_phone":null,"partner_name":null,"partner_phone":null,"partner_info":null,"dependents":null,"holding_facility":null,"raid_location":null,"offense_description":null,"arrest_date":null,"arrest_time":null,"mugshot_front":null,"mugshot_left":null,"mugshot_right":null,"extra_mugshots":null,"created_at":"2026-03-15T10:30:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","case_status":"Under Investigation","suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"phones":[],"single_suspect_case_id":null,"latitude":null,"longitude":null},"lab_result":null,"single_suspect_case":null,"multiple_suspect_case":{"id":1,"case_number":"NACOC\/2026\/0500","laboratory_number":"Lab No. 042\/2026","title":"Republic vs Kwame Mensah \u0026 Abena Owusu","unit_name":"Lab Analysis","unit_id":null,"user_id":1,"arresting_officer":null,"operation_code":null,"operation_code_name":null,"raid_location":null,"offense_description":null,"incident_date":"2026-03-15 10:30:00","docket_summary":null,"total_suspects_count":2,"total_exhibits_count":2,"priority":"HIGH","status":"Under Multi-Unit Processing","hash_log":"HASH-FIXED-VERIFIED","created_at":"2026-03-10T08:00:00.000000Z","updated_at":"2026-03-15T10:30:00.000000Z","confirmatory_remark":"High purity sample.","case_status":"Under Investigation","controller_user_id":1,"suspect_disposition":"Active \u2014 Under Investigation","disposition_reason":null,"disposition_updated_at":null,"disposition_updated_by":null,"description_of_exhibits":null,"search_warrant_document":null,"latitude":null,"longitude":null},"category":"Drugs","seizure_name":"Cannabis Sativa","owner_name":"Abena Owusu","weapon_model":null,"weapon_serial_number":null,"weapon_calibre":null,"weapon_color":null,"weapon_size_length":null,"dev":{"model":null,"serial_no":null,"imei1":null,"imei2":null,"mac_address":null,"storage":null,"colour":null,"marks":null},"device_model":null,"device_serial":null,"resolved_owner":"Abena Owusu","resolved_item_photos":["exhibits\/cannabis_slab.jpg"],"formatted_item_photos":["http:\/\/127.0.0.1:8000\/storage\/exhibits\/cannabis_slab.jpg"]}];
 
         function getPristineSeizureBlockTemplate() {
             if (!window._seizureBlockTemplate) {
@@ -9854,15 +10050,20 @@ function setSeizureBlocksCount(val) {
             const tokenEl = document.querySelector('meta[name="csrf-token"]');
             const csrfToken = tokenEl ? tokenEl.content : '';
 
-            const validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+            let validFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
             if (validFiles.length === 0) {
                 alert('Please select valid image files (JPEG, PNG, WEBP, GIF).');
                 return;
             }
 
+            if (validFiles.length > 15) {
+                alert('Best practice batch limit: Limiting to 15 photos per upload batch to stay within server limits.');
+                validFiles = validFiles.slice(0, 15);
+            }
+
             for (const file of validFiles) {
-                if (file.size > 10 * 1024 * 1024) {
-                    alert(`File "${file.name}" exceeds the 10MB maximum limit.`);
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`File "${file.name}" exceeds the 5MB maximum limit. Please keep individual photos under 3–5MB.`);
                     continue;
                 }
 
@@ -10929,7 +11130,7 @@ function setSeizureBlocksCount(val) {
             console.log('[NACOC DEBUG] Lab Analysis unit status:', "COMPLETED");
             console.log('[NACOC DEBUG] Unit progress map:', {"Lab Analysis":{"status":"COMPLETED","officer":"Lab Analyst","updated_at":"2026-03-15 10:30:00","notes":"Laboratory Examination Information completed and signed off"},"Evidence Management":{"status":"PENDING","officer":"Officer Creator","updated_at":null,"notes":"Awaiting evidence receipt and vault custody intake"}});
             console.log('[NACOC DEBUG] Suspect-linked exhibits count:', 2);
-                        console.log('[NACOC DEBUG] sDossierLabExam (active):', {"exhibit_owner_name":null,"exam_reference":"NACOC\/FSD\/LAB\/2026\/0042","exhibit_number":"N\/A","laboratory_number":"Lab No. 042\/2026","analyst":"Lab Analyst","date_received":"2026-03-11","date_started":"2026-03-12","date_completed":"2026-03-14","presumptive_result":"1. Parcel A | Marquis: Positive | Scott: Positive (Blue)","presumptive_presence":null,"presumptive_percentage":null,"confirmatory_result":"GC-MS confirmed Cocaine Hydrochloride (88% purity)","sample_weight":{"description":"Off-white compressed powder","units_packaging":"g","gross_weight":"500.00","sample_taken":"5.00","reserved_samples":"495.00"},"substance_identification":"Cocaine","detected_substances":["Cocaine"],"detected_subtances_percentage":[],"detected_substances_percentage":[],"test_methods":"Scott Test, GC-MS","specifications":"USP Reference Standard matched","remark":"High purity sample.","findings":"The submitted exhibit tested positive for Cocaine Hydrochloride.","purpose_of_examination":null,"preliminary_exam_procedure":null,"screening_method":null,"disposition_of_exhibit":null,"has_saved":true,"confirmatory":"YES","presumptive_rows":[{"result":"YES","presence":"1. Parcel A | Marquis: Positive | Scott: Positive (Blue","purity":"\u2014"}]});
+                        console.log('[NACOC DEBUG] sDossierLabExam (active):', {"exhibit_owner_name":null,"exam_reference":"NACOC\/FSD\/LAB\/2026\/0042","exhibit_number":"N\/A","laboratory_number":"Lab No. 042\/2026","analyst":"Lab Analyst","date_received":"2026-03-11","date_started":"2026-03-12","date_completed":"2026-03-14","presumptive_result":"1. Parcel A | Marquis: Positive | Scott: Positive (Blue)","presumptive_presence":null,"presumptive_percentage":null,"confirmatory_result":"GC-MS confirmed Cocaine Hydrochloride (88% purity)","sample_weight":{"description":"Off-white compressed powder","units_packaging":"g","gross_weight":"500.00","sample_taken":"5.00","reserved_samples":"495.00"},"substance_identification":"Cocaine","detected_substances":["Cocaine"],"detected_subtances_percentage":[],"detected_substances_percentage":[],"test_methods":"Scott Test, GC-MS","specifications":"USP Reference Standard matched","remark":"High purity sample.","findings":"The submitted exhibit tested positive for Cocaine Hydrochloride.","purpose_of_examination":null,"preliminary_exam_procedure":null,"screening_method":null,"disposition_of_exhibit":null,"has_saved":true,"lab_exhibit_no":"N\/A","confirmatory":"YES","presumptive_rows":[{"result":"YES","presence":"1. Parcel A | Marquis: Positive | Scott: Positive (Blue","purity":"\u2014"}]});
             console.log('[NACOC DEBUG] sDossierHasSavedLab (active):', true);
             console.log('[NACOC DEBUG] savedJointLabExam:', null);
             console.log('[NACOC DEBUG] $isLabAnalysis:', false);

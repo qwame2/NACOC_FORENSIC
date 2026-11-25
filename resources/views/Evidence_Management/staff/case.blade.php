@@ -415,14 +415,18 @@
                                         $vaultBin = $dData['vault_location'] ?? ($seizures[0]['vault_location'] ?? 'Vault Shelf A-04');
 
                                         $suspectDisplayName = $case->suspect_name ?? ($dData['suspects'][0]['suspect_name'] ?? 'Unassigned Target');
-                                        $frontPic = $case->mugshot_front ?? ($dData['mugshot_front'] ?? null);
+                                        $frontPic = $case->mugshot_front
+                                            ?? ($case->photo
+                                            ?? ($dData['mugshot_front']
+                                            ?? ($dData['photo']
+                                            ?? ($dData['mugshots']['front']
+                                            ?? ($dData['suspects'][0]['mugshot_front']
+                                            ?? ($dData['suspects'][0]['photo'] ?? null))))));
                                         if (!$frontPic && !empty($case->evidence_photos)) {
                                             $evArr = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: []);
                                             if (!empty($evArr[0])) { $frontPic = $evArr[0]; }
                                         }
-                                        if ($frontPic && !str_starts_with($frontPic, 'data:') && !str_starts_with($frontPic, 'http://') && !str_starts_with($frontPic, 'https://')) {
-                                            $frontPic = asset($frontPic);
-                                        }
+                                        $frontPic = \App\Services\CasePhotoResolver::resolveMugshotUrl($frontPic);
 
                                         $suspectsArray = !empty($dData['suspects']) && is_array($dData['suspects'])
                                             ? array_values(array_filter($dData['suspects'], fn($s) => !empty($s['suspect_name'])))
@@ -438,14 +442,15 @@
 
                                         $suspectPics = [];
                                         foreach ($suspectsArray as $sIdx => $sItem) {
-                                            $p = $sItem['mugshot_front'] ?? ($sIdx === 0 ? $frontPic : null);
+                                            $p = $sItem['mugshot_front']
+                                                ?? ($sItem['photo']
+                                                ?? ($sItem['mugshots']['front']
+                                                ?? ($sIdx === 0 ? $frontPic : null)));
                                             if (!$p && $sIdx === 0 && !empty($case->evidence_photos)) {
                                                 $evArr = is_array($case->evidence_photos) ? $case->evidence_photos : (json_decode($case->evidence_photos ?? '[]', true) ?: []);
                                                 if (!empty($evArr[0])) { $p = $evArr[0]; }
                                             }
-                                            if ($p && !str_starts_with($p, 'data:') && !str_starts_with($p, 'http://') && !str_starts_with($p, 'https://')) {
-                                                $p = asset($p);
-                                            }
+                                            $p = \App\Services\CasePhotoResolver::resolveMugshotUrl($p);
                                             $suspectPics[] = [
                                                 'name' => $sItem['suspect_name'] ?? 'Suspect #' . ($sIdx + 1),
                                                 'alias' => $sItem['suspect_alias'] ?? 'N/A',

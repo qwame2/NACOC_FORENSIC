@@ -446,12 +446,12 @@
                                     onclick="openSuspectReportPreview()" 
                                     id="btnSuspectReportPreview"
                                     title="Display and print suspect details, Brief Facts, Charge Description, and associated exhibits"
-                                    class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-xl text-xs font-bold font-mono-code transition-all shadow-2xs hover:shadow active:scale-95 cursor-pointer shrink-0"
+                                    class="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold font-mono-code transition-all shadow-2xs hover:shadow active:scale-95 cursor-pointer shrink-0"
                                 >
                                     <svg class="w-4 h-4 text-white shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                                     </svg>
-                                    <span>Print Suspect Report</span>
+                                    <span class="text-white">Print Suspect Report</span>
                                 </button>
                             </div>
                         </div>
@@ -470,12 +470,22 @@
                             </div>
 
                             <!-- STATUS TABS -->
+                            @php
+                                $currentStatusParam = (string) request('status', ($status ?? 'ALL'));
+                                if (trim($currentStatusParam) === '') {
+                                    $currentStatusParam = 'ALL';
+                                }
+                                $isVaultStatusInit = str_contains(strtolower($currentStatusParam), 'vault');
+                                $isLabStatusInit = str_contains(strtolower($currentStatusParam), 'lab');
+                                $isUnderInvStatusInit = str_contains(strtolower($currentStatusParam), 'investigat');
+                                $isAllStatusInit = !$isVaultStatusInit && !$isLabStatusInit && !$isUnderInvStatusInit;
+                            @endphp
                             <div class="flex items-center gap-1.5 flex-wrap">
                                 <span class="text-[11px] font-bold text-slate-700 mr-1 uppercase font-mono-code">Status:</span>
-                                <button type="button" onclick="filterStatus('ALL', this)" class="filter-tab-btn active-tab status-tab">All Statuses</button>
-                                <button type="button" onclick="filterStatus('Under Investigation', this)" class="filter-tab-btn status-tab">Under Investigation</button>
-                                <button type="button" onclick="filterStatus('Vault Storage', this)" class="filter-tab-btn status-tab">Vault Storage</button>
-                                <button type="button" onclick="filterStatus('Lab Analysis', this)" class="filter-tab-btn status-tab">Lab Testing</button>
+                                <button type="button" onclick="filterStatus('ALL', this)" class="filter-tab-btn {{ $isAllStatusInit ? 'active-tab' : '' }} status-tab">All Statuses</button>
+                                <button type="button" onclick="filterStatus('Under Investigation', this)" class="filter-tab-btn {{ $isUnderInvStatusInit ? 'active-tab' : '' }} status-tab">Under Investigation</button>
+                                <button type="button" onclick="filterStatus('Vault Storage', this)" class="filter-tab-btn {{ $isVaultStatusInit ? 'active-tab' : '' }} status-tab">Vault Storage</button>
+                                <button type="button" onclick="filterStatus('Lab Analysis', this)" class="filter-tab-btn {{ $isLabStatusInit ? 'active-tab' : '' }} status-tab">Lab Testing</button>
                             </div>
                         </div>
                     </div>
@@ -490,7 +500,7 @@
                                 <svg class="w-3 h-3 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                 <span id="dateFilterBadgeText">Date Filter Active</span>
                             </div>
-                            <div id="vaultFilterBadge" class="hidden text-[10px] text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded font-bold flex items-center gap-1">
+                            <div id="vaultFilterBadge" class="{{ $isVaultStatusInit ? '' : 'hidden' }} text-[10px] text-amber-800 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded font-bold flex items-center gap-1">
                                 <svg class="w-3 h-3 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
                                 <span>Vault Storage: Displaying All Logged Exhibits in Custody</span>
                             </div>
@@ -600,7 +610,7 @@
     <script src="{{ asset('js/ajax-table.js') }}"></script>
     <script>
         let currentUnitFilter = 'ALL';
-        let currentStatusFilter = 'ALL';
+        let currentStatusFilter = @json($currentStatusParam);
         let activeInspectRef = null;
 
         function updateClock() {
@@ -636,7 +646,7 @@
         setupHeadCasesAjaxTable();
         document.addEventListener('DOMContentLoaded', setupHeadCasesAjaxTable);
 
-        function rowMatchesUnit(unitName, filter) {
+        function rowMatchesUnit(unitName, filter, row) {
             if (!filter || filter === 'ALL') return true;
             const u = (unitName || '').toLowerCase();
             const f = filter.toLowerCase();
@@ -647,10 +657,10 @@
                 return u.includes('evidence');
             }
             if (f.includes('lab')) {
-                return u.includes('lab');
+                return u.includes('lab') || (row && (row.getAttribute('data-is-drug') === '1' || row.getAttribute('data-has-preliminary') === '1'));
             }
-            if (f.includes('digital') || f.includes('physical')) {
-                return u.includes('digital') || u.includes('physical') || u.includes('dpf');
+            if (f.includes('digital') || f.includes('physical') || f.includes('dpf')) {
+                return u.includes('digital') || u.includes('physical') || u.includes('dpf') || (row && row.getAttribute('data-is-digital') === '1');
             }
             return u.includes(f);
         }
@@ -664,6 +674,9 @@
             }
             if (f.includes('authoriz') || f.includes('approv') || f.includes('court')) {
                 return s.includes('approv') || s.includes('authoriz') || s.includes('court') || s.includes('completed') || s.includes('certified');
+            }
+            if (f.includes('investigat')) {
+                return s.includes('investigat') || s.includes('progress') || s.includes('multi-unit') || s.includes('active');
             }
             if (f.includes('vault')) {
                 return s.includes('vault') || s.includes('evidence') || (row && (row.getAttribute('data-has-exhibits') === '1' || parseInt(row.getAttribute('data-exhibits-count') || '0', 10) > 0));
@@ -688,7 +701,7 @@
                 const rowText = row.innerText.toLowerCase();
 
                 const matchSearch = !searchVal || rowText.includes(searchVal);
-                const matchUnit = rowMatchesUnit(rowUnit, currentUnitFilter);
+                const matchUnit = rowMatchesUnit(rowUnit, currentUnitFilter, row);
                 const matchStatus = rowMatchesStatus(rowStatus, currentStatusFilter, row);
 
                 let matchDate = true;
@@ -757,6 +770,26 @@
                     vaultBadge.classList.add('hidden');
                 }
             }
+
+            // Toggle Vault Storage exhibit cards
+            document.querySelectorAll('.vault-exhibits-container').forEach(el => {
+                el.style.display = isVault ? '' : 'none';
+            });
+
+            // Sync eye action buttons according to active status
+            document.querySelectorAll('.case-review-btn').forEach(btn => {
+                const vaultUrl = btn.getAttribute('data-vault-url');
+                const reviewUrl = btn.getAttribute('data-review-url');
+                if (isVault) {
+                    if (vaultUrl) btn.href = vaultUrl;
+                    btn.title = 'View Vault Storage Exhibit Dossier';
+                    btn.setAttribute('aria-label', 'View Vault Storage Exhibit Dossier');
+                } else {
+                    if (reviewUrl) btn.href = reviewUrl;
+                    btn.title = 'View Case File';
+                    btn.setAttribute('aria-label', 'View Case File');
+                }
+            });
 
             const tableEl = document.getElementById('casesTable');
             if (tableEl) {
@@ -877,37 +910,117 @@
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
             const dateFrom = (document.getElementById('caseDateFrom')?.value || '').trim();
             const dateTo = (document.getElementById('caseDateTo')?.value || '').trim();
+
             if (window.headCasesAjaxTable) {
                 window.headCasesAjaxTable.applyFilters({
-                    unit: unitName === 'ALL' ? null : unitName,
-                    status: currentStatusFilter === 'ALL' ? null : currentStatusFilter,
+                    unit: (unitName && unitName !== 'ALL') ? unitName : null,
+                    status: (currentStatusFilter && currentStatusFilter !== 'ALL') ? currentStatusFilter : null,
                     search: searchVal || null,
                     date_from: dateFrom || null,
                     date_to: dateTo || null,
-                    page: null
+                    page: 1
                 });
+            } else {
+                const u = new URL(window.location.href);
+                if (unitName === 'ALL' || !unitName) {
+                    u.searchParams.delete('unit');
+                } else {
+                    u.searchParams.set('unit', unitName);
+                }
+                if (currentStatusFilter && currentStatusFilter !== 'ALL') {
+                    u.searchParams.set('status', currentStatusFilter);
+                } else {
+                    u.searchParams.delete('status');
+                }
+                if (searchVal) {
+                    u.searchParams.set('search', searchVal);
+                } else {
+                    u.searchParams.delete('search');
+                }
+                if (dateFrom) {
+                    u.searchParams.set('date_from', dateFrom);
+                } else {
+                    u.searchParams.delete('date_from');
+                }
+                if (dateTo) {
+                    u.searchParams.set('date_to', dateTo);
+                } else {
+                    u.searchParams.delete('date_to');
+                }
+                u.searchParams.delete('page');
+
+                if (window.location.href === u.toString()) {
+                    window.location.reload();
+                } else {
+                    window.location.href = u.toString();
+                }
             }
         }
 
         function filterStatus(statusName, element) {
             currentStatusFilter = statusName;
             document.querySelectorAll('.status-tab').forEach(btn => btn.classList.remove('active-tab'));
-            if (element) element.classList.add('active-tab');
+            if (element) {
+                element.classList.add('active-tab');
+            } else {
+                document.querySelectorAll('.status-tab').forEach(btn => {
+                    const txt = (btn.textContent || '').trim().toLowerCase();
+                    if (statusName === 'ALL' && txt.includes('all')) btn.classList.add('active-tab');
+                    else if (statusName === 'Vault Storage' && txt.includes('vault')) btn.classList.add('active-tab');
+                    else if (statusName === 'Lab Analysis' && txt.includes('lab')) btn.classList.add('active-tab');
+                    else if (statusName === 'Under Investigation' && txt.includes('investigation')) btn.classList.add('active-tab');
+                });
+            }
 
             applyClientRowFilters();
 
             const searchVal = (document.getElementById('caseSearchInput')?.value || '').trim();
             const dateFrom = (document.getElementById('caseDateFrom')?.value || '').trim();
             const dateTo = (document.getElementById('caseDateTo')?.value || '').trim();
+
             if (window.headCasesAjaxTable) {
                 window.headCasesAjaxTable.applyFilters({
-                    status: statusName === 'ALL' ? null : statusName,
-                    unit: currentUnitFilter === 'ALL' ? null : currentUnitFilter,
+                    status: (statusName && statusName !== 'ALL') ? statusName : null,
+                    unit: (currentUnitFilter && currentUnitFilter !== 'ALL') ? currentUnitFilter : null,
                     search: searchVal || null,
                     date_from: dateFrom || null,
                     date_to: dateTo || null,
-                    page: null
+                    page: 1
                 });
+            } else {
+                const u = new URL(window.location.href);
+                if (statusName === 'ALL' || !statusName) {
+                    u.searchParams.delete('status');
+                } else {
+                    u.searchParams.set('status', statusName);
+                }
+                if (currentUnitFilter && currentUnitFilter !== 'ALL') {
+                    u.searchParams.set('unit', currentUnitFilter);
+                } else {
+                    u.searchParams.delete('unit');
+                }
+                if (searchVal) {
+                    u.searchParams.set('search', searchVal);
+                } else {
+                    u.searchParams.delete('search');
+                }
+                if (dateFrom) {
+                    u.searchParams.set('date_from', dateFrom);
+                } else {
+                    u.searchParams.delete('date_from');
+                }
+                if (dateTo) {
+                    u.searchParams.set('date_to', dateTo);
+                } else {
+                    u.searchParams.delete('date_to');
+                }
+                u.searchParams.delete('page');
+
+                if (window.location.href === u.toString()) {
+                    window.location.reload();
+                } else {
+                    window.location.href = u.toString();
+                }
             }
         }
 
@@ -1242,7 +1355,9 @@
                         else if (cStatVal === 'Case Dismissed') cStatCls = 'bg-slate-100 text-slate-700 border-slate-300';
                         else if (cStatVal === 'Case Closed') cStatCls = 'bg-slate-800 text-slate-100 border-slate-700';
 
-                        html += `<tr class="table-row-hover transition-colors case-row" data-unit="${c.unit_name || ''}" data-status="${c.status || ''}">
+                        const isDigCase = (c.unit_name && (c.unit_name.toLowerCase().includes('digital') || c.unit_name.toLowerCase().includes('physical') || c.unit_name.toLowerCase().includes('dpf'))) || c.is_digital || c.is_electronic || (c.exhibit_category && c.exhibit_category.toLowerCase().includes('device'));
+
+                        html += `<tr class="table-row-hover transition-colors case-row" data-unit="${c.unit_name || ''}" data-status="${c.status || ''}" data-is-digital="${isDigCase ? '1' : '0'}">
                             <td class="py-4 px-5 whitespace-nowrap">
                                 <div class="font-extrabold font-mono-code text-blue-600 text-sm">${c.case_number}</div>
                                 <div class="flex items-center space-x-1.5 mt-1">
@@ -1270,15 +1385,26 @@
                                 <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold border ${cStatCls}">${cStatVal}</span>
                             </td>
                             <td class="py-4 px-5 text-right whitespace-nowrap">
-                                <a href="/DG/cases/${c.case_number}/review"
-                                   title="View Suspect Docket"
-                                   aria-label="View Suspect Docket"
-                                   class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200/80 transition-all shadow-2xs hover:scale-105 active:scale-95">
-                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                    </svg>
-                                </a>
+                                <div class="inline-flex items-center gap-1.5 justify-end">
+                                    <button type="button"
+                                            onclick="openSuspectReportPreview('${c.case_number}')"
+                                            title="Print Suspect & Exhibit Report (${c.case_number})"
+                                            aria-label="Print Suspect Report"
+                                            class="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white border border-blue-200/80 transition-all shadow-2xs hover:scale-105 active:scale-95 cursor-pointer">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                                        </svg>
+                                    </button>
+                                    <a href="/DG/cases/${c.case_number}/review"
+                                       title="View Case File"
+                                       aria-label="View Case File"
+                                       class="case-review-btn inline-flex items-center justify-center w-8 h-8 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-700 hover:text-white border border-emerald-200/80 transition-all shadow-2xs hover:scale-105 active:scale-95">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                        </svg>
+                                    </a>
+                                </div>
                             </td>
                         </tr>`;
                     });

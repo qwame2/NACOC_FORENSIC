@@ -48,7 +48,7 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 w-1/5 bg-slate-100">
                         Exhibit Number:</td>
                     <td class="p-2.5 font-black text-emerald-900 font-mono-code">
-                        {{ $labExam['exhibit_number'] ?? 'N/A' }}</td>
+                        {{ (!empty($labExam['exhibit_number']) && $labExam['exhibit_number'] !== 'N/A') ? $labExam['exhibit_number'] : ($labExam['lab_exhibit_no'] ?? ($labExam['lab_exhibit_number'] ?? ($labExam['exhibit_no'] ?? 'N/A'))) }}</td>
                 </tr>
                 <tr class="border-b border-slate-300">
                     <td
@@ -61,7 +61,7 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Laboratory Number:</td>
                     <td class="p-2.5 font-black text-slate-900 font-mono-code">
-                        {{ $labExam['laboratory_number'] ?? 'N/A' }}</td>
+                        {{ (!empty($labExam['laboratory_number']) && $labExam['laboratory_number'] !== 'N/A') ? $labExam['laboratory_number'] : ($case->laboratory_number ?? ($case->docket_data['lab_examination']['laboratory_number'] ?? ($case->docket_data['laboratory_number'] ?? 'N/A'))) }}</td>
                 </tr>
                 <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
@@ -71,16 +71,19 @@
                         {{ $labExam['card_exhibit_description'] ?? ($labExam['exhibit_description'] ?? ($labExam['description'] ?? ($labExam['sample_weight']['description'] ?? 'N/A'))) }}
                     </td>
                 </tr>
-                @if (!empty($labExam['purpose_of_examination']) && $labExam['purpose_of_examination'] !== 'N/A')
-                    <tr class="bg-slate-100/90 border-b border-slate-300">
-                        <td
-                            class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                            Purpose of Examination:</td>
-                        <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPurposeOfExamination">
-                            {{ $labExam['purpose_of_examination'] }}
-                        </td>
-                    </tr>
-                @endif
+                @php
+                    $labPurposeVal = !empty($labExam['purpose_of_examination']) && $labExam['purpose_of_examination'] !== 'N/A'
+                        ? $labExam['purpose_of_examination']
+                        : ($case->purpose_of_examination ?? ($case->docket_data['lab_examination']['purpose_of_examination'] ?? ($case->docket_data['purpose_of_examination'] ?? ($labExam['exam_purpose'] ?? ($labExam['purpose'] ?? 'N/A')))));
+                @endphp
+                <tr class="bg-slate-100/90 border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        Purpose of Examination:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPurposeOfExamination">
+                        {{ !empty($labPurposeVal) ? $labPurposeVal : 'N/A' }}
+                    </td>
+                </tr>
                 <tr class="border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
@@ -91,7 +94,7 @@
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
                         Examination Timeline:</td>
                     <td class="p-2 bg-white">
-                                                <div
+                        <div
                             class="flex items-center gap-2 font-mono-code text-[11px] font-bold">
                             <span>Received: <strong class="text-blue-900">{{ $labExam['card_timeline_received'] ?? 'N/A' }}</strong></span>
                             <span>|</span>
@@ -101,16 +104,21 @@
                         </div>
                     </td>
                 </tr>
-                @if (!empty($labExam['preliminary_exam_procedure']) && $labExam['preliminary_exam_procedure'] !== 'N/A')
-                    <tr class="border-b border-slate-300">
-                        <td
-                            class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
-                            Preliminary Exam Procedure:</td>
-                        <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3">
-                            {{ $labExam['preliminary_exam_procedure'] }}
-                        </td>
-                    </tr>
-                @endif
+                @php
+                    $labPrelimProcVal = !empty($labExam['preliminary_exam_procedure']) && $labExam['preliminary_exam_procedure'] !== 'N/A'
+                        ? $labExam['preliminary_exam_procedure']
+                        : (!empty($labExam['preliminary_examination_procedure']) && $labExam['preliminary_examination_procedure'] !== 'N/A'
+                            ? $labExam['preliminary_examination_procedure']
+                            : ($case->preliminary_exam_procedure ?? ($case->preliminary_examination_procedure ?? ($case->docket_data['lab_examination']['preliminary_exam_procedure'] ?? ($case->docket_data['lab_examination']['preliminary_examination_procedure'] ?? 'N/A')))));
+                @endphp
+                <tr class="border-b border-slate-300">
+                    <td
+                        class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">
+                        PRELIMINARY EXAMINATION PROCEDURE:</td>
+                    <td class="p-2.5 font-bold text-slate-900 bg-white" colspan="3" id="displayLabPreliminaryExamProcedure">
+                        {{ !empty($labPrelimProcVal) ? $labPrelimProcVal : 'N/A' }}
+                    </td>
+                </tr>
                 <tr class="bg-slate-100/90 border-b border-slate-300">
                     <td
                         class="p-2.5 font-mono-code font-black text-slate-950 uppercase border-r border-slate-300 bg-slate-100">

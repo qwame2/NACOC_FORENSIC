@@ -332,15 +332,22 @@
                                     @php
                                         $gStr = strtolower(trim($s['gender'] ?? 'male'));
                                         $isFemale = ($gStr === 'female' || $gStr === 'f');
+                                        $sFrontPic = \App\Services\CasePhotoResolver::resolveMugshotUrl($s['mugshot_front'] ?? null);
                                     @endphp
                                     <div class="p-3 rounded-2xl bg-slate-50 border border-slate-200/90 flex items-start space-x-3.5 hover:shadow-xs transition-all shadow-2xs">
                                         <!-- FRONT MUGSHOT IMAGE WITH GLOBAL HIGH-Z HOVER PREVIEW -->
                                         <div class="shrink-0">
-                                            <img src="{{ $s['mugshot_front'] }}" 
-                                                 alt="{{ $s['suspect_name'] }} Front Mugshot" 
-                                                 onmouseenter="showMugshotPreview(this, '{{ $s['mugshot_front'] }}', '{{ addslashes($s['suspect_name']) }}', '{{ $s['ghana_card'] }}')"
-                                                 onmouseleave="hideMugshotPreview()"
-                                                 class="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600 shadow-sm bg-slate-200 cursor-zoom-in transition-transform duration-200 hover:scale-105">
+                                            @if($sFrontPic)
+                                                <img src="{{ $sFrontPic }}" 
+                                                     alt="{{ $s['suspect_name'] }} Front Mugshot" 
+                                                     onmouseenter="showMugshotPreview(this, '{{ $sFrontPic }}', '{{ addslashes($s['suspect_name']) }}', '{{ $s['ghana_card'] }}')"
+                                                     onmouseleave="hideMugshotPreview()"
+                                                     class="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-600 shadow-sm bg-slate-200 cursor-zoom-in transition-transform duration-200 hover:scale-105">
+                                            @else
+                                                <div class="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-xl shadow-sm border-2 border-emerald-600 uppercase font-mono-code">
+                                                    {{ strtoupper(substr($s['suspect_name'] ?? 'S', 0, 2)) }}
+                                                </div>
+                                            @endif
                                         </div>
 
                                         <!-- SUSPECT DETAILS & CLEAR GENDER BADGE -->

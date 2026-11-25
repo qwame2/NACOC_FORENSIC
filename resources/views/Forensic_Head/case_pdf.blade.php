@@ -153,10 +153,7 @@
 
     $getImgSrc = function($path) {
         if (empty($path)) return null;
-        if (str_starts_with($path, 'data:') || str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
-            return $path;
-        }
-        return asset($path);
+        return \App\Services\CasePhotoResolver::resolveMugshotUrl($path);
     };
 
     $dbLabHead = \App\Models\User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
@@ -1013,9 +1010,16 @@
                 $sFacility   = $sItem['holding_facility'] ?? ($sNum == 1 ? ($case->holding_facility ?? 'N/A') : 'N/A');
                 $sOffense    = $sItem['offense'] ?? ($sNum == 1 ? ($case->offense_description ?: ($case->description ?: 'N/A')) : 'N/A');
 
-                $sFront = $sItem['mugshot_front'] ?? ($sNum == 1 ? $case->mugshot_front : null);
-                $sLeft  = $sItem['mugshot_left']  ?? ($sNum == 1 ? $case->mugshot_left : null);
-                $sRight = $sItem['mugshot_right'] ?? ($sNum == 1 ? $case->mugshot_right : null);
+                $sFront = $sItem['mugshot_front']
+                    ?? ($sItem['photo']
+                    ?? ($sItem['mugshots']['front']
+                    ?? ($sNum == 1 ? ($case->mugshot_front ?? ($case->photo ?? ($docketData['mugshot_front'] ?? null))) : null)));
+                $sLeft  = $sItem['mugshot_left']
+                    ?? ($sItem['mugshots']['left']
+                    ?? ($sNum == 1 ? ($case->mugshot_left ?? ($docketData['mugshot_left'] ?? null)) : null));
+                $sRight = $sItem['mugshot_right']
+                    ?? ($sItem['mugshots']['right']
+                    ?? ($sNum == 1 ? ($case->mugshot_right ?? ($docketData['mugshot_right'] ?? null)) : null));
 
                 $isAssociate = !empty($sItem['is_associate']) || (!empty($sItem['association_role']) && strtolower($sItem['association_role']) !== 'primary suspect') || (!empty($sItem['role']) && strtolower($sItem['role']) !== 'primary suspect');
                 $isCoSuspect = $isAssociate && (
@@ -1795,6 +1799,13 @@
                         <td class="pdf-label-cell">Analyst / Examiner:</td>
                         <td class="pdf-value-cell font-black text-slate-950">{{ $labAnalyst }}</td>
                     </tr>
+                    @php
+                        $pdfPurposeVal = $docketData['lab_examination']['purpose_of_examination'] ?? ($case->purpose_of_examination ?? 'N/A');
+                    @endphp
+                    <tr>
+                        <td class="pdf-label-cell">Purpose of Examination:</td>
+                        <td class="pdf-value-cell font-bold text-slate-950" colspan="3">{{ !empty($pdfPurposeVal) ? $pdfPurposeVal : 'N/A' }}</td>
+                    </tr>
                     <tr>
                         <td class="pdf-label-cell">Examination Timeline:</td>
                         <td class="pdf-value-cell p-1.5" colspan="3">
@@ -1815,6 +1826,13 @@
                                 </tbody>
                             </table>
                         </td>
+                    </tr>
+                    @php
+                        $pdfPrelimProcVal = $docketData['lab_examination']['preliminary_exam_procedure'] ?? ($case->preliminary_exam_procedure ?? 'N/A');
+                    @endphp
+                    <tr>
+                        <td class="pdf-label-cell">PRELIMINARY EXAMINATION PROCEDURE:</td>
+                        <td class="pdf-value-cell font-bold text-slate-950" colspan="3">{{ !empty($pdfPrelimProcVal) ? $pdfPrelimProcVal : 'N/A' }}</td>
                     </tr>
                     <tr>
                         <td class="pdf-label-cell">Presumptive Reaction:</td>

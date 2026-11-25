@@ -106,6 +106,37 @@ class CaseSuspect extends Model
         return $this->singleCase?->case_number ?? ($this->multipleCase?->case_number ?? null);
     }
 
+    public function getMugshotFrontUrlAttribute(): ?string
+    {
+        $front = $this->mugshot_front;
+
+        if (empty($front) && !empty($this->extra_mugshots)) {
+            $extra = is_array($this->extra_mugshots) ? $this->extra_mugshots : json_decode($this->extra_mugshots, true);
+            $front = $extra['front'] ?? ($extra['front-profile'] ?? ($extra['photo'] ?? ($extra[0] ?? null)));
+        }
+
+        if (empty($front) && $this->singleCase) {
+            $front = $this->singleCase->mugshot_front;
+            if (empty($front) && !empty($this->singleCase->extra_mugshots)) {
+                $scExtra = is_array($this->singleCase->extra_mugshots) ? $this->singleCase->extra_mugshots : json_decode($this->singleCase->extra_mugshots, true);
+                $front = $scExtra['front'] ?? ($scExtra['front-profile'] ?? ($scExtra['photo'] ?? ($scExtra[0] ?? null)));
+            }
+        }
+
+        if (empty($front) && !empty($this->ghana_card) && $this->ghana_card !== 'N/A') {
+            $other = static::where('ghana_card', $this->ghana_card)
+                ->where('id', '!=', $this->id)
+                ->whereNotNull('mugshot_front')
+                ->where('mugshot_front', '!=', '')
+                ->first();
+            if ($other) {
+                $front = $other->mugshot_front;
+            }
+        }
+
+        return \App\Services\CasePhotoResolver::resolveMugshotUrl($front);
+    }
+
     public function exhibits()
     {
         return $this->hasMany(Exhibit::class, 'suspect_id');

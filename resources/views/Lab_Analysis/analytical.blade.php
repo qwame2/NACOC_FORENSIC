@@ -153,7 +153,7 @@
             'age' => $case->age ?? 34,
             'role' => 'Primary Suspect',
             'arrest_date' => $case->incident_date ? date('Y-m-d', strtotime($case->incident_date)) : date('Y-m-d'),
-            'mugshot_front' => $case->mugshot_front ?? asset('images/default-suspect.png'),
+            'mugshot_front' => \App\Services\CasePhotoResolver::resolveMugshotUrl($case->mugshot_front ?? ($case->photo ?? null)) ?? asset('images/default-suspect.png'),
         ];
     }
 
@@ -886,12 +886,15 @@
                                     @foreach ($group['members'] as $memIdx => $m)
                                         <div
                                             class="flex items-center space-x-3.5 sm:space-x-4 {{ $isJointGroup && $memIdx > 0 ? 'pt-3 border-t border-slate-200' : '' }}">
-                                            @if (!empty($m['mugshot_front']))
+                                            @php
+                                                $mMugUrl = \App\Services\CasePhotoResolver::resolveMugshotUrl($m['mugshot_front'] ?? null);
+                                            @endphp
+                                            @if (!empty($mMugUrl))
                                                 <button type="button"
                                                     onclick="openFrontMugshotLightbox(this.querySelector('img').src, {{ json_encode($m['suspect_name']) }})"
                                                     title="{{ $m['suspect_name'] }} — Front Mugshot (click to enlarge)"
                                                     class="relative block w-16 h-20 sm:w-20 sm:h-24 rounded-2xl overflow-hidden bg-slate-700 shadow-lg border-2 border-emerald-400 shrink-0 group cursor-zoom-in p-0">
-                                                    <img src="{{ $m['mugshot_front'] }}"
+                                                    <img src="{{ $mMugUrl }}"
                                                         alt="{{ $m['suspect_name'] }} Front Mugshot"
                                                         class="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                                                         onerror="this.parentElement.outerHTML='&lt;div class=&quot;w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-black text-lg sm:text-xl shadow-lg border-2 border-emerald-400 shrink-0 uppercase font-mono-code&quot;&gt;{{ e(substr($m['suspect_name'], 0, 2)) }}&lt;/div&gt;';">

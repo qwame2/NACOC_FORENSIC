@@ -76,13 +76,44 @@ class ForensicHeadApprovalAndCaseRegisterTest extends TestCase
         $resp->assertDontSee('Authorize Docket');
         $resp->assertDontSee('Direct directorate sign-off');
 
-        // Actions column renders only a direct view icon link to the suspect docket
+        // Actions column renders direct view icon link to the suspect case file and print suspect report
         $resp->assertSee('/Forensic_Head/cases/' . $case->case_number . '/review', false);
-        $resp->assertSee('title="View Suspect Docket"', false);
+        $resp->assertSee('title="View Suspect Case File"', false);
+        $resp->assertSee('openSuspectReportPreview(\'' . $case->case_number . '\')', false);
         $resp->assertDontSee('Review Docket');
         $resp->assertDontSee('Inspect Summary');
         $resp->assertDontSee('Court Report PDF');
         $resp->assertDontSee('case-action-dropdown-wrapper');
+    }
+
+    #[Test]
+    public function forensic_head_case_register_has_print_suspect_report_actions(): void
+    {
+        $case = ForensicCase::create([
+            'case_number' => 'NACOC-TEST-2026-PRINT',
+            'title' => 'Digital Evidence and Suspect Devices',
+            'unit_name' => 'Digital & Physical Forensics',
+            'status' => 'Under Investigation',
+            'priority' => 'High',
+            'submitting_officer' => 'Officer Evans',
+            'docket_data' => ['suspects' => []],
+        ]);
+
+        $resp = $this->actingAs($this->headUser)->get('/Forensic_Head/cases');
+        $resp->assertStatus(200);
+
+        // 1. Toolbar button exists
+        $resp->assertSee('btnSuspectReportPreview');
+        $resp->assertSee('Print Suspect Report');
+
+        // 2. Table action button exists for the case
+        $resp->assertSee('openSuspectReportPreview(\'' . $case->case_number . '\')', false);
+
+        // 3. Suspect report preview route accessible for forensic head
+        $respPreview = $this->actingAs($this->headUser)->get('/Forensic_Head/cases/suspect-report-preview?case_number=' . $case->case_number);
+        $respPreview->assertStatus(200);
+        $respPreview->assertViewIs('DG.suspect_report_preview');
+        $respPreview->assertSee('Associated Seized Exhibits &amp; Custodial Property', false);
     }
 
     #[Test]
@@ -157,6 +188,24 @@ class ForensicHeadApprovalAndCaseRegisterTest extends TestCase
             'docket_data' => ['suspects' => []],
         ]);
 
+        $caseCrossDigital = ForensicCase::create([
+            'case_number' => 'NACOC-CROSS-DPF-004',
+            'title' => 'Evidence Custody with Seized Mobile Phone and Hard Drive',
+            'unit_name' => 'Evidence Management',
+            'status' => 'Under Multi-Unit Processing',
+            'priority' => 'Critical',
+            'docket_data' => [
+                'suspects' => [],
+                'seizures' => [
+                    [
+                        'commodity_name' => 'Samsung Galaxy S24 Ultra',
+                        'category' => 'Electronic Devices',
+                        'quantity' => '1 Unit'
+                    ]
+                ]
+            ],
+        ]);
+
         // 1. Verify buttons on full page load
         $pageResp = $this->actingAs($this->headUser)->get('/Forensic_Head/cases');
         $pageResp->assertStatus(200);
@@ -180,12 +229,13 @@ class ForensicHeadApprovalAndCaseRegisterTest extends TestCase
         $cssFilterResp->assertDontSee('NACOC-LAB-002');
         $cssFilterResp->assertDontSee('NACOC-DPF-003');
 
-        // 3. Filter by Unit via AJAX: Digital & Physical Forensics
+        // 3. Filter by Unit via AJAX: Digital & Physical Forensics (returns both native DPF unit & electronic exhibit cases)
         $dpfFilterResp = $this->actingAs($this->headUser)->get('/Forensic_Head/cases?unit=Digital+%26+Physical+Forensics', [
             'X-Requested-With' => 'XMLHttpRequest'
         ]);
         $dpfFilterResp->assertStatus(200);
         $dpfFilterResp->assertSee('NACOC-DPF-003');
+        $dpfFilterResp->assertSee('NACOC-CROSS-DPF-004');
         $dpfFilterResp->assertDontSee('NACOC-CSS-001');
         $dpfFilterResp->assertDontSee('NACOC-LAB-002');
 
@@ -485,5 +535,40 @@ class ForensicHeadApprovalAndCaseRegisterTest extends TestCase
         $tableResp->assertStatus(200);
         $tableResp->assertSee("data-vault-url=\"" . url("/Forensic_Head/cases/{$case->case_number}/vault-exhibits") . "\"", false);
         $tableResp->assertSee("View Vault Storage Exhibit Dossier");
+    }
+
+    #[Test]
+    public function all_statuses_filter_hides_vault_storage_container_and_links_to_case_review(): void
+    {
+        $case = ForensicCase::create([
+            'case_number' => 'NACOC-ALL-STAT-002',
+            'title' => 'All Statuses Test Case',
+            'status' => 'Under Investigation',
+            'unit_name' => 'Evidence Management',
+            'holding_facility' => 'NACOC Secure Facility',
+            'docket_data' => [
+                'suspects' => [['suspect_name' => 'John Doe', 'suspect_alias' => 'JD']],
+                'seizures' => [
+                    [
+                        'id' => 991,
+                        'exhibit_number' => 'EX-STAT-001',
+                        'commodity_name' => 'Suspected Cannabis',
+                        'category' => 'Drugs',
+                        'quantity' => '5 kg',
+                        'custodial_status' => 'In Vault Custody',
+                    ]
+                ]
+            ],
+        ]);
+
+        // Request All Statuses (default or status=ALL)
+        $resp = $this->actingAs($this->headUser)->get('/Forensic_Head/cases', [
+            'X-Requested-With' => 'XMLHttpRequest'
+        ]);
+        $resp->assertStatus(200);
+        $resp->assertSee('NACOC-ALL-STAT-002');
+        $resp->assertSee('vault-exhibits-container hidden', false);
+        $resp->assertSee('View Suspect Case File');
+        $resp->assertDontSee('View Vault Storage Exhibit Dossier');
     }
 }

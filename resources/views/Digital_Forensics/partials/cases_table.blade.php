@@ -10,7 +10,6 @@
                                     <th class="py-3.5 px-5">Logged Date</th>
                                     <th class="py-3.5 px-5">Title</th>
                                     <th class="py-3.5 px-5">User Disposition</th>
-                                    <th class="py-3.5 px-5">Status</th>
                                     <th class="py-3.5 px-5 text-right">Actions</th>
                                 </tr>
                             </thead>
@@ -125,16 +124,13 @@
                                             @endforeach
                                         </div>
                                     </td>
-                                    <td class="py-3.5 px-5">
-                                        <span class="px-2.5 py-1 rounded-full text-[10px] font-bold font-mono-code bg-emerald-50 text-emerald-700 border border-emerald-200">{{ $c->status }}</span>
-                                    </td>
                                     <td class="py-3.5 px-5 text-right">
                                         <a href="{{ url('/cases/' . $c->case_number . '/review?from=Digital_Forensics_Register') }}" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg shadow-xs transition-colors">Review Extraction File</a>
                                     </td>
                                 </tr>
                                 @empty
                                 <tr>
-                                    <td colspan="6" class="py-12 text-center text-slate-500 font-mono-code text-xs">
+                                    <td colspan="5" class="py-12 text-center text-slate-500 font-mono-code text-xs">
                                         <div class="flex flex-col items-center justify-center space-y-2">
                                             <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
                                             <p class="font-bold text-slate-700">No digital forensics cases registered yet</p>
@@ -144,7 +140,7 @@
                                 </tr>
                                 @endforelse
                                 <tr id="regNoRecordsRow" class="hidden">
-                                    <td colspan="6" class="py-8 text-center text-slate-400 font-semibold font-mono-code">
+                                    <td colspan="5" class="py-8 text-center text-slate-400 font-semibold font-mono-code">
                                         <div class="space-y-2">
                                             <p>No matching digital forensic cases found.</p>
                                             <button type="button" onclick="resetRegDateFilters()" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 font-bold border border-emerald-200 text-xs transition-colors cursor-pointer">

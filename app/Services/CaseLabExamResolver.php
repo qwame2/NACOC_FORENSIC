@@ -2505,7 +2505,30 @@ class CaseLabExamResolver
             $pctArr
         );
 
+        $caseDocket = is_array($case->docket_data ?? null) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+
+        $resolvedExhNumber = $sDossierLabExam['exhibit_number'] ?? null;
+        if (empty($resolvedExhNumber) || $resolvedExhNumber === 'N/A') {
+            $resolvedExhNumber = $sDossierLabExam['lab_exhibit_no']
+                ?? ($sDossierLabExam['lab_exhibit_number']
+                ?? ($sDossierLabExam['exhibit_no']
+                ?? ($case->lab_exhibit_number
+                ?? ($case->lab_exhibit_no
+                ?? ($caseDocket['lab_examination']['exhibit_number']
+                ?? ($caseDocket['lab_examination']['lab_exhibit_no']
+                ?? ($caseDocket['lab_examination']['lab_exhibit_number'] ?? 'N/A')))))));
+        }
+
+        $resolvedLabNumber = $sDossierLabExam['laboratory_number'] ?? null;
+        if (empty($resolvedLabNumber) || $resolvedLabNumber === 'N/A') {
+            $resolvedLabNumber = $case->laboratory_number
+                ?? ($caseDocket['lab_examination']['laboratory_number']
+                ?? ($caseDocket['laboratory_number'] ?? 'N/A'));
+        }
+
         return array_merge($sDossierLabExam, [
+            'exhibit_number' => $resolvedExhNumber,
+            'laboratory_number' => $resolvedLabNumber,
             'card_has_lab_data' => $hasLabData,
             'card_slug' => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $headingName)),
             'card_exam_reference' => $resolvedExamRef,

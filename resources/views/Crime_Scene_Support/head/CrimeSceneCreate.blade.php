@@ -79,15 +79,27 @@
     <script src="{{ asset('vendor/jquery/jquery.min.js') }}"></script>
     <link href="{{ asset('vendor/select2/select2.min.css') }}" rel="stylesheet" />
     <script src="{{ asset('vendor/select2/select2.min.js') }}"></script>
+    <script src="{{ asset('js/forensic-image-optimizer.js') }}"></script>
 
     <style>
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        html, body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: #F8FAFC;
             color: #0F172A;
         }
+
         .font-mono-code {
-            font-family: 'JetBrains Mono', monospace;
+            font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        }
+
+        body,
+        button,
+        input,
+        select,
+        textarea,
+        .select2-container,
+        .select2-container * {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
         }
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: #F1F5F9; }
@@ -497,10 +509,14 @@
                                                 <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
                                                 <span class="text-[9px] font-mono-code text-slate-400">Full Face Direct View (0&deg;)</span>
                                             </div>
-                                            <div id="actions-front" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                            <div id="actions-front" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="if(!event.target.closest('button')){ triggerMugshotUpload('front'); } event.stopPropagation()">
                                                 <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-front').src, 'Front View (0&deg;) - Suspect #1 Mugshot')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                                     <span>View Full</span>
+                                                </button>
+                                                <button type="button" onclick="triggerMugshotUpload('front'); event.stopPropagation();" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                                    <span>Change</span>
                                                 </button>
                                                 <button type="button" onclick="clearArrestMugshotPhoto('front')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -548,10 +564,14 @@
                                                 <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
                                                 <span class="text-[9px] font-mono-code text-slate-400">90&deg; Full Left Side Profile</span>
                                             </div>
-                                            <div id="actions-left-profile" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                            <div id="actions-left-profile" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="if(!event.target.closest('button')){ triggerMugshotUpload('left-profile'); } event.stopPropagation()">
                                                 <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-left-profile').src, 'Left Profile (90&deg;) - Suspect #1 Mugshot')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                                     <span>View Full</span>
+                                                </button>
+                                                <button type="button" onclick="triggerMugshotUpload('left-profile'); event.stopPropagation();" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                                    <span>Change</span>
                                                 </button>
                                                 <button type="button" onclick="clearArrestMugshotPhoto('left-profile')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -599,10 +619,14 @@
                                                 <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
                                                 <span class="text-[9px] font-mono-code text-slate-400">90&deg; Full Right Side Profile</span>
                                             </div>
-                                            <div id="actions-right-profile" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                                            <div id="actions-right-profile" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="if(!event.target.closest('button')){ triggerMugshotUpload('right-profile'); } event.stopPropagation()">
                                                 <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-right-profile').src, 'Right Profile (90&deg;) - Suspect #1 Mugshot')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                                     <span>View Full</span>
+                                                </button>
+                                                <button type="button" onclick="triggerMugshotUpload('right-profile'); event.stopPropagation();" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                                    <span>Change</span>
                                                 </button>
                                                 <button type="button" onclick="clearArrestMugshotPhoto('right-profile')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
@@ -2825,7 +2849,7 @@
                                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                                             </div>
                                             <span class="text-xs font-extrabold text-slate-800 group-hover:text-black">Click or drag &amp; drop to upload exhibit photos</span>
-                                            <span class="text-[10px] text-slate-500">Select one or multiple PNG, JPG, WEBP evidence photos (up to 15MB each)</span>
+                                            <span class="text-[10px] text-slate-500">Upload 10–15 photos per batch (under 3–5MB each, auto-optimized for fast upload)</span>
                                         </div>
                                     </div>
                                     <input type="file" id="fileSeizurePhoto" accept="image/*" multiple class="fileSeizurePhoto hidden" onchange="previewSeizurePhotos(event, this)">
@@ -3237,12 +3261,16 @@
                                 <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
                                 <span class="text-[9px] font-mono-code text-slate-400">Full Face Direct View (0&deg;)</span>
                             </div>
-                            <div id="actions-front-${mugshotCount}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                            <div id="actions-front-${mugshotCount}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="if(!event.target.closest('button')){ triggerMugshotUpload('front-${mugshotCount}'); } event.stopPropagation()">
                                 <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-front-${mugshotCount}').src, 'Front View (0&deg;) - Suspect #${mugshotCount}')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     <span>View Full</span>
                                 </button>
-                                <button type="button" onclick="clearArrestMugshotPhoto('front-${mugshotCount}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                <button type="button" onclick="triggerMugshotUpload('front-${mugshotCount}'); event.stopPropagation();" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                                    <span>Change</span>
+                                                </button>
+                                                <button type="button" onclick="clearArrestMugshotPhoto('front-${mugshotCount}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     <span>Clear</span>
                                 </button>
@@ -3288,12 +3316,16 @@
                                 <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
                                 <span class="text-[9px] font-mono-code text-slate-400">90&deg; Full Left Side Profile</span>
                             </div>
-                            <div id="actions-left-profile-${mugshotCount}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                            <div id="actions-left-profile-${mugshotCount}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="if(!event.target.closest('button')){ triggerMugshotUpload('left-profile-${mugshotCount}'); } event.stopPropagation()">
                                 <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-left-profile-${mugshotCount}').src, 'Left Profile (90&deg;) - Suspect #${mugshotCount}')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     <span>View Full</span>
                                 </button>
-                                <button type="button" onclick="clearArrestMugshotPhoto('left-profile-${mugshotCount}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                <button type="button" onclick="triggerMugshotUpload('left-profile-${mugshotCount}'); event.stopPropagation();" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                                    <span>Change</span>
+                                                </button>
+                                                <button type="button" onclick="clearArrestMugshotPhoto('left-profile-${mugshotCount}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     <span>Clear</span>
                                 </button>
@@ -3339,12 +3371,16 @@
                                 <span class="text-xs font-bold text-slate-700">Click or Drag &amp; Drop Photo</span>
                                 <span class="text-[9px] font-mono-code text-slate-400">90&deg; Full Right Side Profile</span>
                             </div>
-                            <div id="actions-right-profile-${mugshotCount}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="event.stopPropagation()">
+                            <div id="actions-right-profile-${mugshotCount}" class="absolute inset-0 bg-slate-900/60 backdrop-blur-xs opacity-0 group-hover:opacity-100 flex items-center justify-center space-x-2 transition-opacity duration-200 hidden" onclick="if(!event.target.closest('button')){ triggerMugshotUpload('right-profile-${mugshotCount}'); } event.stopPropagation()">
                                 <button type="button" onclick="openArrestMugshotModal(document.getElementById('preview-right-profile-${mugshotCount}').src, 'Right Profile (90&deg;) - Suspect #${mugshotCount}')" class="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
                                     <span>View Full</span>
                                 </button>
-                                <button type="button" onclick="clearArrestMugshotPhoto('right-profile-${mugshotCount}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                <button type="button" onclick="triggerMugshotUpload('right-profile-${mugshotCount}'); event.stopPropagation();" class="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
+                                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+                                                    <span>Change</span>
+                                                </button>
+                                                <button type="button" onclick="clearArrestMugshotPhoto('right-profile-${mugshotCount}')" class="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white text-[10px] font-bold rounded-xl transition-all shadow-md flex items-center space-x-1 cursor-pointer border-none">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
                                     <span>Clear</span>
                                 </button>
@@ -4018,6 +4054,20 @@
             }
         }
 
+        function cleanMugshotSrc(src) {
+            if (!src || typeof src !== 'string') return null;
+            const s = src.trim();
+            if (!s || s === window.location.href || s.endsWith('#') || s.includes('blank') || s === 'null' || s === 'undefined') return null;
+            if (s.startsWith('data:image/') || s.startsWith('http://') || s.startsWith('https://') || s.startsWith('/storage') || s.startsWith('storage/') || s.startsWith('suspects/') || s.startsWith('blob:')) {
+                return s;
+            }
+            if (/\.(jpg|jpeg|png|webp|gif|bmp)(\?.*)?$/i.test(s)) {
+                return s;
+            }
+            return null;
+        }
+        window.cleanMugshotSrc = cleanMugshotSrc;
+
         /**
          * Collect all suspects from the suspectsContainer.
          * Suspect #1 is read from its known fixed element IDs.
@@ -4348,7 +4398,12 @@
 
         function triggerMugshotUpload(angleKey) {
             const input = document.getElementById(`file-${angleKey}`);
-            if (input) input.click();
+            if (input) {
+                input.disabled = false;
+                input.removeAttribute('disabled');
+                input.style.pointerEvents = 'auto';
+                input.click();
+            }
         }
 
         function previewMugshot(event, angleKey) {
@@ -4357,6 +4412,12 @@
 
         function previewMugshotFileArrest(fileInput, angleKey) {
             if (fileInput.files && fileInput.files[0]) {
+                if (window.ForensicImageOptimizer) {
+                    window.ForensicImageOptimizer.optimizeMugshotFile(fileInput, dataUrl => {
+                        applyArrestMugshotPreview(dataUrl, angleKey);
+                    });
+                    return;
+                }
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     const dataUrl = e.target.result;
@@ -4498,17 +4559,57 @@
             loadSeizurePhotoFiles(files, block);
         }
 
-        function loadSeizurePhotoFiles(files, block, callback) {
+        async function loadSeizurePhotoFiles(files, block, callback) {
             const targetBlock = block || document.querySelector('.seizure-block');
             const photos = getBlockSeizurePhotos(targetBlock);
-            let loadedCount = 0;
 
-            files.forEach(file => {
+            if (window.ForensicImageOptimizer) {
+                await window.ForensicImageOptimizer.loadOptimizedSeizurePhotos(files, targetBlock, photos, () => {
+                    renderSeizureBlockPhotosGrid(targetBlock);
+                    syncGlobalSeizurePhotos();
+                    if (typeof saveDocketFormDraft === 'function') {
+                        saveDocketFormDraft();
+                    }
+                    if (callback) callback();
+                });
+                return;
+            }
+
+            // Standalone Fallback Safeguard (Max 15 photos/batch, under 5MB)
+            let rawFiles = Array.from(files || []).filter(f => f && (!f.type || f.type.startsWith('image/')));
+            const maxAllowed = Math.max(0, 15 - photos.length);
+            if (maxAllowed <= 0) {
+                alert('Each exhibit block can hold up to 15 photos to stay within server limits.');
+                if (callback) callback();
+                return;
+            }
+            if (rawFiles.length > maxAllowed) {
+                alert(`Limiting upload to ${maxAllowed} photo(s) to stay within the 15-photo batch recommendation.`);
+                rawFiles = rawFiles.slice(0, maxAllowed);
+            }
+
+            let loadedCount = 0;
+            if (rawFiles.length === 0) {
+                if (callback) callback();
+                return;
+            }
+
+            rawFiles.forEach(file => {
+                if (file.size > 5 * 1024 * 1024) {
+                    alert(`"${file.name}" exceeds 5 MB. Please select images under 5 MB.`);
+                    loadedCount++;
+                    if (loadedCount === rawFiles.length) {
+                        renderSeizureBlockPhotosGrid(targetBlock);
+                        syncGlobalSeizurePhotos();
+                        if (callback) callback();
+                    }
+                    return;
+                }
                 const reader = new FileReader();
                 reader.onload = function(e) {
                     photos.push(e.target.result);
                     loadedCount++;
-                    if (loadedCount === files.length) {
+                    if (loadedCount === rawFiles.length) {
                         renderSeizureBlockPhotosGrid(targetBlock);
                         syncGlobalSeizurePhotos();
                         if (typeof saveDocketFormDraft === 'function') {

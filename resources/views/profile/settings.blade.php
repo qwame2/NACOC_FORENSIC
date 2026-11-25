@@ -332,7 +332,8 @@
 
                                 </div>
 
-                                <!-- OFFICIAL DIGITAL SIGNATURE & SIGN-OFF AUTHORIZATION SECTION (FULL WIDTH) -->
+                                @if(!empty($authUser->is_head))
+                                {{-- OFFICIAL DIGITAL SIGNATURE & SIGN-OFF AUTHORIZATION SECTION (FULL WIDTH - UNIT HEADS ONLY) --}}
                                 <div class="pt-6 border-t border-slate-200/80">
                                         <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 border-b border-slate-100 gap-3 mb-5">
                                             <div class="flex items-center space-x-3.5">
@@ -530,6 +531,7 @@
 
                                         </div>
                                     </div>
+                                @endif
 
                                     <!-- SUBMIT BUTTON -->
                                 <div class="pt-4 border-t border-slate-100 flex items-center justify-between">
@@ -719,10 +721,12 @@
 
     </div>
 
+    @if(!empty($authUser->is_head))
     <form id="removeSignatureForm" action="{{ route('profile.signature.remove') }}" method="POST" class="hidden">
         @csrf
         @method('DELETE')
     </form>
+    @endif
 
     <!-- CLIENT INTERACTIVITY JAVASCRIPT -->
     <script>
@@ -747,8 +751,9 @@
             }
         }
 
+        @if(!empty($authUser->is_head))
         // ==========================================
-        // OFFICIAL SIGNATURE PAD & UPLOAD CONTROLS
+        // OFFICIAL SIGNATURE PAD & UPLOAD CONTROLS (UNIT HEADS ONLY)
         // ==========================================
         let sigCanvas = null;
         let sigCtx = null;
@@ -992,6 +997,7 @@
                 }
             }
         }
+        @endif
 
         // Toggle Password Show / Hide
         function togglePasswordVisibility(inputId, btn) {

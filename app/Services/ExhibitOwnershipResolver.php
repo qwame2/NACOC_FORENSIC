@@ -404,6 +404,25 @@ class ExhibitOwnershipResolver
                     'disposition_updated_by' => $case->disposition_updated_by ?? ($case->underlyingRecord->disposition_updated_by ?? null),
                 ],
             ];
+        } else {
+            if (empty($suspectsList[0]['mugshot_front'])) {
+                $suspectsList[0]['mugshot_front'] = $suspectsList[0]['photo']
+                    ?? ($suspectsList[0]['mugshots']['front']
+                    ?? ($case->mugshot_front
+                    ?? ($case->photo
+                    ?? ($docketData['mugshot_front']
+                    ?? ($docketData['photo'] ?? null)))));
+            }
+            if (empty($suspectsList[0]['mugshot_left'])) {
+                $suspectsList[0]['mugshot_left'] = $suspectsList[0]['mugshots']['left']
+                    ?? ($case->mugshot_left
+                    ?? ($docketData['mugshot_left'] ?? null));
+            }
+            if (empty($suspectsList[0]['mugshot_right'])) {
+                $suspectsList[0]['mugshot_right'] = $suspectsList[0]['mugshots']['right']
+                    ?? ($case->mugshot_right
+                    ?? ($docketData['mugshot_right'] ?? null));
+            }
         }
 
         $primarySuspectNamesList = [];

@@ -45,9 +45,10 @@
                                 : ($sItem->suspect_name ?? ('Suspect #' . ($sIdx + 1)));
                             $sNameKey = strtolower(trim((string) $sName));
 
-                            $sPhoto = is_array($sItem)
-                                ? ($sItem['resolved_view']['sFront'] ?? ($sItem['mugshot_front'] ?? null))
-                                : ($sItem->mugshot_front ?? null);
+                            $rawCandidate = is_array($sItem)
+                                ? ($sItem['resolved_view']['sFront'] ?? ($sItem['mugshot_front'] ?? ($sItem['photo'] ?? ($sItem['mugshots']['front'] ?? null))))
+                                : ($sItem->mugshot_front ?? ($sItem->photo ?? null));
+                            $sPhoto = \App\Services\CasePhotoResolver::resolveMugshotUrl($rawCandidate);
 
                             if (!empty($sNameKey) && !empty($sPhoto)) {
                                 $suspectMugshotMap[$sNameKey] = $sPhoto;
@@ -61,7 +62,8 @@
                             }
                         }
 
-                        $caseTopFront = $case->mugshot_front ?? ($case->docket_data['mugshot_front'] ?? null);
+                        $rawTopFront = $case->mugshot_front ?? ($case->photo ?? ($case->docket_data['mugshot_front'] ?? ($case->docket_data['photo'] ?? null)));
+                        $caseTopFront = \App\Services\CasePhotoResolver::resolveMugshotUrl($rawTopFront);
                         $casePrimName = strtolower(trim((string) ($case->suspect_name ?? ($case->docket_data['suspect_name'] ?? ''))));
                         if (!empty($casePrimName) && !empty($caseTopFront) && empty($suspectMugshotMap[$casePrimName])) {
                             $suspectMugshotMap[$casePrimName] = $caseTopFront;
@@ -187,7 +189,7 @@
                                                                         class="{{ count($rowMugshots) > 1 ? 'h-11 w-11' : 'h-12 w-12' }} object-cover rounded-lg border border-slate-200 shadow-xs cursor-pointer hover:scale-105 transition-transform"
                                                                         title="{{ $mShot['name'] }} (Front Mugshot)"
                                                                         onclick="if (typeof openMugshotModal === 'function') { openMugshotModal(this.getAttribute('data-img-src'), this.getAttribute('data-img-title')); } else if (typeof openImageLightbox === 'function') { openImageLightbox(this.getAttribute('data-img-src'), this.getAttribute('data-img-title')); }"
-                                                                        onerror="if(!this.dataset.triedStorage && !this.src.startsWith('data:')){this.dataset.triedStorage=1; this.src='{{ asset('storage/') }}/' + this.src.split('/').pop();}" />
+                                                                        onerror="if(!this.dataset.triedStorage && !this.src.startsWith('data:')){this.dataset.triedStorage=1; var cleanPath=(this.getAttribute('data-img-src')||'').replace(/^\/+/, ''); if(!cleanPath.startsWith('http') && !cleanPath.startsWith('storage/')){this.src='{{ asset('storage') }}/' + cleanPath; return;} } this.style.display='none';" />
                                                                 </div>
                                                             @endif
                                                         @endforeach

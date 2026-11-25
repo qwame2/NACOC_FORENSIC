@@ -167,9 +167,10 @@ class DigitalForensicDirectoryTest extends TestCase
 
         $response->assertStatus(200);
 
-        // Verify Title column header is present and separate Suspect column is removed
+        // Verify Title column header is present and separate Suspect and Status columns are removed
         $response->assertSee('<th class="py-3.5 px-5">Title</th>', false);
         $response->assertDontSee('<th class="py-3.5 px-5">Suspect</th>', false);
+        $response->assertDontSee('<th class="py-3.5 px-5">Status</th>', false);
 
         // Verify Suspect Name & Alias
         $response->assertSee('Michael Essien');

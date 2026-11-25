@@ -1,11 +1,14 @@
 @php
     $photoResolver = app(\App\Services\CasePhotoResolver::class);
-    $frontPic = null;
-    if (!empty($case->mugshot_front)) {
-        $frontPic = $photoResolver->formatPhotoUrl($case->mugshot_front);
-    } elseif (!empty($case->photo)) {
-        $frontPic = $photoResolver->formatPhotoUrl($case->photo);
-    }
+    $dDataVault = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+    $rawMugCandidate = $case->mugshot_front
+        ?? ($case->photo
+        ?? ($dDataVault['mugshot_front']
+        ?? ($dDataVault['photo']
+        ?? ($dDataVault['mugshots']['front']
+        ?? ($dDataVault['suspects'][0]['mugshot_front']
+        ?? ($dDataVault['suspects'][0]['photo'] ?? null))))));
+    $frontPic = $photoResolver->formatMugshotUrl($rawMugCandidate);
     $suspectDisplayName = $case->suspect_name ?: 'Unassigned Target';
     $suspectAlias = $case->suspect_alias ?: 'N/A';
     $suspectDisp = $case->suspect_disposition ?: ($case->status ?? 'Under Investigation');
@@ -432,6 +435,20 @@
                     $hasWeapon = !empty($ex['weapon']) && is_array($ex['weapon']);
                     $hasVehicle = !empty($ex['vehicle']) && is_array($ex['vehicle']);
                     $hasDevice = !empty($ex['device']) && is_array($ex['device']);
+                    $exInvOff = !empty($ex['investigating_officer']) && $ex['investigating_officer'] !== 'N/A'
+                        ? $ex['investigating_officer']
+                        : (!empty($ex['investigation_officer']) && $ex['investigation_officer'] !== 'N/A'
+                            ? $ex['investigation_officer']
+                            : null);
+                    if (empty($exInvOff) && !empty($ex['id'])) {
+                        try { $exInvOff = \App\Models\Exhibit::where('id', $ex['id'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                    }
+                    if (empty($exInvOff) && !empty($ex['exhibit_number'])) {
+                        try { $exInvOff = \App\Models\Exhibit::where('exhibit_number', $ex['exhibit_number'])->value('investigating_officer'); } catch (\Throwable $e) {}
+                    }
+                    if (empty($exInvOff)) {
+                        $exInvOff = $case->investigating_officer ?? null;
+                    }
                 @endphp
 
                 <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden space-y-0 transition-all hover:border-slate-300">
@@ -504,7 +521,7 @@
                                 </div>
                                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
                                     <div class="text-[10px] text-slate-400 uppercase font-bold">Investigating Officer</div>
-                                    <div class="text-slate-800 font-bold mt-0.5 truncate">{{ $ex['investigating_officer'] ?? ($case->submitting_officer ?: 'N/A') }}</div>
+                                    <div class="text-slate-800 font-bold mt-0.5 truncate">{{ $exInvOff ?: ($ex['investigating_officer'] ?? ($case->submitting_officer ?: 'N/A')) }}</div>
                                 </div>
                                 <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80">
                                     <div class="text-[10px] text-slate-400 uppercase font-bold">Source Requesting Unit</div>
@@ -998,7 +1015,7 @@
                                         <div><span class="text-slate-500 uppercase text-[11px] font-black">Seizure Date:</span> <strong class="text-slate-950 text-sm font-mono-code block break-words">{{ $ex['seizure_date'] ?? ($ex['date'] ?? 'N/A') }}</strong></div>
                                         <div><span class="text-slate-500 uppercase text-[11px] font-black">Location:</span> <strong class="text-slate-950 text-sm block break-words">{{ $ex['seizure_location'] ?? ($ex['location'] ?? $raidLoc) }}</strong></div>
                                         <div><span class="text-slate-500 uppercase text-[11px] font-black">Seizing Officer:</span> <strong class="text-slate-950 text-sm block break-words">{{ $ex['seizure_officer'] ?? ($ex['officer'] ?? 'Assigned Officer') }}</strong></div>
-                                        <div><span class="text-slate-500 uppercase text-[11px] font-black">Investigating Officer:</span> <strong class="text-slate-950 text-sm block break-words">{{ $ex['investigating_officer'] ?? 'N/A' }}</strong></div>
+                                        <div><span class="text-slate-500 uppercase text-[11px] font-black">Investigating Officer:</span> <strong class="text-slate-950 text-sm block break-words">{{ $exInvOff ?: ($ex['investigating_officer'] ?? 'N/A') }}</strong></div>
                                         <div><span class="text-slate-500 uppercase text-[11px] font-black">Requesting Unit:</span> <strong class="text-slate-950 text-sm block break-words">{{ $ex['requesting_unit'] ?? $unitDisplay }}</strong></div>
                                         <div><span class="text-slate-500 uppercase text-[11px] font-black">Seizure Reason:</span> <strong class="text-slate-950 text-sm block break-words">{{ $ex['seizure_reason'] ?? 'Suspected Controlled Commodity' }}</strong></div>
                                     </div>

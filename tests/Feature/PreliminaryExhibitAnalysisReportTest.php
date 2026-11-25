@@ -871,5 +871,66 @@ class PreliminaryExhibitAnalysisReportTest extends TestCase
         $this->assertStringNotContainsString('Methamphetamine detected', $html);
         $this->assertStringContainsString('Unspecified', $html);
     }
+
+    #[Test]
+    public function remarks_specific_remarks_and_disposition_section_renders_responsive_classes_and_multiline_content(): void
+    {
+        $officer = $this->createLabOfficer();
+
+        $case = SingleSuspectCase::create([
+            'case_number' => 'NCC-2026-RESPONSIVE-REM',
+            'title' => 'State vs Kwesi Responsive',
+            'unit_name' => 'Lab Analysis',
+            'suspect_name' => 'Kwesi Responsive',
+        ]);
+
+        $exhibit = Exhibit::create([
+            'case_type' => 'SINGLE',
+            'single_suspect_case_id' => $case->id,
+            'associated_person' => 'Kwesi Responsive',
+            'exhibit_category' => 'Drugs',
+            'commodity_name' => 'White Powder Slabs',
+            'lab_exhibit_no' => 'RESP-01',
+            'source_of_exhibits' => 'Kotoka International Airport',
+        ]);
+
+        LaboratoryExaminationResult::create([
+            'case_type' => 'SINGLE',
+            'single_suspect_case_id' => $case->id,
+            'exhibit_id' => $exhibit->id,
+            'exam_reference' => 'NACOC/FSD/LAU/RESP/2026',
+            'remark' => "Line 1: Evidence received intact.\nLine 2: Chemical spot tests verified.",
+            'specifications' => "Standard specifications compliant with ISO/IEC 17025 protocols.",
+            'disposition_of_exhibit' => "Transferred to central laboratory cold storage vault under custody receipt.",
+            'has_saved' => true,
+        ]);
+
+        $html = $this->actingAs($officer)
+            ->get('/Lab_Analysis/preliminary-report-pdf/' . $case->case_number)
+            ->assertOk()
+            ->getContent();
+
+        // Responsive container & item classes
+        $this->assertStringContainsString('doc-remarks-section', $html);
+        $this->assertStringContainsString('doc-remark-item', $html);
+        $this->assertStringContainsString('doc-remark-title', $html);
+        $this->assertStringContainsString('doc-remark-body', $html);
+
+        // Responsive CSS properties for word wrapping & overflow prevention
+        $this->assertStringContainsString('word-break: break-word', $html);
+        $this->assertStringContainsString('overflow-wrap: break-word', $html);
+        $this->assertStringContainsString('white-space: pre-wrap', $html);
+
+        // Section titles
+        $this->assertStringContainsString('REMARKS', $html);
+        $this->assertStringContainsString('Specific Remarks', $html);
+        $this->assertStringContainsString('DISPOSITION OF EXHIBIT(S)', $html);
+
+        // Content verification with line break handling
+        $this->assertStringContainsString('Evidence received intact.', $html);
+        $this->assertStringContainsString('Chemical spot tests verified.', $html);
+        $this->assertStringContainsString('ISO/IEC 17025', $html);
+        $this->assertStringContainsString('Transferred to central laboratory cold storage vault', $html);
+    }
 }
 
