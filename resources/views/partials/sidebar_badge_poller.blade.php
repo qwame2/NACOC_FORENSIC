@@ -2,12 +2,16 @@
     Partial: partials/sidebar_badge_poller.blade.php
     Description: Real-time, instant background sync for aside bar badge counts (Notifications, Reviews & Approvals, Field Officers) without refreshing the page.
 --}}
+@php
+    $badgeCountsEndpoint = parse_url(url('/api/sidebar/badge-counts'), PHP_URL_PATH) ?: '/api/sidebar/badge-counts';
+@endphp
 <script>
 (function() {
     if (window.__nacocSidebarBadgePollerInitialized) return;
     window.__nacocSidebarBadgePollerInitialized = true;
 
     const currentUnit = @json($sidebarUnit ?? (auth()->user()?->unit ?? ''));
+    const badgeEndpointBase = @json($badgeCountsEndpoint);
 
     function updateBadgeElement(elId, count) {
         const badges = document.querySelectorAll('#' + elId);
@@ -31,7 +35,7 @@
         if (isFetching) return;
         isFetching = true;
         try {
-            const url = '/api/sidebar/badge-counts' + (currentUnit ? ('?unit=' + encodeURIComponent(currentUnit)) : '');
+            const url = badgeEndpointBase + (currentUnit ? ('?unit=' + encodeURIComponent(currentUnit)) : '');
             const resp = await fetch(url, {
                 headers: {
                     'Accept': 'application/json',
@@ -134,9 +138,9 @@
 
     // 5. Intercept all mutating fetch requests (POST/PUT/DELETE) so badges refresh immediately when a request is sent
     if (typeof window.fetch === 'function') {
-        const originalFetch = window.fetch;
+        const originalFetch = window.fetch.bind(window);
         window.fetch = async function(...args) {
-            const response = await originalFetch.apply(this, args);
+            const response = await originalFetch(...args);
             try {
                 const method = (args[1] && args[1].method) ? String(args[1].method).toUpperCase() : 'GET';
                 const url = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');

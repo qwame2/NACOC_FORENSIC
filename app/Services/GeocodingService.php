@@ -69,6 +69,22 @@ class GeocodingService
         'adenta'                    => ['lat' => 5.7153, 'lng' => -0.1633, 'region' => 'Greater Accra', 'type' => 'Municipality'],
         'haatso'                    => ['lat' => 5.6740, 'lng' => -0.1980, 'region' => 'Greater Accra', 'type' => 'Urban District'],
         'abeka'                     => ['lat' => 5.5960, 'lng' => -0.2410, 'region' => 'Greater Accra', 'type' => 'Commercial Zone'],
+        'oyarifa'                   => ['lat' => 5.7714, 'lng' => -0.1806, 'region' => 'Greater Accra', 'type' => 'Urban Town'],
+        'abokobi'                   => ['lat' => 5.7361, 'lng' => -0.1989, 'region' => 'Greater Accra', 'type' => 'District Capital'],
+        'kwabenya'                  => ['lat' => 5.6914, 'lng' => -0.2411, 'region' => 'Greater Accra', 'type' => 'Urban District'],
+        'pokuase'                   => ['lat' => 5.6881, 'lng' => -0.2892, 'region' => 'Greater Accra', 'type' => 'Interchange & Town'],
+        'sakumono'                  => ['lat' => 5.6228, 'lng' => -0.0569, 'region' => 'Greater Accra', 'type' => 'Coastal Estate'],
+        'lashibi'                   => ['lat' => 5.6472, 'lng' => -0.0686, 'region' => 'Greater Accra', 'type' => 'Residential District'],
+        'dzorwulu'                  => ['lat' => 5.6119, 'lng' => -0.2031, 'region' => 'Greater Accra', 'type' => 'Sub-Metro District'],
+        'airport residential'       => ['lat' => 5.6058, 'lng' => -0.1819, 'region' => 'Greater Accra', 'type' => 'Residential Zone'],
+        'labone'                    => ['lat' => 5.5697, 'lng' => -0.1708, 'region' => 'Greater Accra', 'type' => 'Sub-Metro District'],
+        'tesano'                    => ['lat' => 5.6056, 'lng' => -0.2308, 'region' => 'Greater Accra', 'type' => 'Urban District'],
+        'odorkor'                   => ['lat' => 5.5794, 'lng' => -0.2708, 'region' => 'Greater Accra', 'type' => 'Commercial Corridor'],
+        'mallam'                    => ['lat' => 5.5719, 'lng' => -0.2897, 'region' => 'Greater Accra', 'type' => 'Transit Junction'],
+        'gbawe'                     => ['lat' => 5.5778, 'lng' => -0.3114, 'region' => 'Greater Accra', 'type' => 'Residential District'],
+        'dawhenya'                  => ['lat' => 5.7689, 'lng' => 0.0539,  'region' => 'Greater Accra', 'type' => 'Highway Town'],
+        'afienya'                   => ['lat' => 5.7989, 'lng' => 0.0028,  'region' => 'Greater Accra', 'type' => 'Transit Town'],
+        'oyibi'                     => ['lat' => 5.8147, 'lng' => -0.1197, 'region' => 'Greater Accra', 'type' => 'Suburban Town'],
 
         // Ashanti
         'kumasi'                    => ['lat' => 6.6885, 'lng' => -1.6244, 'region' => 'Ashanti',       'type' => 'Metropolitan Capital'],
@@ -181,13 +197,32 @@ class GeocodingService
     public function search(string $query): array
     {
         $cleanQuery = trim($query);
-        if (mb_strlen($cleanQuery) < 2) {
+        $len = function_exists('mb_strlen') ? mb_strlen($cleanQuery) : strlen($cleanQuery);
+        if ($len < 2) {
             return [];
         }
 
-        $normalized = mb_strtolower($cleanQuery);
+        $normalized = function_exists('mb_strtolower') ? mb_strtolower($cleanQuery) : strtolower($cleanQuery);
         $results = [];
         $seenCoords = [];
+
+        // 0. Direct raw coordinate input support (e.g. "5.6037, -0.1870")
+        if (preg_match('/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/', $cleanQuery, $coordMatches)) {
+            $lat = (float) $coordMatches[1];
+            $lng = (float) $coordMatches[2];
+            if ($lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180) {
+                $rev = $this->findNearestGazetteerPoint($lat, $lng);
+                return [[
+                    'name'         => $rev['name'],
+                    'display_name' => $rev['display_name'],
+                    'latitude'     => $lat,
+                    'longitude'    => $lng,
+                    'region'       => $rev['region'],
+                    'type'         => 'GPS Coordinates',
+                    'source'       => 'Direct Coordinates',
+                ]];
+            }
+        }
 
         // 1. Check local gazetteer for exact or high-confidence substring matches first
         $localMatches = $this->searchLocalGazetteer($normalized);
@@ -210,7 +245,8 @@ class GeocodingService
         // 3. Fallback to Region centroids if still empty
         if (empty($results)) {
             foreach (self::REGION_CENTROIDS as $regName => $coords) {
-                if (str_contains($normalized, mb_strtolower($regName))) {
+                $regLower = function_exists('mb_strtolower') ? mb_strtolower($regName) : strtolower($regName);
+                if (str_contains($normalized, $regLower)) {
                     $results[] = [
                         'name'         => $regName . ' Region',
                         'display_name' => $regName . ' Region, Ghana',
@@ -237,43 +273,57 @@ class GeocodingService
      */
     public function reverse(float $lat, float $lng): array
     {
-        // 1. Try Nominatim reverse lookup
+        // 1. Try Nominatim reverse lookup (IPv4 + fast connect timeout + circuit breaker for firewalled hosts)
+        $skipNominatim = false;
         try {
-            $response = Http::withHeaders([
-                'User-Agent' => 'NACOC-Forensics-Incident-Locator/1.0 (contact: operations@nacoc.gov.gh)',
-                'Accept'     => 'application/json',
-            ])->timeout(3.5)->get('https://nominatim.openstreetmap.org/reverse', [
-                'format'         => 'json',
-                'lat'            => $lat,
-                'lon'            => $lng,
-                'zoom'           => 18,
-                'addressdetails' => 1,
-            ]);
+            $skipNominatim = (bool) \Illuminate\Support\Facades\Cache::get('nacoc_nominatim_unreachable', false);
+        } catch (\Throwable $e) {}
 
-            if ($response->successful()) {
-                $data = $response->json();
-                if (!empty($data) && !empty($data['display_name'])) {
-                    $addr = $data['address'] ?? [];
-                    $shortParts = [];
-                    foreach (['road', 'suburb', 'neighbourhood', 'town', 'city', 'county', 'state'] as $f) {
-                        if (!empty($addr[$f]) && !in_array($addr[$f], $shortParts, true)) {
-                            $shortParts[] = $addr[$f];
+        if (!$skipNominatim) {
+            try {
+                $response = Http::withHeaders([
+                    'User-Agent' => 'NACOC-Forensics-Incident-Locator/1.0 (contact: operations@nacoc.gov.gh)',
+                    'Accept'     => 'application/json',
+                ])
+                    ->connectTimeout(1.5)
+                    ->timeout(2.5)
+                    ->withOptions(['force_ip_resolve' => 'v4'])
+                    ->get('https://nominatim.openstreetmap.org/reverse', [
+                        'format'         => 'json',
+                        'lat'            => $lat,
+                        'lon'            => $lng,
+                        'zoom'           => 18,
+                        'addressdetails' => 1,
+                    ]);
+
+                if ($response->successful()) {
+                    $data = $response->json();
+                    if (!empty($data) && !empty($data['display_name'])) {
+                        $addr = $data['address'] ?? [];
+                        $shortParts = [];
+                        foreach (['road', 'suburb', 'neighbourhood', 'town', 'city', 'county', 'state'] as $f) {
+                            if (!empty($addr[$f]) && !in_array($addr[$f], $shortParts, true)) {
+                                $shortParts[] = $addr[$f];
+                            }
                         }
-                    }
-                    $shortName = !empty($shortParts) ? implode(', ', array_slice($shortParts, 0, 3)) : ($data['name'] ?? 'Pinpoint Location');
+                        $shortName = !empty($shortParts) ? implode(', ', array_slice($shortParts, 0, 3)) : ($data['name'] ?? 'Pinpoint Location');
 
-                    return [
-                        'name'         => $shortName,
-                        'display_name' => $data['display_name'],
-                        'latitude'     => (float) $data['lat'],
-                        'longitude'    => (float) $data['lon'],
-                        'region'       => $addr['state'] ?? null,
-                        'source'       => 'OpenStreetMap Nominatim',
-                    ];
+                        return [
+                            'name'         => $shortName,
+                            'display_name' => $data['display_name'],
+                            'latitude'     => (float) $data['lat'],
+                            'longitude'    => (float) $data['lon'],
+                            'region'       => $addr['state'] ?? null,
+                            'source'       => 'OpenStreetMap Nominatim',
+                        ];
+                    }
                 }
+            } catch (\Throwable $e) {
+                try {
+                    \Illuminate\Support\Facades\Cache::put('nacoc_nominatim_unreachable', true, now()->addMinutes(10));
+                } catch (\Throwable $ce) {}
+                Log::info('Geocoding reverse live lookup error: ' . $e->getMessage());
             }
-        } catch (\Throwable $e) {
-            Log::info('Geocoding reverse live lookup error: ' . $e->getMessage());
         }
 
         // 2. Fallback to nearest gazetteer point using real Haversine formula
@@ -307,8 +357,8 @@ class GeocodingService
 
         // Sort by match closeness
         usort($matches, function ($a, $b) use ($query) {
-            $aName = mb_strtolower($a['name']);
-            $bName = mb_strtolower($b['name']);
+            $aName = function_exists('mb_strtolower') ? mb_strtolower($a['name']) : strtolower($a['name']);
+            $bName = function_exists('mb_strtolower') ? mb_strtolower($b['name']) : strtolower($b['name']);
             if ($aName === $query) return -1;
             if ($bName === $query) return 1;
             return strlen($aName) <=> strlen($bName);
@@ -325,17 +375,34 @@ class GeocodingService
      */
     private function queryNominatimLive(string $query): array
     {
+        $cacheKey = 'nacoc_geocode_gh_' . md5(strtolower(trim($query)));
+        try {
+            if (\Illuminate\Support\Facades\Cache::get('nacoc_nominatim_unreachable', false)) {
+                return [];
+            }
+            $cached = \Illuminate\Support\Facades\Cache::get($cacheKey);
+            if (is_array($cached)) {
+                return $cached;
+            }
+        } catch (\Throwable $e) {
+            // Proceed without cache if cache store is unavailable
+        }
+
         try {
             $response = Http::withHeaders([
                 'User-Agent' => 'NACOC-Forensics-Incident-Locator/1.0 (contact: operations@nacoc.gov.gh)',
                 'Accept'     => 'application/json',
-            ])->timeout(4.0)->get('https://nominatim.openstreetmap.org/search', [
-                'format'         => 'json',
-                'q'              => $query,
-                'countrycodes'   => 'gh',
-                'addressdetails' => 1,
-                'limit'          => 6,
-            ]);
+            ])
+                ->connectTimeout(1.5)
+                ->timeout(2.5)
+                ->withOptions(['force_ip_resolve' => 'v4'])
+                ->get('https://nominatim.openstreetmap.org/search', [
+                    'format'         => 'json',
+                    'q'              => $query,
+                    'countrycodes'   => 'gh',
+                    'addressdetails' => 1,
+                    'limit'          => 6,
+                ]);
 
             if (!$response->successful()) {
                 return [];
@@ -367,8 +434,17 @@ class GeocodingService
                 ];
             }
 
+            if (!empty($results)) {
+                try {
+                    \Illuminate\Support\Facades\Cache::put($cacheKey, $results, now()->addHours(24));
+                } catch (\Throwable $e) {}
+            }
+
             return $results;
         } catch (\Throwable $e) {
+            try {
+                \Illuminate\Support\Facades\Cache::put('nacoc_nominatim_unreachable', true, now()->addMinutes(10));
+            } catch (\Throwable $ce) {}
             Log::info('Geocoding live search error: ' . $e->getMessage());
             return [];
         }

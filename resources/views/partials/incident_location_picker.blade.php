@@ -57,9 +57,18 @@
     }
 </style>
 
+@php
+    $geocodeEndpointPath = parse_url(url('/api/geocode'), PHP_URL_PATH) ?: '/api/geocode';
+    $embeddedGhanaGazetteer = \App\Services\GeocodingService::GHANA_GAZETTEER;
+    $embeddedRegionCentroids = \App\Services\GeocodingService::REGION_CENTROIDS;
+@endphp
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     (function () {
+        const GEOCODE_ENDPOINT = @json($geocodeEndpointPath);
+        const LOCAL_GAZETTEER = @json($embeddedGhanaGazetteer);
+        const LOCAL_REGIONS = @json($embeddedRegionCentroids);
+
         // Elements
         const raidInput = document.getElementById('newArrestedRaidLocation');
         const latInput  = document.getElementById('incidentLatitude');
@@ -139,7 +148,139 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         }
 
-        // Search Geocoding Query via backend GeocodingService
+        // Zero-network instant offline gazetteer lookup so Ghana towns/districts pinpoint even if server/network fails
+        function searchEmbeddedGazetteer(rawQuery) {
+            const q = (rawQuery || '').trim().toLowerCase();
+            if (q.length < 2) return [];
+
+            const coordMatch = q.match(/^\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*$/);
+            if (coordMatch) {
+                const lat = parseFloat(coordMatch[1]);
+                const lng = parseFloat(coordMatch[2]);
+                if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                    return [{
+                        name: `${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+                        display_name: `Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)}), Ghana`,
+                        latitude: lat,
+                        longitude: lng,
+                        type: 'GPS Coordinates',
+                        source: 'Direct Coordinates'
+                    }];
+                }
+            }
+
+            const matches = [];
+            if (LOCAL_GAZETTEER && typeof LOCAL_GAZETTEER === 'object') {
+                Object.entries(LOCAL_GAZETTEER).forEach(([key, info]) => {
+                    if (q.includes(key) || key.includes(q)) {
+                        const titleName = key.replace(/\b\w/g, c => c.toUpperCase());
+                        matches.push({
+                            name: titleName,
+                            display_name: `${titleName}, ${info.region} Region, Ghana`,
+                            latitude: info.lat,
+                            longitude: info.lng,
+                            type: info.type || 'Town',
+                            source: 'Ghana Official Gazetteer',
+                            _exact: key === q ? 0 : 1,
+                            _len: key.length
+                        });
+                    }
+                });
+            }
+
+            matches.sort((a, b) => (a._exact - b._exact) || (b._len - a._len));
+
+            if (matches.length === 0 && LOCAL_REGIONS && typeof LOCAL_REGIONS === 'object') {
+                Object.entries(LOCAL_REGIONS).forEach(([regName, coords]) => {
+                    if (q.includes(regName.toLowerCase())) {
+                        matches.push({
+                            name: `${regName} Region`,
+                            display_name: `${regName} Region, Ghana`,
+                            latitude: coords[0],
+                            longitude: coords[1],
+                            type: 'Administrative Region',
+                            source: 'Ghana Gazetteer'
+                        });
+                    }
+                });
+            }
+
+            return matches.slice(0, 6);
+        }
+
+        function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+            if (typeof AbortController === 'undefined') {
+                return fetch(url, options);
+            }
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            return fetch(url, Object.assign({}, options, { signal: controller.signal }))
+                .finally(() => clearTimeout(timer));
+        }
+
+        // Browser-side fallback when hosted server sits behind a firewall, subdirectory rewrite issue, or Nominatim datacenter IP block
+        async function fetchClientNominatimFallback(trimmed) {
+            try {
+                const osmUrl = `https://nominatim.openstreetmap.org/search?format=json&countrycodes=gh&addressdetails=1&limit=6&q=${encodeURIComponent(trimmed)}`;
+                const osmRes = await fetchWithTimeout(osmUrl, {
+                    headers: { 'Accept': 'application/json' }
+                }, 3500);
+                if (!osmRes.ok) return [];
+                const rawList = await osmRes.json();
+                if (!Array.isArray(rawList)) return [];
+
+                return rawList
+                    .filter(item => item && item.lat !== undefined && item.lon !== undefined)
+                    .map(item => {
+                        const addr = item.address || {};
+                        const shortName = item.name || addr.road || addr.suburb || addr.town || addr.city || trimmed;
+                        return {
+                            name: shortName,
+                            display_name: item.display_name || shortName,
+                            latitude: parseFloat(item.lat),
+                            longitude: parseFloat(item.lon),
+                            type: (item.type || 'Location').replace(/_/g, ' '),
+                            source: 'Live Geocoded'
+                        };
+                    });
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function renderSuggestionList(list) {
+            if (!suggestDropdown) return;
+            if (!list || list.length === 0) {
+                suggestDropdown.classList.add('hidden');
+                return;
+            }
+            suggestDropdown.innerHTML = '';
+            list.forEach((item) => {
+                const row = document.createElement('div');
+                row.className = 'incident-geocode-item flex items-start justify-between gap-2';
+                row.innerHTML = `
+                    <div>
+                        <div class="text-xs font-bold text-slate-800">${item.name}</div>
+                        <div class="text-[10px] text-slate-500 leading-tight">${item.display_name}</div>
+                    </div>
+                    <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0 uppercase tracking-wide">
+                        ${item.type || 'Town'}
+                    </span>
+                `;
+                row.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    isProgrammaticInput = true;
+                    if (raidInput) raidInput.value = item.name;
+                    isProgrammaticInput = false;
+                    suggestDropdown.classList.add('hidden');
+                    setCoordinates(item.latitude, item.longitude, item.name, item.source || 'Live Geocoded');
+                });
+                suggestDropdown.appendChild(row);
+            });
+            suggestDropdown.classList.remove('hidden');
+        }
+
+        // Search Geocoding Query via embedded gazetteer + backend GeocodingService + client-side fallback
         async function performGeocode(query, autoSelectTop = false) {
             const trimmed = query ? query.trim() : '';
             if (trimmed.length < 2) {
@@ -152,53 +293,46 @@ document.addEventListener('DOMContentLoaded', function () {
             }
             lastGeocodedQuery = trimmed;
 
-            try {
-                const res = await fetch(`/api/geocode?q=${encodeURIComponent(trimmed)}`);
-                if (!res.ok) return;
-                const json = await res.json();
-                const list = (json && json.data) ? json.data : [];
-
-                if (list.length === 0) {
-                    if (suggestDropdown) suggestDropdown.classList.add('hidden');
-                    return;
-                }
-
-                // Render Suggestions Dropdown
-                if (suggestDropdown) {
-                    suggestDropdown.innerHTML = '';
-                    list.forEach((item) => {
-                        const row = document.createElement('div');
-                        row.className = 'incident-geocode-item flex items-start justify-between gap-2';
-                        row.innerHTML = `
-                            <div>
-                                <div class="text-xs font-bold text-slate-800">${item.name}</div>
-                                <div class="text-[10px] text-slate-500 leading-tight">${item.display_name}</div>
-                            </div>
-                            <span class="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 shrink-0 uppercase tracking-wide">
-                                ${item.type || 'Town'}
-                            </span>
-                        `;
-                        row.addEventListener('click', function (e) {
-                            e.stopPropagation();
-                            isProgrammaticInput = true;
-                            if (raidInput) raidInput.value = item.name;
-                            isProgrammaticInput = false;
-                            suggestDropdown.classList.add('hidden');
-                            setCoordinates(item.latitude, item.longitude, item.name, item.source || 'Live Geocoded');
-                        });
-                        suggestDropdown.appendChild(row);
-                    });
-                    suggestDropdown.classList.remove('hidden');
-                }
-
-                // Auto-pinpoint top match
-                if (list.length > 0) {
-                    const top = list[0];
-                    setCoordinates(top.latitude, top.longitude, top.name, top.source || 'Live Geocoded');
-                }
-            } catch (err) {
-                console.warn('Geocoding search error:', err);
+            // 1. Instant zero-network match from embedded Ghana gazetteer
+            const instantMatches = searchEmbeddedGazetteer(trimmed);
+            if (instantMatches.length > 0) {
+                renderSuggestionList(instantMatches);
+                const topInstant = instantMatches[0];
+                setCoordinates(topInstant.latitude, topInstant.longitude, topInstant.name, topInstant.source || 'Ghana Official Gazetteer');
             }
+
+            // 2. Enrich with live backend / client Nominatim (never fails or wipes instant coordinates)
+            let list = [];
+            try {
+                const res = await fetchWithTimeout(`${GEOCODE_ENDPOINT}?q=${encodeURIComponent(trimmed)}`, {
+                    credentials: 'same-origin',
+                    headers: {
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                }, 3500);
+                if (res.ok) {
+                    const json = await res.json();
+                    list = (json && Array.isArray(json.data)) ? json.data : [];
+                }
+            } catch (backendErr) {
+                list = [];
+            }
+
+            if (list.length === 0) {
+                list = await fetchClientNominatimFallback(trimmed);
+            }
+
+            if (list.length === 0) {
+                if (instantMatches.length === 0 && suggestDropdown) {
+                    suggestDropdown.classList.add('hidden');
+                }
+                return;
+            }
+
+            renderSuggestionList(list);
+            const top = list[0];
+            setCoordinates(top.latitude, top.longitude, top.name, top.source || 'Live Geocoded');
         }
 
         // Keystroke listener on Place of Arrest input
