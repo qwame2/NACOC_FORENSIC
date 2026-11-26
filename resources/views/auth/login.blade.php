@@ -44,7 +44,7 @@
 
             <div class="auth-panel__inner auth-panel__inner--login">
                 <div class="auth-header mb-4">
-                    <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC crest" width="350" height="350"
+                    <img src="{{ asset('NACOC_LOGO.png') }}" alt="NACOC crest" width="350" height="350"
                         class="auth-logo auth-logo--login">
                     <h1 class="auth-title">Sign in</h1>
                     <p class="auth-sub">Authorised personnel only. Your session and actions are logged.</p>
