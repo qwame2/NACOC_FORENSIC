@@ -213,147 +213,6 @@
                 </div>
 
                 <div class="flex items-center gap-4 shrink-0">
-                    <!-- NOTIFICATION BELL ICON & GENERAL ALERTS -->
-                    <div class="relative">
-                        @php @endphp
-                        <button type="button" id="notificationBellBtn" onclick="toggleNotificationDropdown()"
-                            class="p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors relative border-none bg-transparent cursor-pointer">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                    d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                            </svg>
-                            @if ($totalAlertsCount > 0)
-                                <span
-                                    class="ml-1 px-1.5 py-0.5 bg-red-600 text-white text-[9px] font-mono-code font-bold rounded leading-none">{{ $totalAlertsCount }}</span>
-                            @endif
-                        </button>
-
-                        <!-- NOTIFICATIONS & GENERAL ALERTS DROPDOWN MENU -->
-                        <div id="notificationDropdown"
-                            class="hidden absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-50 overflow-hidden font-sans">
-                            <!-- HEADER -->
-                            <div class="p-4 bg-slate-900 text-white flex items-center justify-between">
-                                <div>
-                                    <div
-                                        class="text-[10px] font-mono-code text-blue-400 font-bold uppercase tracking-wider">
-                                        DIRECTORATE COMMAND</div>
-                                    <div class="text-xs font-black tracking-wide">General System &amp; Department Alerts
-                                    </div>
-                                </div>
-                                <span
-                                    class="px-2.5 py-1 text-[10px] font-extrabold bg-blue-500/20 text-blue-300 rounded-full font-mono-code border border-blue-500/30">
-                                    {{ $totalAlertsCount }} Active Alerts
-                                </span>
-                            </div>
-
-                            <!-- ALERTS LIST -->
-                            <div class="divide-y divide-slate-100 max-h-80 overflow-y-auto">
-
-                                <!-- ALERT 1: CASE APPROVALS -->
-                                <a href="{{ url('/Digital_Forensics/staff/case') }}"
-                                    class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
-                                    <div
-                                        class="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between mb-0.5">
-                                            <span
-                                                class="text-[10px] font-extrabold font-mono-code text-amber-700 uppercase">Case
-                                                Approvals</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
-                                        </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">
-                                            @if ($pendingCasesNotif > 0)
-                                                {{ $pendingCasesNotif }} Case Dossiers Awaiting Executive Sign-off
-                                            @else
-                                                All Case Dossiers Authorized
-                                            @endif
-                                        </div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            @if ($pendingCasesNotif > 0)
-                                                Pending findings certificates and official seal approval required.
-                                            @else
-                                                No outstanding case dossier sign-offs pending.
-                                            @endif
-                                        </div>
-                                    </div>
-                                </a>
-
-                                <!-- ALERT 3: EVIDENCE VAULT TRANSFERS -->
-                                <a href="{{ url('/Digital_Forensics/staff/case') }}"
-                                    class="p-3.5 flex items-start space-x-3 hover:bg-slate-50 transition-colors text-decoration-none block">
-                                    <div
-                                        class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M5 8h14M5 8a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v1a2 2 0 01-2 2M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between mb-0.5">
-                                            <span
-                                                class="text-[10px] font-extrabold font-mono-code text-emerald-700 uppercase">Evidence
-                                                Vault</span>
-                                            <span class="text-[9px] font-bold text-slate-400 font-mono-code">STATUS</span>
-                                        </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">
-                                            @if ($pendingHandoversNotif > 0)
-                                                {{ $pendingHandoversNotif }} Pending Evidence Transfer(s)
-                                            @else
-                                                All Custody Transfers Acknowledged
-                                            @endif
-                                        </div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">
-                                            @if ($pendingHandoversNotif > 0)
-                                                Chain of custody handovers awaiting recipient acknowledgment.
-                                            @else
-                                                Evidence vault records and chain of custody are up to date.
-                                            @endif
-                                        </div>
-                                    </div>
-                                </a>
-
-                                <!-- ALERT 4: SYSTEM INTEGRITY AUDIT -->
-                                <div class="p-3.5 flex items-start space-x-3 bg-emerald-50/40">
-                                    <div
-                                        class="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-600 border border-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
-                                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor"
-                                            viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                                d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                                        </svg>
-                                    </div>
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center justify-between mb-0.5">
-                                            <span
-                                                class="text-[10px] font-extrabold font-mono-code text-emerald-700 uppercase">Chain
-                                                Integrity Audit</span>
-                                            <span class="text-[9px] font-bold text-emerald-600 font-mono-code">SYSTEM
-                                                OK</span>
-                                        </div>
-                                        <div class="text-xs font-bold text-slate-900 truncate">Chain of Custody Verified</div>
-                                        <div class="text-[11px] text-slate-500 mt-0.5 leading-snug">Audit trail active and synchronized across forensic directorates.</div>
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <!-- FOOTER -->
-                            <div class="p-3 bg-slate-50 border-t border-slate-200 text-center">
-                                <a href="{{ url('/Digital_Forensics/staff/case') }}"
-                                    class="text-[11px] font-bold text-blue-600 hover:text-blue-800 font-mono-code uppercase tracking-wider text-decoration-none">
-                                    View Executive Case Register &rarr;
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="text-right hidden sm:block">
                         <div class="text-xs font-mono-code font-semibold text-slate-700" id="liveClock"></div>
                         <div class="text-[10px] font-mono-code text-blue-600 font-bold">NACOC FORENSIC DEPARTMENT</div>
@@ -420,15 +279,9 @@
                                 'editFrom' => 'Digital_Forensics',
                                 'unitLabel' => 'Digital & Physical Forensics',
                             ])
-                            <a href="/cases/{{ $case->case_number }}/pdf" target="_blank"
-                                class="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 transition-all flex items-center gap-2 cursor-pointer no-underline">
-                                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor"
-                                    viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                        d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                                </svg>
-                                <span>Print Case PDF</span>
-                            </a>
+                            @include('partials.print_case_pdf_button', [
+                                'case' => $case,
+                            ])
                         </div>
                     </div>
                 </div>
@@ -3215,20 +3068,7 @@
         }
         document.addEventListener('DOMContentLoaded', updateUnitSubmitButtonText);
 
-        /* ── Notifications & Global Search ──────────── */
-        function toggleNotificationDropdown() {
-            const dropdown = document.getElementById('notificationDropdown');
-            if (dropdown) dropdown.classList.toggle('hidden');
-        }
-
-        document.addEventListener('click', function(e) {
-            const bellBtn = document.getElementById('notificationBellBtn');
-            const dropdown = document.getElementById('notificationDropdown');
-            if (bellBtn && dropdown && !bellBtn.contains(e.target) && !dropdown.contains(e.target)) {
-                dropdown.classList.add('hidden');
-            }
-        });
-
+        /* ── Global Search ──────────── */
         document.addEventListener('keydown', function(e) {
             if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
                 e.preventDefault();

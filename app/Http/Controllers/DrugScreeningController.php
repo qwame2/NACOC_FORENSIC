@@ -96,7 +96,7 @@ class DrugScreeningController extends Controller
         if ($perPage < 1) $perPage = 15;
         if ($perPage > 100) $perPage = 100;
 
-        $screenings = $query->paginate($perPage)->withQueryString();
+        $screenings = $query->paginate($perPage)->appends($request->except('poll'));
 
         // Statistical metrics
         $allScreenings  = DrugScreening::all();
@@ -159,6 +159,63 @@ class DrugScreeningController extends Controller
         $dbHead = User::where('unit', 'LIKE', '%Lab%')->where('is_head', true)->first();
         $headName = $dbHead ? $dbHead->fullname : 'N/A';
 
+        $stats = [
+            'total'     => $totalCount,
+            'positive'  => $positiveCount,
+            'negative'  => $negativeCount,
+            'pending'   => $pendingCount,
+            'suspects'  => $suspectsCount,
+            'civilians' => $civiliansCount,
+        ];
+
+        $sigRows = [];
+        foreach ($screenings->items() as $sRow) {
+            $sigRows[] = [
+                $sRow->id,
+                (string) ($sRow->result ?? ''),
+                (string) ($sRow->substances_found ?? ''),
+                (int) ((bool) $sRow->on_medication),
+                optional($sRow->updated_at)->timestamp,
+            ];
+        }
+        $initialSignature = md5((string) json_encode([
+            'stats'   => $stats,
+            'filters' => [
+                (string) $request->input('search', ''),
+                (string) $request->input('type', ''),
+                (string) $request->input('result', ''),
+                (string) $request->input('period', ''),
+                (string) $request->input('from', ''),
+                (string) $request->input('to', ''),
+                $perPage,
+                $screenings->currentPage(),
+                $screenings->total(),
+            ],
+            'rows'    => $sigRows,
+        ]));
+
+        if ($request->boolean('poll')) {
+            $html = view('Lab_Analysis.drug_screening.partials.table', compact(
+                'screenings',
+                'totalCount',
+                'positiveCount',
+                'negativeCount',
+                'pendingCount',
+                'suspectsCount',
+                'civiliansCount',
+                'headName',
+                'allScreenedPersons'
+            ))->render();
+
+            return response()->json([
+                'success'   => true,
+                'html'      => $html,
+                'stats'     => $stats,
+                'signature' => $initialSignature,
+                'total'     => method_exists($screenings, 'total') ? $screenings->total() : $screenings->count(),
+            ]);
+        }
+
         if ($request->ajax()) {
             if ($request->wantsJson()) {
                 $html = view('Lab_Analysis.drug_screening.partials.table', compact(
@@ -174,9 +231,11 @@ class DrugScreeningController extends Controller
                 ))->render();
 
                 return response()->json([
-                    'success' => true,
-                    'html' => $html,
-                    'total' => method_exists($screenings, 'total') ? $screenings->total() : $screenings->count(),
+                    'success'   => true,
+                    'html'      => $html,
+                    'stats'     => $stats,
+                    'signature' => $initialSignature,
+                    'total'     => method_exists($screenings, 'total') ? $screenings->total() : $screenings->count(),
                 ]);
             }
 
@@ -202,7 +261,8 @@ class DrugScreeningController extends Controller
             'suspectsCount',
             'civiliansCount',
             'headName',
-            'allScreenedPersons'
+            'allScreenedPersons',
+            'initialSignature'
         ));
     }
 

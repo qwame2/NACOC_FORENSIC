@@ -327,44 +327,28 @@
         ];
     }
 
-    // Query nlr_reports table for detailed_exhibit_description and condition_of_reserved_sample
-    $nlrRecord = null;
-    try {
-        if (!empty($case->id) || !empty($caseNo) || !empty($rawLabNoVal)) {
-            $nlrRecord = \App\Models\NlrReport::forCase($case->id ?? null, $caseNo ?? null, $rawLabNoVal ?? null);
-        }
-    } catch (\Throwable $e) {
-        // Fall back gracefully if table query fails
-    }
-
     $defaultNarrativeFallback = "Inside the box were two large ziplock bags.\n• One of the ziplock bags labelled 'A' contained one hundred and six (106) wraps of plant-like substances.\n• The second ziplock bag contained one transparent polythene bag and a small ziplock bag labeled 'B' and 'C' respectively. The transparent polythene contained quantities of loose plant-like material while the small ziplock bag contained six (6) rolls of plant-like substances.";
 
-    $narrativeVal = $nlrRecord ? $nlrRecord->detailed_exhibit_description : null;
-    if (empty($narrativeVal)) {
-        $narrativeVal = $detailedExhibitDescription 
-            ?? ($detailed_exhibit_description 
-            ?? (old('detailed_exhibit_description') 
-            ?? ($suspectLabResults[0]['detailed_exhibit_description'] 
-            ?? ($suspectLabResults[0]['exhibit_description'] 
-            ?? ($labExamData['detailed_exhibit_description'] 
-            ?? ($labExamData['exhibit_description'] 
-            ?? ($docketData['detailed_exhibit_description'] 
-            ?? ($docketData['lab_examination']['detailed_exhibit_description'] 
-            ?? ($docketData['lab_examination']['exhibit_description'] 
-            ?? ($case->detailed_exhibit_description 
-            ?? ($case->exhibit_description 
-            ?? $defaultNarrativeFallback)))))))))));
-    }
+    $narrativeVal = $detailedExhibitDescription 
+        ?? ($detailed_exhibit_description 
+        ?? (old('detailed_exhibit_description') 
+        ?? ($suspectLabResults[0]['detailed_exhibit_description'] 
+        ?? ($suspectLabResults[0]['exhibit_description'] 
+        ?? ($labExamData['detailed_exhibit_description'] 
+        ?? ($labExamData['exhibit_description'] 
+        ?? ($docketData['detailed_exhibit_description'] 
+        ?? ($docketData['lab_examination']['detailed_exhibit_description'] 
+        ?? ($docketData['lab_examination']['exhibit_description'] 
+        ?? ($case->detailed_exhibit_description 
+        ?? ($case->exhibit_description 
+        ?? $defaultNarrativeFallback)))))))))));
 
     // Determine Condition of Reserved Sample(s)
-    $conditionReservedRaw = $nlrRecord->condition_of_reserved_sample ?? null;
-    if (empty($conditionReservedRaw)) {
-        $conditionReservedRaw = $condition_of_reserved_sample 
-            ?? (old('condition_of_reserved_sample') 
-            ?? ($docketData['condition_of_reserved_sample'] 
-            ?? ($labExamData['condition_of_reserved_sample'] 
-            ?? ($case->condition_of_reserved_sample ?? 'Sealed & Labelled'))));
-    }
+    $conditionReservedRaw = $condition_of_reserved_sample 
+        ?? (old('condition_of_reserved_sample') 
+        ?? ($docketData['condition_of_reserved_sample'] 
+        ?? ($labExamData['condition_of_reserved_sample'] 
+        ?? ($case->condition_of_reserved_sample ?? 'Sealed & Labelled'))));
 
     $conditionMap = [
         'good'           => 'Good / Unaltered',

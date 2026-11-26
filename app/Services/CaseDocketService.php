@@ -809,7 +809,7 @@ class CaseDocketService
             'wpn_condition'            => $validated['wpn_condition'] ?? null,
             'evidence_photos'          => $validated['evidence_photos'] ?? null,
             'docket_data'              => $docketData,
-            'priority'                 => $validated['priority'] ?? 'HIGH',
+            'priority'                 => ForensicCase::normalizePriority($validated['priority'] ?? 'HIGH'),
             'status'                   => $validated['status'] ?? CaseStatus::UNDER_MULTI_UNIT_PROCESSING->value,
             'location'                 => $validated['location'] ?? ($validated['raid_location'] ?? null),
             'latitude'                 => $request->filled('latitude') ? (float) $request->input('latitude') : ($validated['latitude'] ?? null),
@@ -1664,7 +1664,7 @@ class CaseDocketService
                         'incident_date'           => $targetSingleCase->incident_date ?? now(),
                         'total_suspects_count'    => count($allSuspects),
                         'total_exhibits_count'    => max(1, Exhibit::where('single_suspect_case_id', $targetSingleCase->id)->count()),
-                        'priority'                => $validated['priority'] ?? ($targetSingleCase->priority ?: 'HIGH'),
+                        'priority'                => ForensicCase::normalizePriority($validated['priority'] ?? ($targetSingleCase->priority ?: 'HIGH')),
                         'status'                  => $resolvedStatus,
                         'case_status'             => $targetSingleCase->case_status ?: 'Under Investigation',
                         'controller_user_id'      => $targetSingleCase->controller_user_id ?? (($user instanceof \App\Models\User) ? $user->id : null),
@@ -1803,7 +1803,7 @@ class CaseDocketService
                         'mugshot_front'           => $mugFront,
                         'mugshot_left'            => $mugLeft,
                         'mugshot_right'           => $mugRight,
-                        'priority'                => $validated['priority'] ?? ($targetSingleCase->priority ?: 'HIGH'),
+                        'priority'                => ForensicCase::normalizePriority($validated['priority'] ?? ($targetSingleCase->priority ?: 'HIGH')),
                         'status'                  => $resolvedStatus,
                     ];
 
@@ -2036,7 +2036,7 @@ class CaseDocketService
         // 1. CRIME SCENE SUPPORT FIELDS
         if ($isCrimeSceneUnit) {
             if ($request->filled('title')) $case->title = trim($request->input('title'));
-            if ($request->filled('priority')) $case->priority = trim($request->input('priority'));
+            if ($request->filled('priority')) $case->priority = ForensicCase::normalizePriority($request->input('priority'));
             if ($request->filled('location')) $case->location = trim($request->input('location'));
             if ($request->filled('operation_type')) {
                 $opVal = trim($request->input('operation_type'));
@@ -2169,6 +2169,36 @@ class CaseDocketService
             if ($request->has('children_count')) {
                 $case->children_count = $request->input('children_count');
                 $docketData['suspects'][0]['children_count'] = $request->input('children_count');
+            }
+            if ($request->has('spouse_name') || $request->has('partner_name')) {
+                $spName = $request->input('spouse_name') ?: $request->input('partner_name');
+                $case->spouse_name = $spName;
+                $case->partner_name = $spName;
+                if (!isset($docketData['suspects'][0])) {
+                    $docketData['suspects'][0] = ['suspect_name' => $case->suspect_name];
+                }
+                $docketData['suspects'][0]['spouse_name'] = $spName;
+                $docketData['spouse_name'] = $spName;
+            }
+            if ($request->has('spouse_phone') || $request->has('partner_phone')) {
+                $spPhone = $request->input('spouse_phone') ?: $request->input('partner_phone');
+                $case->spouse_phone = $spPhone;
+                $case->partner_phone = $spPhone;
+                if (!isset($docketData['suspects'][0])) {
+                    $docketData['suspects'][0] = ['suspect_name' => $case->suspect_name];
+                }
+                $docketData['suspects'][0]['spouse_phone'] = $spPhone;
+                $docketData['spouse_phone'] = $spPhone;
+            }
+            if ($request->has('spouse_info') || $request->has('partner_info')) {
+                $spInfo = $request->input('spouse_info') ?: $request->input('partner_info');
+                $case->spouse_info = $spInfo;
+                $case->partner_info = $spInfo;
+                if (!isset($docketData['suspects'][0])) {
+                    $docketData['suspects'][0] = ['suspect_name' => $case->suspect_name];
+                }
+                $docketData['suspects'][0]['spouse_info'] = $spInfo;
+                $docketData['spouse_info'] = $spInfo;
             }
 
             // Mugshots

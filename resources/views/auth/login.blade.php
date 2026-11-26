@@ -23,7 +23,14 @@
 @include('auth.partials.auth_styles')
 </head>
 
+@php
+    $revokedPayloadInit = session('revoked_staff_payload') ?? ($initialRevokedStaff ?? null);
+    $isForgotInitiallyDisabled = !empty($revokedPayloadInit);
+    $initialLoginIdVal = old('login_id', request()->query('login_id', ''));
+@endphp
+
 <body class="antialiased selection:bg-teal-700 selection:text-white transition-opacity duration-300 opacity-100">
+    @include('partials.flash')
 
     <div class="auth-shell">
         @include('auth.partials.auth_brand', ['mode' => 'login'])
@@ -44,18 +51,6 @@
                 </div>
 
                 <div class="auth-card">
-                    @include('partials.flash')
-
-                    <div id="loginInlineError"
-                        class="hidden mb-5 p-3.5 bg-red-50/90 border border-red-200 text-red-700 text-xs font-semibold rounded-xl flex items-center space-x-2.5 shadow-xs"
-                        role="alert">
-                        <svg class="w-4 h-4 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <span id="loginInlineErrorText"></span>
-                    </div>
-
                     <form id="loginForm" method="POST" action="{{ url('/login') }}" onsubmit="handleLoginSubmit(event)"
                         class="space-y-4">
                         @csrf
@@ -69,12 +64,9 @@
                             </label>
                             <div class="relative flex items-center">
                                 <input type="text" id="serviceId" name="login_id" required autocomplete="username"
-                                    value="{{ old('login_id') }}" placeholder="SD-345, smensah or email@nacoc.gov.gh"
+                                    value="{{ $initialLoginIdVal }}" placeholder="SD-345, smensah or email@nacoc.gov.gh"
                                     class="w-full py-1 bg-transparent font-semibold text-slate-900 placeholder-slate-400 focus:outline-none">
                             </div>
-                            @error('login_id')
-                                <p class="text-xs text-red-600 mt-1 font-semibold">{{ $message }}</p>
-                            @enderror
                         </div>
 
                         <div class="ref-input-line">
@@ -100,19 +92,26 @@
                                     </svg>
                                 </button>
                             </div>
-                            @error('password')
-                                <p class="text-xs text-red-600 mt-1 font-semibold">{{ $message }}</p>
-                            @enderror
                         </div>
 
-                        <div class="flex items-center justify-between pt-1">
-                            <label class="flex items-center gap-2 cursor-pointer select-none">
-                                <input type="checkbox" checked
-                                    class="w-4 h-4 rounded text-teal-700 focus:ring-teal-700 border-slate-300">
-                                <span class="text-xs text-slate-600 font-medium">Keep me signed in</span>
-                            </label>
-                            <a href="#" onclick="showResetToast(); return false;" class="auth-link text-xs">Forgot
-                                password?</a>
+                        <div class="flex items-center justify-end pt-1">
+                            <a id="forgotPasswordLink"
+                                @if (!$isForgotInitiallyDisabled)
+                                    href="{{ route('password.request') }}"
+                                @endif
+                                aria-disabled="{{ $isForgotInitiallyDisabled ? 'true' : 'false' }}"
+                                title="{{ $isForgotInitiallyDisabled ? 'Disabled: Your staff account has been revoked. Wait for your Head of Unit to activate it first.' : '' }}"
+                                onclick="openForgotPasswordPage(event)"
+                                class="{{ $isForgotInitiallyDisabled ? 'inline-flex items-center gap-1 text-xs font-semibold text-slate-400 cursor-not-allowed select-none opacity-65' : 'inline-flex items-center gap-1 auth-link text-xs' }}">
+                                <svg id="forgotPasswordLockIcon"
+                                    style="{{ $isForgotInitiallyDisabled ? 'display: inline-block;' : 'display: none;' }}"
+                                    class="{{ $isForgotInitiallyDisabled ? '' : 'hidden' }} w-3.5 h-3.5 text-rose-500 shrink-0"
+                                    fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                                <span>Forgot password?</span>
+                            </a>
                         </div>
 
                         <button type="submit" id="submitBtn" class="auth-cta">
@@ -211,35 +210,128 @@
         </div>
     </div>
 
-    <!-- TOAST NOTIFICATION -->
-    <div id="toastNotification"
-        class="fixed bottom-5 right-5 z-50 hidden transform transition-all duration-300 translate-y-2">
-        <div
-            class="flex items-center space-x-3 px-4 py-3 bg-slate-900 text-white rounded-xl shadow-xl border border-slate-700">
-            <div class="w-7 h-7 rounded-full bg-teal-500/20 text-teal-400 flex items-center justify-center shrink-0">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
+    <!-- ACCOUNT REVOKED POPOVER MODAL (5 FAILED ATTEMPTS / UNIT HEAD LOCKOUT) -->
+    <div id="loginAccountRevokedPopoverModal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="popoverRevokedTitle"
+        class="hidden fixed inset-0 z-50 bg-slate-900/65 backdrop-blur-md flex items-center justify-center p-4 transition-all duration-300"
+        style="backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);">
+        <div class="bg-white rounded-3xl border border-rose-200 shadow-2xl max-w-lg w-full overflow-hidden">
+            <!-- HEADER BANNER -->
+            <div class="px-6 py-5 bg-gradient-to-r from-rose-700 via-rose-600 to-red-700 text-white flex items-center justify-between gap-4">
+                <div class="flex items-center gap-3.5">
+                    <div class="w-11 h-11 rounded-2xl bg-white/15 border border-white/25 flex items-center justify-center shrink-0">
+                        <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2"
+                                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                    </div>
+                    <div>
+                        <div class="text-[10px] font-mono-code font-extrabold uppercase tracking-widest text-rose-100">
+                            Security Lockout &bull; Account Revoked
+                        </div>
+                        <h3 id="popoverRevokedTitle" class="text-base font-extrabold tracking-tight mt-0.5">
+                            Staff Account Automatically Revoked
+                        </h3>
+                    </div>
+                </div>
+                <button type="button" onclick="closeLoginRevokedPopover()" aria-label="Close dialog"
+                    class="w-8 h-8 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center text-lg font-bold cursor-pointer border-0 transition-colors">
+                    &times;
+                </button>
             </div>
-            <div>
-                <div class="text-xs font-bold text-white" id="toastTitle">Notice</div>
-                <div class="text-[11px] text-slate-300" id="toastMessage">Information updated.</div>
+
+            <!-- BODY -->
+            <div class="p-6 sm:p-7 space-y-4 text-slate-700">
+                <p id="popoverRevokedDescription" class="text-xs sm:text-sm leading-relaxed text-slate-700">
+                    Your staff account has been automatically revoked after <strong class="text-rose-700">5 failed sign-in attempts</strong>. Sign-in access is disabled until your Head of Unit activates your account.
+                </p>
+
+                <div class="p-4 rounded-2xl bg-amber-50 border border-amber-200 space-y-1.5">
+                    <div class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-amber-800">
+                        Action Required to Activate Account
+                    </div>
+                    <p id="popoverRevokedHeadInstruction" class="text-xs text-amber-950 font-semibold leading-relaxed">
+                        Please see your Head of Unit to activate your account first before attempting to sign in again.
+                    </p>
+                </div>
+
+                <div class="flex items-center justify-between pt-2 border-t border-slate-100 gap-3">
+                    <div class="inline-flex items-center gap-2 text-[11px] font-mono-code font-semibold text-slate-500">
+                        <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                        <span>Waiting for Head of Unit activation...</span>
+                    </div>
+                    <button type="button" onclick="closeLoginRevokedPopover()"
+                        class="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold font-mono-code transition-colors cursor-pointer border-0">
+                        Understood
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- PRESERVED EXACT JAVASCRIPT LOGIC -->
     <script>
         const PENDING_LOGIN_STORAGE_KEY = 'nacoc_pending_login_id';
+        const REVOKED_LOGIN_STORAGE_KEY = 'nacoc_revoked_login_id';
+        const FORGOT_BASE_URL = '{{ route('password.request') }}';
         const CHECK_APPROVAL_ENDPOINT = '{{ url('/api/check-user-approval') }}';
         const INITIAL_PENDING_LOGIN_ID = @json(session('pending_login_id'));
         const PAGE_LOAD_TS = Math.floor(Date.now() / 1000);
         let approvalPollTimer = null;
         let isPollingApproval = false;
         let shownApprovalEventId = null;
+        let isForgotPasswordDisabled = Boolean(@json($isForgotInitiallyDisabled));
+        let lastRevokedPayload = @json($revokedPayloadInit);
+
+        function setForgotPasswordRevokedState(isRevoked, payload = null) {
+            isForgotPasswordDisabled = Boolean(isRevoked);
+            const link = document.getElementById('forgotPasswordLink');
+            const lockIcon = document.getElementById('forgotPasswordLockIcon');
+
+            if (isForgotPasswordDisabled) {
+                if (payload) {
+                    lastRevokedPayload = payload;
+                }
+                const storedId = (payload && (payload.service_id || payload.login_id || payload.username))
+                    || (document.getElementById('serviceId')?.value || '').trim();
+                if (storedId) {
+                    try {
+                        localStorage.setItem(REVOKED_LOGIN_STORAGE_KEY, storedId);
+                    } catch (e) {}
+                }
+                if (link) {
+                    link.removeAttribute('href');
+                    link.setAttribute('aria-disabled', 'true');
+                    link.setAttribute('title', 'Disabled: Your staff account has been revoked. Wait for your Head of Unit to activate it first.');
+                    link.className = 'inline-flex items-center gap-1 text-xs font-semibold text-slate-400 cursor-not-allowed select-none opacity-65';
+                }
+                if (lockIcon) {
+                    lockIcon.classList.remove('hidden');
+                    lockIcon.style.display = 'inline-block';
+                }
+            } else {
+                lastRevokedPayload = null;
+                try {
+                    localStorage.removeItem(REVOKED_LOGIN_STORAGE_KEY);
+                } catch (e) {}
+                if (link) {
+                    link.setAttribute('href', FORGOT_BASE_URL);
+                    link.setAttribute('aria-disabled', 'false');
+                    link.removeAttribute('title');
+                    link.className = 'inline-flex items-center gap-1 auth-link text-xs';
+                }
+                if (lockIcon) {
+                    lockIcon.style.display = 'none';
+                    lockIcon.classList.add('hidden');
+                }
+            }
+        }
 
         function showLoginApprovedPopover(userPayload = null) {
+            // Re-enable Forgot Password immediately once the Head activates the staff account
+            setForgotPasswordRevokedState(false);
+
             const modal = document.getElementById('loginAccountApprovedPopoverModal');
             if (!modal) return;
 
@@ -294,7 +386,7 @@
                 }
             }
 
-            if (officerNameEl && officerLabel && !msg) {
+            if (officerNameEl && officerLabel) {
                 officerNameEl.textContent = officerLabel;
                 officerNameEl.classList.remove('hidden');
             }
@@ -303,8 +395,8 @@
                 serviceIdInput.value = userPayload.service_id || userPayload.username || '';
             }
 
-            const inlineBox = document.getElementById('loginInlineError');
-            if (inlineBox) inlineBox.classList.add('hidden');
+            const flashContainer = document.getElementById('topRightFlashContainer');
+            if (flashContainer) flashContainer.innerHTML = '';
 
             modal.classList.remove('hidden');
         }
@@ -326,7 +418,7 @@
 
         async function checkPendingApprovalOnce(explicitLoginId = '') {
             if (isPollingApproval) return;
-            const storedId = (localStorage.getItem(PENDING_LOGIN_STORAGE_KEY) || '').trim();
+            const storedId = (localStorage.getItem(PENDING_LOGIN_STORAGE_KEY) || localStorage.getItem(REVOKED_LOGIN_STORAGE_KEY) || '').trim();
             const loginId = String(explicitLoginId || storedId).trim();
             isPollingApproval = true;
 
@@ -346,7 +438,13 @@
                 if (!res.ok) return;
 
                 const data = await res.json();
+                if (data && data.exists && data.is_revoked) {
+                    setForgotPasswordRevokedState(true, data);
+                    return;
+                }
+
                 if (data && data.exists && data.is_approved) {
+                    setForgotPasswordRevokedState(false);
                     if (data.event_id && data.event_id === shownApprovalEventId) {
                         return;
                     }
@@ -377,7 +475,7 @@
         function handleBroadcastApproval(payload) {
             if (!payload || payload.type !== 'staff_approved' || !payload.user) return;
             const approvedUser = payload.user;
-            const pendingId = (localStorage.getItem(PENDING_LOGIN_STORAGE_KEY) || '').trim().toLowerCase();
+            const pendingId = (localStorage.getItem(PENDING_LOGIN_STORAGE_KEY) || localStorage.getItem(REVOKED_LOGIN_STORAGE_KEY) || '').trim().toLowerCase();
             const typedId = (document.getElementById('serviceId')?.value || '').trim().toLowerCase();
             const candidateId = pendingId || typedId;
 
@@ -395,7 +493,13 @@
 
         async function watchTypedServiceIdForPendingApproval(rawValue) {
             const val = String(rawValue || '').trim();
-            if (val.length < 3) return;
+            if (val.length < 3) {
+                const lockedRevokedId = (localStorage.getItem(REVOKED_LOGIN_STORAGE_KEY) || '').trim();
+                if (!lockedRevokedId) {
+                    setForgotPasswordRevokedState(false);
+                }
+                return;
+            }
             try {
                 const res = await fetch(`${CHECK_APPROVAL_ENDPOINT}?login_id=${encodeURIComponent(val)}`, {
                     headers: { 'Accept': 'application/json' },
@@ -403,14 +507,34 @@
                 });
                 if (!res.ok) return;
                 const data = await res.json();
-                if (data && data.exists && !data.is_approved) {
-                    startApprovalPolling(data.service_id || data.username || val);
+                if (data && data.exists) {
+                    if (data.is_revoked) {
+                        setForgotPasswordRevokedState(true, data);
+                        startApprovalPolling(data.service_id || data.username || val);
+                    } else {
+                        setForgotPasswordRevokedState(false);
+                        if (!data.is_approved) {
+                            startApprovalPolling(data.service_id || data.username || val);
+                        }
+                    }
+                } else {
+                    const lockedRevokedId = (localStorage.getItem(REVOKED_LOGIN_STORAGE_KEY) || '').trim();
+                    if (!lockedRevokedId) {
+                        setForgotPasswordRevokedState(false);
+                    }
                 }
             } catch (e) {}
         }
 
         document.addEventListener('DOMContentLoaded', function() {
             const urlParams = new URLSearchParams(window.location.search);
+            const prefilledLogin = urlParams.get('login_id');
+            if (prefilledLogin) {
+                const sidEl = document.getElementById('serviceId');
+                if (sidEl && !sidEl.value.trim()) {
+                    sidEl.value = prefilledLogin.trim();
+                }
+            }
             if (urlParams.has('account_approved') || urlParams.has('approved')) {
                 showLoginApprovedPopover();
                 const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
@@ -435,20 +559,28 @@
                 }
             });
 
-            const initialId = INITIAL_PENDING_LOGIN_ID || localStorage.getItem(PENDING_LOGIN_STORAGE_KEY) || '';
-            startApprovalPolling(initialId);
+            const storedRevokedId = (localStorage.getItem(REVOKED_LOGIN_STORAGE_KEY) || '').trim();
+            const initialId = INITIAL_PENDING_LOGIN_ID || storedRevokedId || localStorage.getItem(PENDING_LOGIN_STORAGE_KEY) || '';
+            if (isForgotPasswordDisabled && lastRevokedPayload) {
+                setForgotPasswordRevokedState(true, lastRevokedPayload);
+            }
+            if (initialId) {
+                startApprovalPolling(initialId);
+            } else {
+                startApprovalPolling('');
+            }
 
             const serviceIdInput = document.getElementById('serviceId');
             if (serviceIdInput) {
                 let typedWatchTimer = null;
                 const scheduleWatch = () => {
                     clearTimeout(typedWatchTimer);
-                    typedWatchTimer = setTimeout(() => watchTypedServiceIdForPendingApproval(serviceIdInput.value), 400);
+                    typedWatchTimer = setTimeout(() => watchTypedServiceIdForPendingApproval(serviceIdInput.value), 320);
                 };
                 serviceIdInput.addEventListener('input', scheduleWatch);
                 serviceIdInput.addEventListener('change', scheduleWatch);
                 if (serviceIdInput.value && serviceIdInput.value.trim().length >= 3) {
-                    scheduleWatch();
+                    watchTypedServiceIdForPendingApproval(serviceIdInput.value);
                 }
             }
         });
@@ -499,19 +631,12 @@
             const btnText = document.getElementById('btnText');
             const serviceIdInput = document.getElementById('serviceId');
             const passwordInput = document.getElementById('passwordInput');
-            const inlineBox = document.getElementById('loginInlineError');
-            const inlineText = document.getElementById('loginInlineErrorText');
-
-            if (inlineBox) inlineBox.classList.add('hidden');
 
             const loginId = serviceIdInput ? serviceIdInput.value.trim() : '';
             const password = passwordInput ? passwordInput.value : '';
 
             if (!loginId || !password) {
-                if (inlineBox && inlineText) {
-                    inlineText.innerText = 'Please enter both your Service ID / Username and Password.';
-                    inlineBox.classList.remove('hidden');
-                }
+                showErrorToast('Please enter both your Service ID / Username and Password.');
                 return;
             }
 
@@ -545,6 +670,7 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
+                    setForgotPasswordRevokedState(false);
                     btnText.innerHTML = `
                         <span class="inline-flex items-center">
                             <svg class="w-4 h-4 mr-1.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
@@ -556,60 +682,153 @@
                     }, 300);
                 } else {
                     submitBtn.disabled = false;
-                    btnText.innerHTML = `Sign In to FIMS`;
+                    btnText.innerHTML = `Sign in to FIMS`;
                     const errMsg = data.message || (data.errors ? Object.values(data.errors).flat()[0] : 'Wrong username or password.');
 
                     if (data.pending_approval) {
                         startApprovalPolling(data.login_id || loginId);
                     }
 
-                    if (inlineBox && inlineText) {
-                        inlineText.innerText = errMsg;
-                        inlineBox.classList.remove('hidden');
+                    if (data.account_revoked) {
+                        setForgotPasswordRevokedState(true, data);
+                        showLoginRevokedPopover(data);
                     }
-                    showErrorToast(errMsg);
+
+                    showErrorToast(errMsg, Boolean(data.account_revoked));
                 }
             } catch (err) {
-                // If fetch fails (e.g. network error), fallback to normal form submission
                 form.submit();
             }
         }
 
-        function showErrorToast(msg) {
-            const toast = document.getElementById('toastNotification');
-            if (!toast) return;
-            document.getElementById('toastTitle').innerText = 'Authentication Failed';
-            document.getElementById('toastMessage').innerText = msg;
+        function showLoginRevokedPopover(payload = {}) {
+            setForgotPasswordRevokedState(true, payload);
 
-            toast.classList.remove('hidden');
-            setTimeout(() => {
-                toast.classList.remove('translate-y-2');
-            }, 10);
+            const modal = document.getElementById('loginAccountRevokedPopoverModal');
+            if (!modal) return;
 
-            setTimeout(() => {
-                toast.classList.add('translate-y-2');
-                setTimeout(() => {
-                    toast.classList.add('hidden');
-                }, 300);
-            }, 5000);
+            const approvedModal = document.getElementById('loginAccountApprovedPopoverModal');
+            if (approvedModal) approvedModal.classList.add('hidden');
+
+            const titleEl = document.getElementById('popoverRevokedTitle');
+            const descEl = document.getElementById('popoverRevokedDescription');
+            const headInstEl = document.getElementById('popoverRevokedHeadInstruction');
+
+            const officerId = payload.service_id || payload.login_id || 'Staff Account';
+            const officerName = payload.fullname ? `${payload.fullname} (${officerId})` : officerId;
+            const unitLabel = payload.unit || 'your assigned unit';
+            const headLabel = payload.unit_head_name
+                ? `${payload.unit_head_name} — Head of ${unitLabel}`
+                : `the Head of ${unitLabel}`;
+
+            if (titleEl) {
+                titleEl.textContent = payload.revoked_reason === 'manual'
+                    ? 'Staff Account Revoked'
+                    : 'Staff Account Automatically Revoked';
+            }
+
+            if (descEl) {
+                descEl.textContent = '';
+                if (payload.revoked_reason === 'manual') {
+                    descEl.append(`Your staff account (${officerName}) for ${unitLabel} has been revoked. Sign-in and password reset access are disabled until your Head of Unit activates it.`);
+                } else {
+                    descEl.append(`Your staff account (${officerName}) for ${unitLabel} has been automatically revoked after 5 failed sign-in attempts. Sign-in and password reset access are disabled until your Head of Unit activates your account.`);
+                }
+            }
+
+            if (headInstEl) {
+                headInstEl.textContent = `Please see ${headLabel} to activate your account first before signing in or resetting your password.`;
+            }
+
+            const pwdEl = document.getElementById('passwordInput');
+            if (pwdEl) pwdEl.value = '';
+
+            modal.classList.remove('hidden');
         }
 
-        function showResetToast() {
-            const toast = document.getElementById('toastNotification');
-            document.getElementById('toastTitle').innerText = 'Security Desk Contacted';
-            document.getElementById('toastMessage').innerText = 'Passcode reset request sent to IT Command Desk.';
+        function closeLoginRevokedPopover() {
+            const modal = document.getElementById('loginAccountRevokedPopoverModal');
+            if (modal) modal.classList.add('hidden');
+        }
 
-            toast.classList.remove('hidden');
-            setTimeout(() => {
-                toast.classList.remove('translate-y-2');
-            }, 10);
+        // Automatically dismiss the Revoked modal and unlock Forgot Password the instant Head of Unit approval arrives
+        (function bindRevokedApprovalAutoClose() {
+            const approvedModal = document.getElementById('loginAccountApprovedPopoverModal');
+            if (!approvedModal || typeof MutationObserver === 'undefined') return;
+            const obs = new MutationObserver(() => {
+                if (!approvedModal.classList.contains('hidden')) {
+                    setForgotPasswordRevokedState(false);
+                    closeLoginRevokedPopover();
+                }
+            });
+            obs.observe(approvedModal, { attributes: true, attributeFilter: ['class'] });
+        })();
 
-            setTimeout(() => {
-                toast.classList.add('translate-y-2');
-                setTimeout(() => {
-                    toast.classList.add('hidden');
-                }, 300);
-            }, 3500);
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeLoginRevokedPopover();
+            }
+        });
+
+        @if (session('revoked_staff_payload'))
+        document.addEventListener('DOMContentLoaded', function() {
+            showLoginRevokedPopover(@json(session('revoked_staff_payload')));
+        });
+        @endif
+
+        function showErrorToast(msg, isRevoked = false) {
+            const existingContainer = document.getElementById('topRightFlashContainer');
+            if (existingContainer) {
+                existingContainer.innerHTML = '';
+            }
+            const title = isRevoked ? 'Account Revoked' : 'Security & Authentication Alert';
+            if (typeof window.showFlashToast === 'function') {
+                window.showFlashToast(msg, 'error', title);
+            }
+        }
+
+        async function openForgotPasswordPage(e) {
+            e.preventDefault();
+
+            if (isForgotPasswordDisabled) {
+                const headText = (lastRevokedPayload && lastRevokedPayload.unit_head_name)
+                    ? `${lastRevokedPayload.unit_head_name} (Head of ${lastRevokedPayload.unit || 'your unit'})`
+                    : 'your Head of Unit';
+                showErrorToast(`Forgot password is disabled while your staff account is revoked. Please see ${headText} to activate your account first.`, true);
+                if (lastRevokedPayload) {
+                    showLoginRevokedPopover(lastRevokedPayload);
+                }
+                return false;
+            }
+
+            const typedId = (document.getElementById('serviceId')?.value || '').trim();
+            if (typedId.length >= 2) {
+                try {
+                    const res = await fetch(`${CHECK_APPROVAL_ENDPOINT}?login_id=${encodeURIComponent(typedId)}`, {
+                        headers: { 'Accept': 'application/json' },
+                        credentials: 'same-origin'
+                    });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (data && data.exists && data.is_revoked) {
+                            setForgotPasswordRevokedState(true, data);
+                            startApprovalPolling(data.service_id || data.username || typedId);
+                            const headLabel = data.unit_head_name
+                                ? `${data.unit_head_name} (Head of ${data.unit || 'your unit'})`
+                                : 'your Head of Unit';
+                            showErrorToast(`Forgot password is disabled while your staff account is revoked. Please see ${headLabel} to activate your account first.`, true);
+                            showLoginRevokedPopover(data);
+                            return false;
+                        }
+                    }
+                } catch (err) {}
+            }
+
+            const targetUrl = typedId
+                ? `${FORGOT_BASE_URL}?login_id=${encodeURIComponent(typedId)}`
+                : FORGOT_BASE_URL;
+            navigateWithFade(e, targetUrl);
+            return false;
         }
     </script>
 </body>

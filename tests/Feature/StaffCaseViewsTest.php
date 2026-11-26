@@ -1740,7 +1740,7 @@ class StaffCaseViewsTest extends TestCase
             'case_number' => 'NCC-2026-EDIT-01',
             'title' => 'Republic v Kojo Antwi',
             'suspect_name' => 'Kojo Antwi',
-            'status' => 'Pending Approval',
+            'status' => 'Approved',
             'priority' => 'HIGH',
             'unit_name' => 'Crime Scene Support',
             'submitting_officer' => 'Insp. Darko',

@@ -29,7 +29,127 @@
     'statusUpdatedBy' => null,
     'statusUpdatedByUnit' => null,
     'statusUpdatedAt' => null,
+    'case' => null,
+    'caseEditSummary' => null,
 ])
+@php
+    $resolvedCase = $case ?? ($__data['case'] ?? null);
+    $editSummary = $caseEditSummary ?? ($resolvedCase ? \App\Services\CaseEditHistoryService::resolveLatestEdit($resolvedCase) : null);
+@endphp
+
+@if (!empty($editSummary['has_edit']))
+    {{-- ── CASE EDIT NOTIFICATION & CHANGES POPOVER ── --}}
+    <div id="case-edit-notice-wrapper" class="mb-4 relative">
+        <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-xl border border-amber-200/90 bg-linear-to-r from-amber-50 via-amber-50/70 to-orange-50/50 shadow-2xs">
+            <div class="flex items-center gap-2.5 flex-wrap min-w-0">
+                <span class="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-amber-500/15 text-amber-800 border border-amber-300/60 shrink-0">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </span>
+                <span class="text-xs sm:text-sm font-semibold text-slate-800">
+                    {{ $editSummary['sentence'] }}
+                </span>
+                <button type="button" 
+                    id="viewChangesMadeBtn"
+                    onclick="toggleCaseEditPopover(event)"
+                    class="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 shadow-2xs transition-colors cursor-pointer border border-indigo-700/50 ml-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    <span>view changes made</span>
+                </button>
+            </div>
+            @if (!empty($editSummary['edited_at']))
+                <span class="text-[10px] text-slate-400 font-mono hidden md:inline-block">Updated: {{ $editSummary['edited_at'] }}</span>
+            @endif
+        </div>
+
+        {{-- Popover Container --}}
+        <div id="caseEditPopover" 
+            class="hidden absolute left-0 sm:left-auto sm:right-0 top-full mt-2 z-50 w-full sm:w-[480px] md:w-[540px] rounded-2xl border border-slate-200 bg-white p-4 shadow-xl transition-all duration-200 animate-in fade-in zoom-in-95"
+            style="box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);">
+            
+            {{-- Popover Header --}}
+            <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div class="flex items-center gap-2">
+                    <span class="w-2 h-2 rounded-full bg-indigo-600"></span>
+                    <h3 class="text-xs font-bold text-slate-900 uppercase tracking-wider font-mono">Case Modifications Diff</h3>
+                </div>
+                <div class="flex items-center gap-2">
+                    @if (!empty($editSummary['edited_at']))
+                        <span class="text-[10px] text-slate-400 font-mono">{{ $editSummary['edited_at'] }}</span>
+                    @endif
+                    <button type="button" onclick="closeCaseEditPopover()" class="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-100 transition cursor-pointer" title="Close">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+            </div>
+
+            {{-- Popover Body --}}
+            <div class="mt-3 space-y-2.5 max-h-[340px] overflow-y-auto pr-1">
+                @if (!empty($editSummary['changes']) && count($editSummary['changes']) > 0)
+                    @foreach ($editSummary['changes'] as $change)
+                        <div class="p-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 space-y-1.5 text-xs">
+                            <div class="flex items-center justify-between">
+                                <span class="font-bold text-slate-800 text-[11px] uppercase tracking-wide font-mono">{{ $change['label'] ?? 'Field' }}</span>
+                                <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold font-mono">Changed</span>
+                            </div>
+                            <div class="grid grid-cols-1 gap-1 text-[11px] font-mono leading-relaxed">
+                                <div class="px-2 py-1 rounded bg-rose-50/90 border border-rose-200/70 text-rose-800">
+                                    <span class="font-bold">Perv. {{ $change['label'] ?? 'Field' }}:</span> {{ $change['previous'] ?? 'None / Empty' }}
+                                </div>
+                                <div class="px-2 py-1 rounded bg-emerald-50/90 border border-emerald-200/70 text-emerald-800">
+                                    <span class="font-bold">Curr. {{ $change['label'] ?? 'Field' }}:</span> {{ $change['current'] ?? 'None / Empty' }}
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                @else
+                    <div class="py-4 text-center text-xs text-slate-500">
+                        General case docket information was updated.
+                    </div>
+                @endif
+            </div>
+
+            {{-- Popover Footer --}}
+            <div class="mt-3 pt-2.5 border-t border-slate-100 flex items-center justify-between text-[11px] text-slate-500">
+                <span class="truncate max-w-[340px]">{{ $editSummary['sentence'] }}</span>
+                <button type="button" onclick="closeCaseEditPopover()" class="px-2.5 py-1 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition cursor-pointer">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleCaseEditPopover(e) {
+            if (e) {
+                e.stopPropagation();
+            }
+            const popover = document.getElementById('caseEditPopover');
+            if (popover) {
+                popover.classList.toggle('hidden');
+            }
+        }
+        function closeCaseEditPopover() {
+            const popover = document.getElementById('caseEditPopover');
+            if (popover) {
+                popover.classList.add('hidden');
+            }
+        }
+        document.addEventListener('click', function(e) {
+            const popover = document.getElementById('caseEditPopover');
+            const btn = document.getElementById('viewChangesMadeBtn');
+            if (popover && !popover.classList.contains('hidden')) {
+                if (!popover.contains(e.target) && (!btn || !btn.contains(e.target))) {
+                    popover.classList.add('hidden');
+                }
+            }
+        });
+    </script>
+@endif
                 <!-- INTER-UNIT WORKFLOW & PROGRESS TRACKER -->
                 <div class="dossier-card border border-slate-200 bg-white rounded-2xl shadow-sm overflow-hidden"
                     style="box-shadow: 0 1px 8px 0 rgba(0,0,0,0.06);">

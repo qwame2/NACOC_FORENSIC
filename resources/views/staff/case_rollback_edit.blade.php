@@ -185,11 +185,9 @@
                                 @endif
                                 <label class="block text-xs font-bold text-slate-700 mb-1">Priority</label>
                                 <select name="priority" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-semibold focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none">
-                                    @php $currPri = strtoupper($submission->priority ?? ($payload['priority'] ?? 'MEDIUM')); @endphp
-                                    <option value="LOW" {{ $currPri === 'LOW' ? 'selected' : '' }}>LOW</option>
-                                    <option value="MEDIUM" {{ $currPri === 'MEDIUM' ? 'selected' : '' }}>MEDIUM</option>
+                                    @php $currPri = \App\Models\ForensicCase::normalizePriority($submission->priority ?? ($payload['priority'] ?? 'HIGH')); @endphp
                                     <option value="HIGH" {{ $currPri === 'HIGH' ? 'selected' : '' }}>HIGH</option>
-                                    <option value="CRITICAL" {{ $currPri === 'CRITICAL' ? 'selected' : '' }}>CRITICAL</option>
+                                    <option value="LOW" {{ $currPri === 'LOW' ? 'selected' : '' }}>LOW</option>
                                 </select>
                             </div>
                         </div>

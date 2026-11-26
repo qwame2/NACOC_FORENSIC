@@ -7,17 +7,29 @@
     $permContext = $hasUnitRouteSegment && !empty($unitLabel)
         ? $unitLabel
         : (request()->input('from') ?: ($case->unit_name ?: null));
-    $canEditCases = !auth()->user()
+
+    $isPendingApproval = method_exists($case, 'isPendingApproval')
+        ? $case->isPendingApproval()
+        : (in_array(strtolower(trim((string)($case->status ?? ''))), ['pending approval', 'awaiting approval', 'pending review', 'awaiting sign-off', 'pending'], true)
+            || in_array(strtolower(trim((string)($case->case_status ?? ''))), ['pending approval', 'awaiting approval', 'pending review', 'awaiting sign-off'], true));
+
+    $hasPermission = !auth()->user()
         || auth()->user()->is_head
         || (method_exists(auth()->user(), 'hasPermission') ? auth()->user()->hasPermission('edit_cases', $permContext) : true);
+
+    $canEditCases = $hasPermission && !$isPendingApproval;
     $editCaseUrl = '/cases/' . $case->case_number . '/edit' . (!empty($editFrom) ? '?from=' . urlencode($editFrom) : '');
-    $editLockedTooltip = 'Locked: Edit Case & Suspects permission is disabled by your Head of Unit';
+    $editLockedTooltip = $isPendingApproval
+        ? 'Locked: This case is currently awaiting review and approval from the Head of Unit'
+        : 'Locked: Edit Case & Suspects permission is disabled by your Head of Unit';
     $enabledClasses = 'bg-amber-600 hover:bg-amber-500 text-white shadow-md cursor-pointer';
     $disabledClasses = 'bg-slate-200 text-slate-400 border border-slate-300 select-none';
 @endphp
 <a @if ($canEditCases) href="{{ $editCaseUrl }}" @endif
     data-staff-edit-btn="review"
     data-edit-url="{{ $editCaseUrl }}"
+    data-case-pending="{{ $isPendingApproval ? 'true' : 'false' }}"
+    data-pending-tooltip="Locked: This case is currently awaiting review and approval from the Head of Unit"
     data-enabled-class="{{ $enabledClasses }}"
     data-disabled-class="{{ $disabledClasses }}"
     aria-disabled="{{ $canEditCases ? 'false' : 'true' }}"

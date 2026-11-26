@@ -27,6 +27,9 @@
     $awaitingReviewCount = $pendingSubmissions->where('status', 'Pending Approval')->count();
     $rolledBackCount = $pendingSubmissions->where('status', 'Rolled Back')->count();
     $approvedHistoryCount = $reviewedSubmissions->where('status', 'Approved')->count();
+    $editedPendingCount = $pendingSubmissions->filter(function ($s) {
+        return !empty($s->payload['is_edit_submission']) || (($s->payload['submission_type'] ?? '') === 'edit');
+    })->count();
 
     $extractSubmissionMeta = function ($sub) use ($photoResolver) {
         if (method_exists($sub, 'getSubmissionMeta')) {
@@ -293,7 +296,7 @@
 
                         <button type="button" onclick="focusPendingFilter('URGENT')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
                             <div>
-                                <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">High &amp; Critical</div>
+                                <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">High Priority</div>
                                 <div id="kpiUrgentPendingCount" class="text-2xl font-extrabold {{ $urgentPendingCount > 0 ? 'text-red-600' : 'text-slate-900' }} tnum mt-1">{{ $urgentPendingCount }}</div>
                                 <div class="text-[11px] font-medium {{ $urgentPendingCount > 0 ? 'text-red-600' : 'text-slate-500' }} mt-1">Priority docket attention</div>
                             </div>
@@ -334,11 +337,14 @@
                             <button type="button" class="filter-underline-tab" data-pending-tab="PENDING" onclick="setPendingFilter('PENDING', this)">
                                 Pending Review (<span id="tabCountPending">{{ $awaitingReviewCount }}</span>)
                             </button>
+                            <button type="button" class="filter-underline-tab {{ $editedPendingCount > 0 ? '' : 'hidden' }}" id="tabEditedWrapper" data-pending-tab="EDITED" onclick="setPendingFilter('EDITED', this)">
+                                Edited Cases (<span id="tabCountEdited">{{ $editedPendingCount }}</span>)
+                            </button>
                             <button type="button" class="filter-underline-tab {{ $rolledBackCount > 0 ? '' : 'hidden' }}" id="tabRolledBackWrapper" data-pending-tab="ROLLED_BACK" onclick="setPendingFilter('ROLLED_BACK', this)">
                                 Awaiting Corrections (<span id="tabCountRolledBack">{{ $rolledBackCount }}</span>)
                             </button>
                             <button type="button" class="filter-underline-tab" data-pending-tab="URGENT" onclick="setPendingFilter('URGENT', this)">
-                                High &amp; Critical (<span id="tabCountUrgent">{{ $urgentPendingCount }}</span>)
+                                High Priority (<span id="tabCountUrgent">{{ $urgentPendingCount }}</span>)
                             </button>
                         </div>
                     </div>
@@ -551,6 +557,7 @@
                                                 $revCode = 'SUB-' . str_pad((string) $rev->id, 4, '0', STR_PAD_LEFT);
                                                 $corrCount = is_array($rev->rollback_corrections) ? count($rev->rollback_corrections) : 0;
                                                 $revMeta = $extractSubmissionMeta($rev);
+                                                $revIsEdit = (!empty($rev->payload['is_edit_submission']) || (!empty($rev->payload['submission_type']) && $rev->payload['submission_type'] === 'edit'));
                                                 $revSearch = strtolower(implode(' ', array_filter([
                                                     $revCode,
                                                     $rev->suspect_name,
@@ -559,6 +566,7 @@
                                                     $rev->status,
                                                     $rev->approved_case_number,
                                                     $rev->reviewed_by_name,
+                                                    $revIsEdit ? 'edited case edit' : '',
                                                 ])));
                                             @endphp
                                             <tr
@@ -601,9 +609,16 @@
                                                             @endif
                                                         </a>
                                                         <div class="min-w-0">
-                                                            <a href="{{ $revUrl }}" class="font-bold text-slate-900 hover:text-emerald-700 transition-colors block text-decoration-none truncate">
-                                                                {{ $rev->suspect_name ?: 'N/A' }}
-                                                            </a>
+                                                            <div class="flex items-center gap-1.5 flex-wrap">
+                                                                <a href="{{ $revUrl }}" class="font-bold text-slate-900 hover:text-emerald-700 transition-colors block text-decoration-none truncate">
+                                                                    {{ $rev->suspect_name ?: 'N/A' }}
+                                                                </a>
+                                                                @if($revIsEdit)
+                                                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-mono-code font-bold bg-amber-50 text-amber-900 border border-amber-300">
+                                                                        Edited Case
+                                                                    </span>
+                                                                @endif
+                                                            </div>
                                                             <div class="text-[11px] text-slate-500 mt-0.5 line-clamp-1">{{ $rev->title }}</div>
                                                         </div>
                                                     </div>
@@ -973,6 +988,7 @@
                     || (activePendingFilter === 'PENDING' && itemStatus === 'Pending Approval')
                     || (activePendingFilter === 'ROLLED_BACK' && itemStatus === 'Rolled Back')
                     || (activePendingFilter === 'URGENT' && isUrgent)
+                    || (activePendingFilter === 'EDITED' && item.dataset.isEdit === '1')
                     || (activePendingFilter === prio);
 
                 const matchesSearch = !activeQuery || haystack.includes(activeQuery);
@@ -1170,6 +1186,17 @@
 
                     const tabPending = document.getElementById('tabCountPending');
                     if (tabPending) tabPending.textContent = data.counts.awaiting_review;
+
+                    const tabEdited = document.getElementById('tabCountEdited');
+                    if (tabEdited && data.counts.edited_cases !== undefined) tabEdited.textContent = data.counts.edited_cases;
+
+                    const tabEditedWrapper = document.getElementById('tabEditedWrapper');
+                    if (tabEditedWrapper && data.counts.edited_cases !== undefined) {
+                        tabEditedWrapper.classList.toggle('hidden', data.counts.edited_cases <= 0);
+                        if (data.counts.edited_cases <= 0 && activePendingFilter === 'EDITED') {
+                            setPendingFilter('ALL');
+                        }
+                    }
 
                     const tabRolledBack = document.getElementById('tabCountRolledBack');
                     if (tabRolledBack) tabRolledBack.textContent = data.counts.rolled_back;

@@ -135,7 +135,7 @@ class StaffCaseSubmissionController extends Controller
             ->get();
 
         $urgentPendingCount = $pendingSubmissions->filter(function ($s) {
-            return in_array(strtoupper((string) $s->priority), ['HIGH', 'CRITICAL'], true);
+            return \App\Models\ForensicCase::normalizePriority($s->priority, 'LOW') === 'HIGH';
         })->count();
         $awaitingReviewCount = $pendingSubmissions->where('status', 'Pending Approval')->count();
         $rolledBackCount = $pendingSubmissions->where('status', 'Rolled Back')->count();
@@ -174,6 +174,7 @@ class StaffCaseSubmissionController extends Controller
                     'rolled_back'       => $rolledBackCount,
                     'urgent'            => $urgentPendingCount,
                     'approved_history'  => $approvedHistoryCount,
+                    'edited_cases'      => $pendingSubmissions->filter(fn($s) => !empty($s->payload['is_edit_submission']) || (($s->payload['submission_type'] ?? '') === 'edit'))->count(),
                 ],
                 'html' => $pendingHtml,
                 'signature' => md5($pendingHtml . '|' . $pendingSubmissions->count() . '|' . $rolledBackCount . '|' . $awaitingReviewCount),
@@ -250,7 +251,7 @@ class StaffCaseSubmissionController extends Controller
             $case->operation_code_name = $payload['operation_code_name'] ?? ($payload['operation_code'] ?? null);
             $case->operation_code = $payload['operation_code'] ?? null;
             $case->status = $submission->status ?? ($payload['status'] ?? 'Pending Approval');
-            $case->priority = $payload['priority'] ?? 'Medium';
+            $case->priority = ForensicCase::normalizePriority($payload['priority'] ?? $submission->priority, 'LOW');
             $case->suspect_name = $submission->suspect_name ?? ($payload['suspect_name'] ?? null);
             $case->ghana_card = $payload['ghana_card'] ?? null;
             $case->location = $payload['location'] ?? ($payload['raid_location'] ?? null);
@@ -394,13 +395,21 @@ class StaffCaseSubmissionController extends Controller
 
         $presenter = app(CaseShowReviewPresenter::class)->presentForUnit($case, $presenterKey, $request, $user);
 
+        $isEditSubmission = (!empty($payload['submission_type']) && $payload['submission_type'] === 'edit')
+            || !empty($payload['is_edit_submission']);
+
         return view('head.submission_review', array_merge($presenter->toViewData(), [
-            'submission'  => $submission,
-            'case'        => $case,
-            'presenter'   => $presenter,
-            'unitContext' => $unitCtx,
-            'sidebarUnit' => $unitCtx['sidebar'],
-            'payload'     => $payload,
+            'submission'            => $submission,
+            'case'                  => $case,
+            'presenter'             => $presenter,
+            'unitContext'           => $unitCtx,
+            'sidebarUnit'           => $unitCtx['sidebar'],
+            'payload'               => $payload,
+            'isEditSubmission'      => $isEditSubmission,
+            'editedFields'          => $payload['edited_fields'] ?? [],
+            'editedFieldLabels'     => $payload['edited_field_labels'] ?? [],
+            'firstEditedSelector'   => $payload['first_edited_selector'] ?? null,
+            'firstEditedField'      => $payload['first_edited_field'] ?? null,
         ]));
     }
 
@@ -425,6 +434,73 @@ class StaffCaseSubmissionController extends Controller
         $payload = is_array($submission->payload) ? $submission->payload : [];
         $payload['approved_by_head'] = true;
         $payload['head_reviewer_id'] = $head->id;
+
+        $isEditSubmission = (!empty($payload['submission_type']) && $payload['submission_type'] === 'edit')
+            || !empty($payload['is_edit_submission']);
+
+        if ($isEditSubmission) {
+            $caseNumber = $submission->case_number_preview ?? ($payload['original_case_number'] ?? null);
+            $targetCase = null;
+            if ($caseNumber) {
+                $targetCase = \App\Models\SingleSuspectCase::where('case_number', $caseNumber)->first()
+                    ?? \App\Models\MultipleSuspectCase::where('case_number', $caseNumber)->first()
+                    ?? \App\Models\ForensicCase::where('case_number', $caseNumber)->first();
+            }
+
+            if (!$targetCase) {
+                return back()->with('error', "Original case {$caseNumber} could not be located to apply edits.");
+            }
+
+            $replayRequest = Request::create('/cases/' . $caseNumber . '/update', 'POST', $payload);
+            $replayRequest->setUserResolver(fn () => $head);
+
+            $wrappedCase = $targetCase instanceof \App\Models\ForensicCase
+                ? $targetCase
+                : \App\Models\ForensicCase::wrapRecord($targetCase);
+
+            $result = app(CaseDocketService::class)->updateCase($wrappedCase, $replayRequest);
+            if (empty($result['success'])) {
+                return back()->with('error', $result['message'] ?? 'Failed to apply approved edits to case.');
+            }
+
+            $submission->update([
+                'status' => 'Approved',
+                'reviewed_by' => $head->id,
+                'reviewed_by_name' => $head->fullname ?? $head->name ?? 'Unit Head',
+                'reviewed_at' => now(),
+                'review_notes' => $request->input('review_notes'),
+                'approved_case_number' => $caseNumber,
+            ]);
+
+            \App\Services\CaseEditHistoryService::recordEditAudit($wrappedCase, [
+                'edit_mode'  => 'staff_approved',
+                'user'       => $head,
+                'staff_name' => $submission->submitted_by_name ?? ($payload['staff_editor_name'] ?? 'Staff Officer'),
+                'head_name'  => $head->fullname ?? $head->name ?? 'Unit Head',
+                'changes'    => !empty($payload['changes']) ? $payload['changes'] : [],
+            ]);
+
+            $targetUnitKey = $this->normalizeUnitKey($submission->unit_name) ?: ($this->normalizeUnitKey($head->unit) ?: 'crime_scene_support');
+            $redirectUrl = match ($targetUnitKey) {
+                'lab_analysis' => url('/Lab_Analysis/reviews-approvals'),
+                'evidence_management' => url('/Evidence_Management/reviews-approvals'),
+                'digital_forensics' => url('/Digital_Forensics/reviews-approvals'),
+                'forensic_head' => url('/Forensic_Head/reviews-approvals'),
+                default => url('/Crime_Scene_Support/reviews-approvals'),
+            };
+
+            $msg = "Edit submission #{$submission->id} for Case {$caseNumber} approved and saved to database.";
+
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $msg,
+                    'redirect' => $redirectUrl,
+                ]);
+            }
+
+            return redirect($redirectUrl)->with('status', $msg);
+        }
 
         $replayRequest = Request::create('/cases', 'POST', $payload);
         $submitter = $submission->submitted_by
@@ -633,6 +709,13 @@ class StaffCaseSubmissionController extends Controller
         $payload = is_array($submission->payload) ? $submission->payload : [];
         $corrections = is_array($submission->rollback_corrections) ? $submission->rollback_corrections : [];
 
+        $isEditSubmission = (!empty($payload['submission_type']) && $payload['submission_type'] === 'edit')
+            || !empty($payload['is_edit_submission']);
+
+        if ($isEditSubmission && !empty($submission->case_number_preview)) {
+            return redirect('/cases/' . $submission->case_number_preview . '/edit?rollback_id=' . $submission->id);
+        }
+
         $createView = match ($unitCtx['key']) {
             'lab_analysis' => 'Lab_Analysis.staff.create',
             'evidence_management' => 'Evidence_Management.staff.create',
@@ -805,7 +888,7 @@ class StaffCaseSubmissionController extends Controller
             $payload['title'] = $submission->title;
         }
         if ($request->filled('priority')) {
-            $submission->priority = strtoupper(trim((string) $request->input('priority')));
+            $submission->priority = ForensicCase::normalizePriority($request->input('priority'));
             $payload['priority'] = $submission->priority;
         }
 

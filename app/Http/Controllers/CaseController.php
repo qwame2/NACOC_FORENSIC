@@ -108,7 +108,7 @@ class CaseController extends Controller
             $unitName = trim((string) ($authUser->unit ?: $request->input('unit_name') ?: $request->input('unit') ?: 'Crime Scene Support'));
             $suspectName = trim((string) ($request->input('suspect_name') ?: $request->input('full_name') ?: $request->input('title') ?: 'Pending Suspect'));
             $title = trim((string) ($request->input('title') ?: $request->input('offense_type') ?: $request->input('operation_type') ?: 'Staff Case Submission'));
-            $priority = strtoupper(trim((string) ($request->input('priority') ?: 'MEDIUM')));
+            $priority = \App\Models\ForensicCase::normalizePriority($request->input('priority'), 'HIGH');
 
             $submission = \App\Models\StaffCaseSubmission::create([
                 'submitted_by' => $authUser->id,
@@ -178,16 +178,294 @@ class CaseController extends Controller
         if (!$case) {
             return redirect('/cases')->with('error', "Case {$id} not found.");
         }
+
+        if (method_exists($case, 'isPendingApproval') ? $case->isPendingApproval() : false) {
+            $isRollbackAccess = false;
+            if (request()->filled('rollback_id')) {
+                $sub = \App\Models\StaffCaseSubmission::find(request()->input('rollback_id'));
+                if ($sub && $sub->status === 'Rolled Back') {
+                    $isRollbackAccess = true;
+                }
+            } elseif (!empty($case->case_number)) {
+                $hasRollback = \App\Models\StaffCaseSubmission::where('case_number_preview', $case->case_number)
+                    ->where('status', 'Rolled Back')
+                    ->exists();
+                if ($hasRollback) {
+                    $isRollbackAccess = true;
+                }
+            }
+
+            if (!$isRollbackAccess) {
+                $from = request('from') ?: ($case->unit_name ?: '');
+                $targetUrl = !empty($from) ? "/cases/{$id}/review?from=" . urlencode($from) : "/cases/{$id}/review";
+                return redirect($targetUrl)
+                    ->with('error', 'This case is currently awaiting review and approval from the Head of Unit. Case editing is locked.');
+            }
+        }
+
         $this->repairExhibitAssociations($case);
         return view('cases.edit', compact('case'));
     }
 
     /**
+     * Detect fields edited in request compared against existing case values.
+     */
+    public function detectEditedFields(ForensicCase $case, Request $request): array
+    {
+        $edited = [];
+        $labels = [];
+        $changes = [];
+        $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+        $docket0 = $docketData['suspects'][0] ?? [];
+
+        $fieldMappings = [
+            'title' => [
+                'label' => 'Case Legal Title',
+                'current' => $case->title,
+                'input' => $request->input('title'),
+                'selector' => '[data-field-group="title"]',
+            ],
+            'priority' => [
+                'label' => 'Case Priority',
+                'current' => $case->priority,
+                'input' => $request->input('priority'),
+                'selector' => '[data-field-group="title"]',
+            ],
+            'suspect_name' => [
+                'label' => 'Suspect Full Name',
+                'current' => $case->suspect_name ?? ($docket0['suspect_name'] ?? null),
+                'input' => $request->input('suspect_name') ?: $request->input('full_name'),
+                'selector' => '[data-field-group="suspect_name"]',
+            ],
+            'suspect_alias' => [
+                'label' => 'Suspect Alias / Street Name',
+                'current' => $case->suspect_alias ?? ($docket0['alias'] ?? null),
+                'input' => $request->input('suspect_alias') ?: $request->input('alias'),
+                'selector' => '[data-field-group="suspect_alias"]',
+            ],
+            'ghana_card' => [
+                'label' => 'Ghana Card Number',
+                'current' => $case->ghana_card ?? ($docket0['ghana_card'] ?? null),
+                'input' => $request->input('ghana_card') ?: $request->input('id_card'),
+                'selector' => '[data-field-group="ghana_card"]',
+            ],
+            'gender' => [
+                'label' => 'Gender',
+                'current' => $case->gender ?? ($docket0['gender'] ?? null),
+                'input' => $request->input('gender'),
+                'selector' => '[data-field-group="gender"]',
+            ],
+            'dob' => [
+                'label' => 'Date of Birth',
+                'current' => $case->dob ?? ($docket0['dob'] ?? null),
+                'input' => $request->input('dob'),
+                'selector' => '[data-field-group="dob"]',
+            ],
+            'age' => [
+                'label' => 'Age',
+                'current' => $case->age ?? ($docket0['age'] ?? null),
+                'input' => $request->input('age'),
+                'selector' => '[data-field-group="age"]',
+            ],
+            'height' => [
+                'label' => 'Height',
+                'current' => $case->height ?? ($docket0['height'] ?? null),
+                'input' => $request->input('height'),
+                'selector' => '[data-field-group="height"]',
+            ],
+            'eye_color' => [
+                'label' => 'Eye Color',
+                'current' => $case->eye_color ?? ($docket0['eye_color'] ?? null),
+                'input' => $request->input('eye_color'),
+                'selector' => '[data-field-group="eye_color"]',
+            ],
+            'nationality' => [
+                'label' => 'Nationality',
+                'current' => $case->nationality ?? ($docket0['nationality'] ?? null),
+                'input' => $request->input('nationality'),
+                'selector' => '[data-field-group="nationality"]',
+            ],
+            'pob' => [
+                'label' => 'Place of Birth',
+                'current' => $case->pob ?? ($docket0['pob'] ?? null),
+                'input' => $request->input('pob'),
+                'selector' => '[data-field-group="pob"]',
+            ],
+            'phone' => [
+                'label' => 'Phone Number',
+                'current' => $case->phone ?? ($docket0['phone'] ?? null),
+                'input' => $request->input('phone'),
+                'selector' => '[data-field-group="phone"]',
+            ],
+            'address' => [
+                'label' => 'Residential Address',
+                'current' => $case->address ?? ($docket0['address'] ?? null),
+                'input' => $request->input('address'),
+                'selector' => '[data-field-group="address"]',
+            ],
+            'marital_status' => [
+                'label' => 'Marital Status',
+                'current' => $case->marital_status ?? ($docket0['marital_status'] ?? null),
+                'input' => $request->input('marital_status'),
+                'selector' => '[data-field-group="marital_status"]',
+            ],
+            'children' => [
+                'label' => 'Children & Dependents',
+                'current' => $case->children_count ?? ($docket0['children_count'] ?? null),
+                'input' => $request->input('children_count') ?: ($request->has('has_children') ? $request->input('has_children') : null),
+                'selector' => '[data-field-group="children"]',
+            ],
+            'spouse_name' => [
+                'label' => 'Spouse / Partner Name',
+                'current' => $case->spouse_name ?? ($docket0['spouse_name'] ?? null),
+                'input' => $request->input('spouse_name') ?: $request->input('partner_name'),
+                'selector' => '[data-field-group="spouse_name"]',
+            ],
+            'spouse_phone' => [
+                'label' => 'Spouse / Partner Phone',
+                'current' => $case->spouse_phone ?? ($docket0['spouse_phone'] ?? null),
+                'input' => $request->input('spouse_phone') ?: $request->input('partner_phone'),
+                'selector' => '[data-field-group="spouse_phone"]',
+            ],
+            'arrest_date' => [
+                'label' => 'Arrest Date',
+                'current' => $case->arrest_date ?? ($docket0['arrest_date'] ?? null),
+                'input' => $request->input('arrest_date'),
+                'selector' => '[data-field-group="arrest_date"]',
+            ],
+            'arrest_time' => [
+                'label' => 'Arrest Time',
+                'current' => $case->arrest_time ?? ($docket0['arrest_time'] ?? null),
+                'input' => $request->input('arrest_time'),
+                'selector' => '[data-field-group="arrest_time"]',
+            ],
+            'holding_facility' => [
+                'label' => 'Holding Facility',
+                'current' => $case->holding_facility ?? ($docket0['holding_facility'] ?? null),
+                'input' => $request->input('holding_facility'),
+                'selector' => '[data-field-group="holding_facility"]',
+            ],
+            'raid_location' => [
+                'label' => 'Raid / Incident Location',
+                'current' => $case->raid_location ?? ($case->location ?? null),
+                'input' => $request->input('raid_location') ?: $request->input('location'),
+                'selector' => '[data-field-group="raid_location"]',
+            ],
+            'offense_description' => [
+                'label' => 'Offense Description',
+                'current' => $case->description ?? ($case->offense_description ?? null),
+                'input' => $request->input('offense_description') ?: $request->input('description'),
+                'selector' => '[data-field-group="offense_description"]',
+            ],
+            'arresting_officer' => [
+                'label' => 'Arresting Officer',
+                'current' => $case->arresting_officer ?? null,
+                'input' => $request->input('arresting_officer'),
+                'selector' => '[data-field-group="arresting_officer"]',
+            ],
+        ];
+
+        $firstSelector = null;
+        $firstField = null;
+
+        foreach ($fieldMappings as $key => $def) {
+            if ($request->has($key) || ($def['input'] !== null)) {
+                $curr = trim((string) ($def['current'] ?? ''));
+                $new = trim((string) ($def['input'] ?? ''));
+                if ($new !== '' && $curr !== $new) {
+                    $edited[] = $key;
+                    $labels[] = $def['label'];
+                    $changes[] = [
+                        'field' => $key,
+                        'label' => $def['label'],
+                        'previous' => $curr ?: 'None / Empty',
+                        'current' => $new,
+                    ];
+                    if (!$firstSelector) {
+                        $firstSelector = $def['selector'];
+                        $firstField = $key;
+                    }
+                }
+            }
+        }
+
+        // Check mugshots
+        foreach (['mugshot_front', 'mugshot_left', 'mugshot_right', 'mugshot_back'] as $mug) {
+            if ($request->hasFile($mug) || ($request->filled($mug) && $request->input($mug) !== ($case->{$mug} ?? null))) {
+                if (!in_array('mugshots', $edited, true)) {
+                    $edited[] = 'mugshots';
+                    $labels[] = 'Biometric Mugshots';
+                    $changes[] = [
+                        'field' => 'mugshots',
+                        'label' => 'Biometric Mugshots',
+                        'previous' => !empty($case->{$mug}) ? 'Existing photo' : 'None / Empty',
+                        'current' => 'Updated photo',
+                    ];
+                    if (!$firstSelector) {
+                        $firstSelector = '[data-field-group="mugshots"]';
+                        $firstField = 'mugshots';
+                    }
+                }
+            }
+        }
+
+        // Check exhibits / seizures
+        if ($request->has('seizures') || $request->has('exhibits') || $request->has('suspectsDataJson') || $request->has('suspects_data_json')) {
+            $edited[] = 'seizures';
+            $labels[] = 'Associated Seized Exhibits';
+            $changes[] = [
+                'field' => 'seizures',
+                'label' => 'Associated Seized Exhibits',
+                'previous' => 'Original exhibits register',
+                'current' => 'Updated exhibits register',
+            ];
+            if (!$firstSelector) {
+                $firstSelector = '[data-field-group="seizures"]';
+                $firstField = 'seizures';
+            }
+        }
+
+        // Check lab examination
+        if ($request->filled('laboratory_number') || $request->filled('purpose_of_examination') || $request->filled('lab_exam_reference')) {
+            $edited[] = 'lab_examination';
+            $labels[] = 'Laboratory Examination';
+            $changes[] = [
+                'field' => 'lab_examination',
+                'label' => 'Laboratory Examination',
+                'previous' => 'Original examination notes',
+                'current' => 'Updated examination notes',
+            ];
+            if (!$firstSelector) {
+                $firstSelector = '[data-field-group="lab_examination"]';
+                $firstField = 'lab_examination';
+            }
+        }
+
+        if (empty($edited)) {
+            $edited[] = 'general_docket';
+            $labels[] = 'Docket Information';
+            $changes[] = [
+                'field' => 'general_docket',
+                'label' => 'Docket Information',
+                'previous' => 'Original docket data',
+                'current' => 'Updated docket data',
+            ];
+            $firstSelector = '[data-field-group="title"]';
+            $firstField = 'title';
+        }
+
+        return [
+            'edited_fields' => array_values(array_unique($edited)),
+            'edited_field_labels' => array_values(array_unique($labels)),
+            'changes' => $changes,
+            'first_edited_selector' => $firstSelector,
+            'first_edited_field' => $firstField,
+        ];
+    }
+
+    /**
      * Update case data and correct mistakes with strict Unit RBAC permission guards.
-     * Fix Issue 3: SchemaCache::hasColumn.
-     * Fix Issue 4: Decode docket_data once.
-     * Fix Issue 11: LaboratoryExamService.
-     * Fix Issue 28: authorizeCaseWrite check.
+     * When submitted by staff, sends an edit submission to their Unit Head for review & approval.
      */
     public function updateCase($id, Request $request)
     {
@@ -204,12 +482,160 @@ class CaseController extends Controller
                 : redirect('/cases')->with('error', "Case {$id} not found.");
         }
 
-        // Fix Issue 28: Authorize user permission to modify this case
+        $isRollbackSubmit = false;
+        if ($request->filled('rollback_id')) {
+            $sub = \App\Models\StaffCaseSubmission::find($request->input('rollback_id'));
+            if ($sub && $sub->status === 'Rolled Back') {
+                $isRollbackSubmit = true;
+            }
+        } elseif (!empty($case->case_number)) {
+            $hasRollback = \App\Models\StaffCaseSubmission::where('case_number_preview', $case->case_number)
+                ->where('status', 'Rolled Back')
+                ->exists();
+            if ($hasRollback) {
+                $isRollbackSubmit = true;
+            }
+        }
+
+        if (!$isRollbackSubmit && (method_exists($case, 'isPendingApproval') ? $case->isPendingApproval() : false)) {
+            return $request->wantsJson() || $request->ajax()
+                ? response()->json(['success' => false, 'message' => 'This case is currently awaiting review and approval from the Head of Unit. Case editing is locked.'], 403)
+                : back()->with('error', 'This case is currently awaiting review and approval from the Head of Unit. Case editing is locked.');
+        }
+
+        // Authorize user permission to modify this case
         $this->authorizeCaseWrite($case);
+
+        $authUser = auth()->user();
+        $isStaff = $authUser && !$authUser->is_head && !$request->boolean('approved_by_head');
+        $diff = $this->detectEditedFields($case, $request);
+
+        if ($isStaff) {
+
+            $rawInput = $request->except(['_token']);
+            if ($request->hasFile('search_warrant_document')) {
+                $warrantFile = $request->file('search_warrant_document');
+                if ($warrantFile && $warrantFile->isValid()) {
+                    $rawInput['search_warrant_document_path'] = $warrantFile->store('search_warrants', 'public');
+                }
+            }
+            foreach (['mugshot_front', 'mugshot_left', 'mugshot_right', 'mugshot_back'] as $mugKey) {
+                if ($request->hasFile($mugKey)) {
+                    $mFile = $request->file($mugKey);
+                    if ($mFile && $mFile->isValid()) {
+                        $rawInput[$mugKey] = $mFile->store('suspects', 'public');
+                    }
+                }
+            }
+
+            $payload = $this->stripUploadedFiles($rawInput);
+            $payload = app(\App\Services\MediaStorageService::class)->processPayloadImages(
+                $payload,
+                $case->case_number
+            );
+
+            $payload['submission_type'] = 'edit';
+            $payload['is_edit_submission'] = true;
+            $payload['original_case_number'] = $case->case_number;
+            $payload['original_case_id'] = $case->id;
+            $payload['edited_fields'] = $diff['edited_fields'];
+            $payload['edited_field_labels'] = $diff['edited_field_labels'];
+            $payload['changes'] = $diff['changes'] ?? [];
+            $payload['staff_editor_name'] = $authUser->fullname ?? $authUser->name ?? 'Staff Officer';
+            $payload['first_edited_selector'] = $diff['first_edited_selector'];
+            $payload['first_edited_field'] = $diff['first_edited_field'];
+
+            $unitName = trim((string) (($authUser && $authUser->unit) ? $authUser->unit : ($case->unit_name ?: 'Crime Scene Support')));
+            $suspectName = trim((string) ($request->input('suspect_name') ?: $request->input('full_name') ?: ($case->suspect_name ?: 'Pending Suspect')));
+            $title = trim((string) ($request->input('title') ?: ($case->title ?: 'Staff Case Edit Submission')));
+            $priority = \App\Models\ForensicCase::normalizePriority($request->input('priority') ?: ($case->priority ?: 'HIGH'));
+
+            if ($request->filled('rollback_id')) {
+                $submission = \App\Models\StaffCaseSubmission::find($request->input('rollback_id'));
+                if ($submission) {
+                    $submission->payload = $payload;
+                    $submission->status = 'Pending Approval';
+                    $submission->title = $title;
+                    $submission->suspect_name = $suspectName;
+                    $submission->priority = $priority;
+                    $submission->rollback_corrections = null;
+                    $submission->rolled_back_at = null;
+                    $submission->review_notes = null;
+                    $submission->save();
+
+                    $msg = "Case edit submission #{$submission->id} has been updated with corrections and returned to your Unit Head for review and approval.";
+                    if ($request->wantsJson() || $request->ajax()) {
+                        return response()->json([
+                            'success' => true,
+                            'pending_approval' => true,
+                            'submission_id' => $submission->id,
+                            'message' => $msg,
+                        ], 200);
+                    }
+                    return redirect('/cases/' . $case->case_number . '/review')->with('status', $msg);
+                }
+            }
+
+            // Check if there is already an active pending or rolled back edit submission for this case
+            $existingSub = \App\Models\StaffCaseSubmission::where('case_number_preview', $case->case_number)
+                ->whereIn('status', ['Pending Approval', 'Rolled Back'])
+                ->latest()
+                ->first();
+
+            if ($existingSub) {
+                $existingSub->payload = $payload;
+                $existingSub->status = 'Pending Approval';
+                $existingSub->title = $title;
+                $existingSub->suspect_name = $suspectName;
+                $existingSub->priority = $priority;
+                $existingSub->rollback_corrections = null;
+                $existingSub->rolled_back_at = null;
+                $existingSub->review_notes = null;
+                $existingSub->save();
+                $submission = $existingSub;
+            } else {
+                $submission = \App\Models\StaffCaseSubmission::create([
+                    'submitted_by' => $authUser->id,
+                    'submitted_by_name' => $authUser->fullname ?? $authUser->name ?? 'Staff Officer',
+                    'unit_name' => $unitName,
+                    'case_number_preview' => $case->case_number,
+                    'title' => $title,
+                    'suspect_name' => $suspectName,
+                    'priority' => $priority,
+                    'status' => 'Pending Approval',
+                    'payload' => $payload,
+                ]);
+            }
+
+            $msg = "Case edits submitted to your Unit Head for review and approval before changes take effect (Submission #{$submission->id}).";
+            if ($request->wantsJson() || $request->ajax()) {
+                return response()->json([
+                    'success' => true,
+                    'pending_approval' => true,
+                    'submission_id' => $submission->id,
+                    'message' => $msg,
+                    'case' => [
+                        'id' => $submission->id,
+                        'case_number' => $case->case_number,
+                    ],
+                ], 200);
+            }
+
+            return redirect('/cases/' . $case->case_number . '/review')->with('status', $msg);
+        }
 
         $result = app(CaseDocketService::class)->updateCase($case, $request);
         $code = $result['code'] ?? 200;
         unset($result['code']);
+
+        if (!empty($result['success']) && !empty($diff['changes'])) {
+            \App\Services\CaseEditHistoryService::recordEditAudit($case, [
+                'edit_mode'   => 'head_direct',
+                'user'        => $authUser,
+                'editor_name' => $authUser->fullname ?? $authUser->name ?? 'Unit Head',
+                'changes'     => $diff['changes'],
+            ]);
+        }
 
         if ($request->wantsJson() || $request->ajax()) {
             return response()->json($result, $code);
@@ -458,6 +884,10 @@ class CaseController extends Controller
         $case = $this->findCase($id);
         if (!$case) {
             abort(404, "Case {$id} not found.");
+        }
+
+        if (method_exists($case, 'isPendingApproval') ? $case->isPendingApproval() : false) {
+            return back()->with('error', 'This case is currently awaiting review and approval from the Head of Unit. Printing Case PDF is disabled until approved.');
         }
 
         $this->repairExhibitAssociations($case);

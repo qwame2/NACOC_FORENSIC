@@ -9,12 +9,19 @@
         return div.innerHTML;
     }
 
+    function normalizePriority(priority) {
+        var p = String(priority || 'HIGH').trim().toUpperCase();
+        if (p === 'LOW' || p === 'NORMAL' || p === 'MEDIUM' || p === 'ROUTINE' || p === 'MINOR') {
+            return 'LOW';
+        }
+        return 'HIGH';
+    }
+
     function markerColor(priority, locationCount) {
-        var p = String(priority || '').toUpperCase();
-        if (p === 'CRITICAL' || p === 'HIGH' || Number(locationCount || 0) >= 3) {
+        var p = normalizePriority(priority);
+        if (p === 'HIGH' || Number(locationCount || 0) >= 3) {
             return '#dc2626';
         }
-        if (p === 'MEDIUM') return '#0284c7';
         return '#0f766e';
     }
 
@@ -24,7 +31,7 @@
         var unit = escapeHtml(marker.unit_name || '');
         var status = escapeHtml(marker.status || '');
         var location = escapeHtml(marker.location || marker.region || '');
-        var priority = escapeHtml(String(marker.priority || 'HIGH').toUpperCase());
+        var priority = escapeHtml(normalizePriority(marker.priority));
         var exhibits = Number(marker.exhibits_count || 0);
         var reviewHref = marker.review_url ? escapeHtml(marker.review_url) : '';
 

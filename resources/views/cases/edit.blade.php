@@ -34,6 +34,21 @@
         || str_contains($editUserUnit, 'support') 
         || empty($editUserUnit);
 
+    // Rollback Mode Detection for Edited Cases
+    $rollbackSubmission = null;
+    if (request()->filled('rollback_id')) {
+        $rollbackSubmission = \App\Models\StaffCaseSubmission::find(request()->input('rollback_id'));
+    }
+    if (!$rollbackSubmission && !empty($case->case_number)) {
+        $rollbackSubmission = \App\Models\StaffCaseSubmission::where('case_number_preview', $case->case_number)
+            ->where('status', 'Rolled Back')
+            ->latest()
+            ->first();
+    }
+    $isRollbackMode = !empty($rollbackSubmission);
+    $rollbackCorrections = $isRollbackMode && is_array($rollbackSubmission->rollback_corrections) ? $rollbackSubmission->rollback_corrections : [];
+    $rollbackNotes = $isRollbackMode ? ($rollbackSubmission->review_notes ?? '') : '';
+
     $canEditLab = $editIsHead 
         || $hasLabPermission 
         || $hasEditCasePermission
@@ -603,7 +618,7 @@
                     Cancel
                 </a>
                 <button type="button" onclick="document.getElementById('editCaseForm').submit();" class="px-5 py-2 text-xs font-extrabold text-slate-950 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 rounded-xl shadow-md shadow-amber-500/20 border border-amber-400/50 transition-all cursor-pointer inline-flex items-center gap-2 active:scale-95">
-                    <span>Save Changes</span>
+                    <span>{{ !$editIsHead ? ($isRollbackMode ? 'Resubmit Corrections to Head' : 'Submit Edits for Head Approval') : 'Save Changes' }}</span>
                 </button>
             </div>
         </header>
@@ -640,6 +655,55 @@
                 <div class="p-4 bg-red-500/10 border border-red-500/30 text-red-900 rounded-xl text-xs font-bold flex items-center gap-3 shadow-xs">
                     <span>{{ session('error') }}</span>
                 </div>
+            @endif
+
+            @if($isRollbackMode)
+            <!-- ACTIVE CASE ROLLBACK BANNER -->
+            <div id="rollbackActiveBanner" class="p-5 rounded-2xl bg-amber-100 border border-amber-300 shadow-sm space-y-3 mb-6">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-amber-200">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-amber-600 text-white flex items-center justify-center font-black shadow-xs shrink-0">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h3 class="font-black text-amber-950 text-sm flex items-center gap-2">
+                                <span>Active Case Rollback &mdash; Fix Requested Corrections</span>
+                                <span class="font-mono-code text-xs px-2 py-0.5 rounded bg-amber-200 text-amber-950 border border-amber-300">
+                                    {{ $rollbackSubmission->case_number_preview ?: ('SUB-' . str_pad((string)$rollbackSubmission->id, 4, '0', STR_PAD_LEFT)) }}
+                                </span>
+                            </h3>
+                            <p class="text-xs text-amber-800 font-medium">Your Unit Head has requested corrections on this case edit submission. Update the requested details below and resubmit for approval.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="px-3 py-1 rounded-full text-xs font-mono-code font-bold bg-amber-200 text-amber-950 border border-amber-300">
+                            {{ count($rollbackCorrections) }} Section{{ count($rollbackCorrections) === 1 ? '' : 's' }} Flagged
+                        </span>
+                    </div>
+                </div>
+
+                @if(!empty($rollbackNotes))
+                <div class="p-3 bg-white/90 rounded-xl border border-amber-200 text-xs text-amber-950">
+                    <strong>Unit Head Directives:</strong> {{ $rollbackNotes }}
+                </div>
+                @endif
+
+                @if(count($rollbackCorrections) > 0)
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-2 pt-1">
+                    @foreach($rollbackCorrections as $corr)
+                        <div class="p-2.5 rounded-xl bg-white border border-amber-200 shadow-2xs text-xs">
+                            <div class="font-bold text-amber-950 font-mono-code text-[11px] flex items-center gap-1.5">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>
+                                {{ $corr['field'] ?? 'Field Correction' }}
+                            </div>
+                            <div class="text-slate-700 mt-1 font-sans text-xs">{{ $corr['note'] ?? 'Please update requested corrections.' }}</div>
+                        </div>
+                    @endforeach
+                </div>
+                @endif
+            </div>
             @endif
 
             <!-- MAIN FORM CONTAINER CARD -->
@@ -716,6 +780,9 @@
                 <!-- EDIT FORM -->
                 <form id="editCaseForm" action="/cases/{{ $case->case_number }}/update" method="POST" class="p-6 sm:p-8 space-y-8">
                     @csrf
+                    @if($isRollbackMode)
+                        <input type="hidden" name="rollback_id" id="rollbackSubmissionIdInput" value="{{ $rollbackSubmission->id }}">
+                    @endif
                     <input type="hidden" name="suspects_data_json" id="suspectsDataJson">
                     <input type="hidden" name="active_suspect_index" id="activeSuspectIndex" value="0">
 
@@ -844,21 +911,13 @@
                                         @if(!$canEditCrimeScene)<span class="text-[9px] text-amber-700 font-mono-code font-bold">READ-ONLY</span>@endif
                                     </label>
                                     @php
-                                        $curPriority = strtoupper(trim($case->priority ?? 'HIGH'));
-                                        $priorityLabel = 'High Priority';
-                                        $priorityDotClass = 'bg-red-600';
-                                        if ($curPriority === 'HIGH') {
-                                            $priorityLabel = 'High Priority';
-                                            $priorityDotClass = 'bg-red-600';
-                                        } elseif ($curPriority === 'LOW') {
+                                        $curPriority = \App\Models\ForensicCase::normalizePriority($case->priority ?? 'HIGH');
+                                        if ($curPriority === 'LOW') {
                                             $priorityLabel = 'Low Priority';
                                             $priorityDotClass = 'bg-slate-400';
-                                        } elseif ($curPriority === 'MEDIUM') {
-                                            $priorityLabel = 'Medium Priority';
-                                            $priorityDotClass = 'bg-amber-500';
-                                        } elseif ($curPriority === 'URGENT') {
-                                            $priorityLabel = 'Urgent Priority';
-                                            $priorityDotClass = 'bg-rose-600';
+                                        } else {
+                                            $priorityLabel = 'High Priority';
+                                            $priorityDotClass = 'bg-red-600';
                                         }
                                     @endphp
                                     <div class="relative z-30">
@@ -2601,7 +2660,7 @@
                             Cancel &amp; Return to Review
                         </a>
                         <button type="submit" class="px-6 py-2.5 text-xs font-extrabold text-slate-950 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 rounded-xl shadow-md shadow-amber-500/20 border border-amber-400/50 transition-all cursor-pointer inline-flex items-center gap-2 active:scale-95">
-                            <span>Save Changes &amp; Synchronize Case</span>
+                            <span>{{ !$editIsHead ? ($isRollbackMode ? 'Resubmit Corrections to Head' : 'Submit Edits for Head Approval') : 'Save Changes &amp; Synchronize Case' }}</span>
                         </button>
                     </div>
                 </form>

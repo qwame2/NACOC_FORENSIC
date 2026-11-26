@@ -237,10 +237,10 @@
                         <span class="text-[10px] text-purple-600 font-bold mt-1">Drugs, Weapons &amp; Assets</span>
                     </div>
 
-                    <!-- Critical / High Priority -->
+                    <!-- High Priority -->
                     <div class="p-4 bg-white border border-slate-200/90 rounded-2xl shadow-xs flex flex-col justify-between">
                         <div class="flex items-center justify-between text-slate-400">
-                            <span class="text-[10px] font-bold font-mono-code uppercase tracking-wider text-slate-500">Critical / High Priority</span>
+                            <span class="text-[10px] font-bold font-mono-code uppercase tracking-wider text-slate-500">High Priority</span>
                             <span class="p-1.5 rounded-lg bg-rose-50 text-rose-700">
                                 <i data-lucide="shield-alert" class="w-4 h-4"></i>
                             </span>
@@ -352,9 +352,7 @@
                                     </label>
                                     <select name="priority" id="prioritySelect" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all">
                                         <option value="ALL" {{ (empty($priority) || strtoupper($priority) === 'ALL') ? 'selected' : '' }}>All Priorities</option>
-                                        <option value="CRITICAL" {{ strtoupper($priority ?? '') === 'CRITICAL' ? 'selected' : '' }}>Critical</option>
                                         <option value="HIGH" {{ strtoupper($priority ?? '') === 'HIGH' ? 'selected' : '' }}>High</option>
-                                        <option value="NORMAL" {{ in_array(strtoupper($priority ?? ''), ['NORMAL', 'MEDIUM']) ? 'selected' : '' }}>Normal</option>
                                         <option value="LOW" {{ strtoupper($priority ?? '') === 'LOW' ? 'selected' : '' }}>Low</option>
                                     </select>
                                 </div>
@@ -405,7 +403,7 @@
                                         <option value="oldest" {{ ($sort ?? '') === 'oldest' ? 'selected' : '' }}>Oldest First</option>
                                         <option value="case_asc" {{ ($sort ?? '') === 'case_asc' ? 'selected' : '' }}>Case Number (A–Z)</option>
                                         <option value="case_desc" {{ ($sort ?? '') === 'case_desc' ? 'selected' : '' }}>Case Number (Z–A)</option>
-                                        <option value="priority" {{ ($sort ?? '') === 'priority' ? 'selected' : '' }}>Priority (Critical First)</option>
+                                        <option value="priority" {{ ($sort ?? '') === 'priority' ? 'selected' : '' }}>Priority (High First)</option>
                                     </select>
                                 </div>
 

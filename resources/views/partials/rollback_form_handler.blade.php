@@ -573,12 +573,13 @@
         setVal('caseTitleInput', payload.title || payload.case_title || docketData.title);
         setVal('labCaseReferenceInput', payload.case_number || payload.case_ref || docketData.case_number);
         
-        // Priority
-        const priorityVal = payload.priority || docketData.priority || 'MEDIUM';
+        // Priority (strictly HIGH / LOW)
+        const rawPriority = String(payload.priority || docketData.priority || 'HIGH').trim().toUpperCase();
+        const priorityVal = ['LOW', 'NORMAL', 'MEDIUM', 'ROUTINE', 'MINOR'].includes(rawPriority) ? 'LOW' : 'HIGH';
         setVal('casePrioritySelect', priorityVal);
         const pLabel = document.getElementById('selectedPriorityLabel');
         if (pLabel) {
-            pLabel.textContent = priorityVal;
+            pLabel.textContent = priorityVal === 'LOW' ? 'Low Priority' : 'High Priority';
             pLabel.className = 'font-extrabold text-slate-900 text-xs';
         }
 
@@ -1871,7 +1872,7 @@
         const arrestDate = getVal('newArrestedDate') || payload.arrest_date || '';
         const arrestTime = getVal('newArrestedTime') || payload.arrest_time || '';
         const title = getVal('caseTitleInput') || payload.title || 'Staff Case Submission';
-        const priority = getVal('casePrioritySelect') || payload.priority || 'MEDIUM';
+        const priority = getVal('casePrioritySelect') || payload.priority || 'HIGH';
 
         // Extract Seizures if blocks exist
         const seizureBlocks = document.querySelectorAll('.seizure-block');

@@ -96,6 +96,27 @@ class NotificationsController extends Controller
             ['path' => $request->url(), 'query' => $request->query()]
         );
 
+        $sigRows = [];
+        foreach ($paginated->items() as $nItem) {
+            $sigRows[] = [
+                $nItem['id'] ?? '',
+                !empty($nItem['is_read']) ? 1 : 0,
+                (int) ($nItem['timestamp'] ?? 0),
+            ];
+        }
+        $initialSignature = md5((string) json_encode([
+            'stats'   => $stats,
+            'filters' => [
+                $category !== '' ? $category : 'all',
+                $statusFilter !== '' ? $statusFilter : 'all',
+                $search,
+                $perPage,
+                $paginated->currentPage(),
+                $paginated->total(),
+            ],
+            'rows'    => $sigRows,
+        ]));
+
         $viewData = [
             'notifications'    => $paginated,
             'stats'            => $stats,
@@ -107,13 +128,15 @@ class NotificationsController extends Controller
             'viewer'           => $viewer,
             'currentEndpoint'  => '/' . ltrim($request->path(), '/'),
             'fieldOfficersUrl' => $this->resolveFieldOfficersUrl($context['unit_key']),
+            'initialSignature' => $initialSignature,
         ];
 
         if ($request->boolean('poll') || $request->ajax() || $request->wantsJson()) {
             return response()->json([
-                'success' => true,
-                'html'    => view('partials.notifications_feed', $viewData)->render(),
-                'stats'   => $stats,
+                'success'   => true,
+                'html'      => view('partials.notifications_feed', $viewData)->render(),
+                'stats'     => $stats,
+                'signature' => $initialSignature,
             ]);
         }
 
@@ -216,6 +239,8 @@ class NotificationsController extends Controller
 
         $fieldOfficersCount = \App\Http\Controllers\FieldOfficersController::countPendingApprovalsForContext((string) $unitLabel, $viewer);
 
+        $passwordRequestsCount = \App\Models\StaffPasswordResetRequest::countPendingForContext((string) $unitLabel, $viewer);
+
         $rollbackCount = \App\Models\StaffCaseSubmission::countRollbacksForContext((string) $unitLabel, $viewer);
 
         return response()->json([
@@ -223,6 +248,7 @@ class NotificationsController extends Controller
             'notifications' => $notificationsCount,
             'reviews_approvals' => $approvalsCount,
             'field_officers' => $fieldOfficersCount,
+            'password_requests' => $passwordRequestsCount,
             'case_rollback' => $rollbackCount,
             'staff_rollback' => $rollbackCount,
             'vault_pending' => \App\Models\Exhibit::countPendingQrOrClassification(),
@@ -495,11 +521,21 @@ class NotificationsController extends Controller
         $path = strtolower($request->path());
         $paramUnit = (string) ($request->query('from') ?? $request->query('unit') ?? '');
 
+        if ($path === 'dg' || str_starts_with($path, 'dg/')) {
+            return [
+                'unit_key'         => 'forensic_head',
+                'unit_label'       => 'Office of the Director-General',
+                'is_forensic_head' => false,
+                'is_dg'            => true,
+            ];
+        }
+
         if (str_contains($path, 'forensic_head')) {
             return [
                 'unit_key'         => 'forensic_head',
                 'unit_label'       => ForensicUnit::FORENSIC_DIRECTORATE->value,
                 'is_forensic_head' => true,
+                'is_dg'            => false,
             ];
         }
 

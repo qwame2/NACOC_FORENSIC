@@ -69,6 +69,25 @@ class FieldOfficersController extends Controller
 
         $stats = $this->computeStaffStats($viewerUnit, $scopedUnitSlug);
 
+        $sigRows = [];
+        foreach ($officers->items() as $oItem) {
+            $revReason = !$oItem->is_approved
+                ? \Illuminate\Support\Facades\Cache::get(AuthController::staffRevokedReasonCacheKey($oItem))
+                : null;
+            $sigRows[] = [
+                $oItem->id,
+                (int) ((bool) $oItem->is_approved),
+                (int) (method_exists($oItem, 'isOnline') ? $oItem->isOnline() : false),
+                (string) ($revReason ?? ''),
+                optional($oItem->updated_at)->timestamp,
+            ];
+        }
+        $initialSignature = md5((string) json_encode([
+            'stats' => $stats,
+            'filters' => [$search, $unitFilter, $statusFilter, $perPage, $officers->currentPage(), $officers->total()],
+            'rows' => $sigRows,
+        ]));
+
         $viewData = [
             'officers' => $officers,
             'search' => $search,
@@ -81,17 +100,20 @@ class FieldOfficersController extends Controller
             'totalStaffCount' => $stats['total'],
             'approvedStaffCount' => $stats['approved'],
             'pendingStaffCount' => $stats['pending'],
+            'onlineStaffCount' => $stats['online'] ?? 0,
             'myUnitPendingCount' => $stats['my_unit_pending'],
             'unitCounts' => $stats['units'],
             'viewer' => $viewer,
             'viewerUnit' => $viewerUnit,
             'currentEndpoint' => '/' . ltrim($request->path(), '/'),
+            'initialSignature' => $initialSignature,
         ];
 
         if ($request->boolean('poll')) {
             return response()->json([
                 'html' => view('partials.field_officers_table', $viewData)->render(),
                 'stats' => $stats,
+                'signature' => $initialSignature,
                 'pagination' => [
                     'first_item' => $officers->firstItem() ?? 0,
                     'last_item' => $officers->lastItem() ?? 0,
@@ -190,7 +212,12 @@ class FieldOfficersController extends Controller
         $target->is_approved = $approve;
         $target->save();
 
+        $attemptsKey = AuthController::staffAttemptsCacheKey($target);
+        $revokedReasonKey = AuthController::staffRevokedReasonCacheKey($target);
+        \Illuminate\Support\Facades\Cache::forget($attemptsKey);
+
         if ($approve) {
+            \Illuminate\Support\Facades\Cache::forget($revokedReasonKey);
             $nowTs = time();
             \Illuminate\Support\Facades\Cache::put('nacoc_latest_staff_approval', [
                 'exists' => true,
@@ -204,6 +231,8 @@ class FieldOfficersController extends Controller
                 'approved_at' => $nowTs,
                 'event_id' => $target->id . ':' . $nowTs,
             ], now()->addSeconds(60));
+        } else {
+            \Illuminate\Support\Facades\Cache::forever($revokedReasonKey, 'manual');
         }
 
         $actionMsg = $approve
@@ -330,7 +359,11 @@ class FieldOfficersController extends Controller
      */
     private function computeStaffStats(?ForensicUnit $viewerUnit, ?string $scopedUnitSlug = null): array
     {
-        $staffMembers = $this->baseStaffQuery($scopedUnitSlug)->select(['is_approved', 'unit'])->get();
+        $selectCols = ['id', 'is_approved', 'unit'];
+        if (\Illuminate\Support\Facades\Schema::hasColumn('staff_accounts', 'last_seen_at')) {
+            $selectCols[] = 'last_seen_at';
+        }
+        $staffMembers = $this->baseStaffQuery($scopedUnitSlug)->select($selectCols)->get();
 
         $units = [
             'css' => 0,
@@ -341,11 +374,15 @@ class FieldOfficersController extends Controller
 
         $approved = 0;
         $pending = 0;
+        $online = 0;
         $myUnitPending = 0;
 
         foreach ($staffMembers as $member) {
             if ($member->is_approved) {
                 $approved++;
+                if (method_exists($member, 'isOnline') && $member->isOnline()) {
+                    $online++;
+                }
             } else {
                 $pending++;
                 if ($viewerUnit !== null && ForensicUnit::resolve($member->unit) === $viewerUnit) {
@@ -363,6 +400,7 @@ class FieldOfficersController extends Controller
             'total' => $staffMembers->count(),
             'approved' => $approved,
             'pending' => $pending,
+            'online' => $online,
             'my_unit_pending' => $myUnitPending,
             'units' => $units,
         ];

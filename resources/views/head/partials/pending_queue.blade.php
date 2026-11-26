@@ -49,18 +49,14 @@
         @foreach($pendingSubmissions as $sub)
             @php
                 $meta = $extractMeta($sub);
-                $prio = strtoupper((string) ($sub->priority ?: 'MEDIUM'));
-                $isUrgent = in_array($prio, ['HIGH', 'CRITICAL'], true);
-                $prioTextColor = match ($prio) {
-                    'CRITICAL' => 'text-red-700',
-                    'HIGH'     => 'text-red-600',
-                    'LOW'      => 'text-emerald-700',
-                    default    => 'text-amber-700',
-                };
+                $prio = \App\Models\ForensicCase::normalizePriority($sub->priority ?: 'LOW');
+                $isUrgent = $prio === 'HIGH';
+                $prioTextColor = $prio === 'HIGH' ? 'text-red-600' : 'text-emerald-700';
                 $reviewUrl = $resolveUrl($sub);
                 $subCode = 'SUB-' . str_pad((string) $sub->id, 4, '0', STR_PAD_LEFT);
                 $isMulti = !empty($meta['is_multiple_suspects']) && count($meta['suspects'] ?? []) >= 2;
                 $sList = $meta['suspects'] ?? [];
+                $isEditSub = (!empty($sub->payload['is_edit_submission']) || (!empty($sub->payload['submission_type']) && $sub->payload['submission_type'] === 'edit'));
                 $searchHaystack = strtolower(implode(' ', array_filter([
                     $subCode,
                     $sub->suspect_name,
@@ -73,6 +69,7 @@
                     $meta['case_ref'],
                     $meta['offense'],
                     $meta['location'],
+                    $isEditSub ? 'edited case edit' : '',
                 ])));
             @endphp
             <article
@@ -80,6 +77,7 @@
                 data-priority="{{ $prio }}"
                 data-urgent="{{ $isUrgent ? '1' : '0' }}"
                 data-status="{{ $sub->status }}"
+                data-is-edit="{{ $isEditSub ? '1' : '0' }}"
                 data-date="{{ optional($sub->created_at)->format('Y-m-d') }}"
                 data-search="{{ $searchHaystack }}"
             >
@@ -92,6 +90,14 @@
                         <div class="font-mono-code font-extrabold text-[11px] uppercase tracking-wide {{ $prioTextColor }}">
                             {{ $prio }} PRIORITY
                         </div>
+                        @if($isEditSub)
+                            <div class="mt-1">
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-amber-100 text-amber-950 border border-amber-300">
+                                    <svg class="w-3 h-3 text-amber-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                    <span>Edited Case</span>
+                                </span>
+                            </div>
+                        @endif
                         @if($sub->status === 'Rolled Back')
                             <div class="mt-1">
                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-green-100 text-green-950 border-none">
@@ -188,6 +194,12 @@
                                         {{ $sub->suspect_name ?: 'Unnamed Suspect' }}
                                     @endif
                                 </a>
+                                @if($isEditSub)
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-amber-100 text-amber-950 border border-amber-300">
+                                        <svg class="w-3 h-3 text-amber-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        <span>Edited Case</span>
+                                    </span>
+                                @endif
                                 @if(!empty($meta['case_ref']))
                                     <span class="text-[11px] font-mono-code font-semibold text-slate-500">
                                         Ref: {{ $meta['case_ref'] }}
@@ -195,8 +207,14 @@
                                 @endif
                             </div>
 
-                            <div class="text-xs font-medium text-slate-600 line-clamp-1">
-                                {{ $sub->title ?: 'Staff Case Submission' }}
+                            <div class="text-xs font-medium text-slate-600 flex items-center gap-1.5 flex-wrap">
+                                <span class="truncate max-w-[320px]">{{ $sub->title ?: 'Staff Case Submission' }}</span>
+                                @if($isEditSub)
+                                    <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono-code font-bold bg-amber-50 text-amber-900 border border-amber-300">
+                                        <svg class="w-2.5 h-2.5 text-amber-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        <span>Edited Case</span>
+                                    </span>
+                                @endif
                             </div>
 
                             <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-500 pt-0.5">

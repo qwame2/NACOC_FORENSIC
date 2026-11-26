@@ -96,47 +96,53 @@
     // Determine if Head Dashboard link should be active
     $isFieldOfficersActive = request()->is('*field-officers*') || request()->is('field-officers*');
     $isPermissionsActive = request()->is('*permissions*') || request()->is('permissions*');
+    $isPasswordRequestsActive = request()->is('*password-requests*') || request()->is('password-requests*');
     $isNotificationsActive = request()->is('*notifications*') || request()->is('notifications*');
     $isReviewsApprovalsActive = request()->is('*reviews-approvals*');
     $isStaffAuditLogsActive = request()->is('*staff-audit-logs*') || request()->is('staff-audit-logs*');
     $isHeadDashboardActive = false;
     if ($isLabContext) {
-        $isHeadDashboardActive = (request()->is('Lab_Analysis') || request()->is('Lab_Analysis/head') || request()->is('lab-analysis') || request()->is('lab_analysis')) && !request()->is('*create*') && !request()->is('*result*') && !request()->is('*analytical*') && !request()->is('*certificate*') && !request()->is('*staff*') && !request()->is('*drug-screening*') && !$isFieldOfficersActive && !$isPermissionsActive && !$isNotificationsActive && !$isStaffAuditLogsActive;
+        $isHeadDashboardActive = (request()->is('Lab_Analysis') || request()->is('Lab_Analysis/head') || request()->is('lab-analysis') || request()->is('lab_analysis')) && !request()->is('*create*') && !request()->is('*result*') && !request()->is('*analytical*') && !request()->is('*certificate*') && !request()->is('*staff*') && !request()->is('*drug-screening*') && !$isFieldOfficersActive && !$isPermissionsActive && !$isPasswordRequestsActive && !$isNotificationsActive && !$isStaffAuditLogsActive;
     } elseif ($isDigitalContext) {
-        $isHeadDashboardActive = (request()->is('Digital_Forensics') || request()->is('digital-forensics')) && !request()->is('*create*') && !request()->is('*status*') && !request()->is('*cases*') && !request()->is('*case-register*') && !request()->is('Digital_Forensics/head') && !$isFieldOfficersActive && !$isPermissionsActive && !$isNotificationsActive && !$isStaffAuditLogsActive;
+        $isHeadDashboardActive = (request()->is('Digital_Forensics') || request()->is('digital-forensics')) && !request()->is('*create*') && !request()->is('*status*') && !request()->is('*cases*') && !request()->is('*case-register*') && !request()->is('Digital_Forensics/head') && !$isFieldOfficersActive && !$isPermissionsActive && !$isPasswordRequestsActive && !$isNotificationsActive && !$isStaffAuditLogsActive;
     } elseif ($isEvidenceContext) {
-        $isHeadDashboardActive = (request()->is('Evidence_Management') || request()->is('Evidence_Management/head') || request()->is('evidence-management')) && !request()->is('*create*') && !request()->is('*vault*') && !$isFieldOfficersActive && !$isPermissionsActive && !$isNotificationsActive && !$isStaffAuditLogsActive;
+        $isHeadDashboardActive = (request()->is('Evidence_Management') || request()->is('Evidence_Management/head') || request()->is('evidence-management')) && !request()->is('*create*') && !request()->is('*vault*') && !$isFieldOfficersActive && !$isPermissionsActive && !$isPasswordRequestsActive && !$isNotificationsActive && !$isStaffAuditLogsActive;
     } else {
-        $isHeadDashboardActive = (request()->is('Crime_Scene_Support') || request()->is('Crime_Scene_Support/head') || request()->is('crime-scene-support') || request()->is('Forensic_Head') || request()->is('Forensic_Head/')) && !request()->is('*create*') && !request()->is('*arrest*') && !request()->is('cases*') && !$isFieldOfficersActive && !$isPermissionsActive && !$isNotificationsActive && !$isStaffAuditLogsActive;
+        $isHeadDashboardActive = (request()->is('Crime_Scene_Support') || request()->is('Crime_Scene_Support/head') || request()->is('crime-scene-support') || request()->is('Forensic_Head') || request()->is('Forensic_Head/')) && !request()->is('*create*') && !request()->is('*arrest*') && !request()->is('cases*') && !$isFieldOfficersActive && !$isPermissionsActive && !$isPasswordRequestsActive && !$isNotificationsActive && !$isStaffAuditLogsActive;
     }
 
     if ($isLabContext) {
         $fieldOfficersUrl = url('/Lab_Analysis/field-officers');
         $permissionsUrl = url('/Lab_Analysis/permissions');
+        $passwordRequestsUrl = url('/Lab_Analysis/password-requests');
         $notificationsUrl = url('/Lab_Analysis/notifications');
         $reviewsApprovalsUrl = url('/Lab_Analysis/reviews-approvals');
         $staffAuditLogsUrl = url('/Lab_Analysis/staff-audit-logs');
     } elseif ($isEvidenceContext) {
         $fieldOfficersUrl = url('/Evidence_Management/field-officers');
         $permissionsUrl = url('/Evidence_Management/permissions');
+        $passwordRequestsUrl = url('/Evidence_Management/password-requests');
         $notificationsUrl = url('/Evidence_Management/notifications');
         $reviewsApprovalsUrl = url('/Evidence_Management/reviews-approvals');
         $staffAuditLogsUrl = url('/Evidence_Management/staff-audit-logs');
     } elseif ($isDigitalContext) {
         $fieldOfficersUrl = url('/Digital_Forensics/field-officers');
         $permissionsUrl = url('/Digital_Forensics/permissions');
+        $passwordRequestsUrl = url('/Digital_Forensics/password-requests');
         $notificationsUrl = url('/Digital_Forensics/notifications');
         $reviewsApprovalsUrl = url('/Digital_Forensics/reviews-approvals');
         $staffAuditLogsUrl = url('/Digital_Forensics/staff-audit-logs');
     } elseif (str_contains(strtolower($sidebarUnit), 'directorate') || str_contains(strtolower($sidebarUnit), 'forensic head')) {
         $fieldOfficersUrl = url('/Crime_Scene_Support/field-officers');
         $permissionsUrl = url('/Crime_Scene_Support/permissions');
+        $passwordRequestsUrl = url('/password-requests');
         $notificationsUrl = url('/Crime_Scene_Support/notifications');
         $reviewsApprovalsUrl = url('/Forensic_Head/reviews-approvals');
         $staffAuditLogsUrl = url('/Forensic_Head/staff-audit-logs');
     } else {
         $fieldOfficersUrl = url('/Crime_Scene_Support/field-officers');
         $permissionsUrl = url('/Crime_Scene_Support/permissions');
+        $passwordRequestsUrl = url('/Crime_Scene_Support/password-requests');
         $notificationsUrl = url('/Crime_Scene_Support/notifications');
         $reviewsApprovalsUrl = url('/Crime_Scene_Support/reviews-approvals');
         $staffAuditLogsUrl = url('/Crime_Scene_Support/staff-audit-logs');
@@ -145,6 +151,7 @@
     $sidebarNotificationsCount = \App\Http\Controllers\NotificationsController::countActiveForContext($sidebarUnit, $sidebarUser);
     $sidebarPendingApprovalsCount = \App\Models\StaffCaseSubmission::forUnit((string) $sidebarUnit)->where('status', 'Pending Approval')->count();
     $sidebarPendingStaffApprovalsCount = \App\Http\Controllers\FieldOfficersController::countPendingApprovalsForContext((string) $sidebarUnit, $sidebarUser);
+    $sidebarPasswordRequestsCount = \App\Models\StaffPasswordResetRequest::countPendingForContext((string) $sidebarUnit, $sidebarUser);
 @endphp
 <!-- LEFT UNIT COMMAND SIDEBAR (EXECUTIVE GRAY THEME WITH SHADOW) -->
 <aside class="w-64 bg-slate-100 text-slate-800 flex flex-col shrink-0 shadow-2xl select-none z-30 relative overflow-x-hidden font-sans">
@@ -353,6 +360,19 @@
                 <a href="{{ $permissionsUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isPermissionsActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isPermissionsActive ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
                     <span class="text-xs flex-1">Permissions</span>
+                </a>
+                <a href="{{ $passwordRequestsUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isPasswordRequestsActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isPasswordRequestsActive ? 'text-white' : 'text-teal-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                    <span class="text-xs flex-1">Password</span>
+                    @if($sidebarPasswordRequestsCount > 0)
+                        <span id="sidebarPasswordRequestsBadge" class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse">
+                            {{ $sidebarPasswordRequestsCount }}
+                        </span>
+                    @else
+                        <span id="sidebarPasswordRequestsBadge" class="hidden ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse items-center justify-center" style="display: none !important;">
+                            0
+                        </span>
+                    @endif
                 </a>
                 <a href="{{ $staffAuditLogsUrl }}" class="flex items-center px-3 py-2 rounded-xl transition-colors {{ $isStaffAuditLogsActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }}">
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isStaffAuditLogsActive ? 'text-white' : 'text-indigo-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>

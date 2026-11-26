@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Models\AssociateLabExamination;
 use App\Models\ForensicCase;
 use App\Models\LaboratoryExaminationResult;
-use App\Models\NlrReport;
 use App\Models\ReferenceRegistry;
 use App\Models\SingleSuspectCase;
 use App\Models\User;
@@ -270,8 +269,8 @@ class ReferenceNumberSystemTest extends TestCase
         $this->assertNotEquals('NLR-FM-T35-F', $result['nlr_code']);
         $this->assertMatchesRegularExpression('/^NLA-FM-T\d{4}-F$/', $result['nlr_code']);
 
-        $this->assertDatabaseHas('nlr_reports', [
-            'nlr_code'    => $result['nlr_code'],
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasTable('nlr_reports'));
+        $this->assertDatabaseHas('suspect_preliminary_reports', [
             'case_number' => $case->case_number,
         ]);
         $this->assertTrue(ReferenceRegistry::isReserved($result['nlr_code']));
@@ -298,19 +297,9 @@ class ReferenceNumberSystemTest extends TestCase
     }
 
     #[Test]
-    public function database_level_unique_constraint_on_nlr_reports()
+    public function legacy_nlr_reports_table_is_dropped_from_schema()
     {
-        NlrReport::create([
-            'case_number' => 'NCC-TEST-0001',
-            'nlr_code'    => 'NLR-FM-T8888-F',
-        ]);
-
-        $this->expectException(QueryException::class);
-
-        NlrReport::create([
-            'case_number' => 'NCC-TEST-0002',
-            'nlr_code'    => 'NLR-FM-T8888-F',
-        ]);
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasTable('nlr_reports'));
     }
 
     #[Test]

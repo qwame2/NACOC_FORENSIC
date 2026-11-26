@@ -25,6 +25,16 @@
         'digital_forensics'   => url('/Digital_Forensics/permissions'),
         default               => url('/Forensic_Head/permissions'),
     };
+    $passwordRequestsUrl = $isDG ? null : match ($unitKey) {
+        'crime_scene_support' => url('/Crime_Scene_Support/password-requests'),
+        'lab_analysis'        => url('/Lab_Analysis/password-requests'),
+        'evidence_management' => url('/Evidence_Management/password-requests'),
+        'digital_forensics'   => url('/Digital_Forensics/password-requests'),
+        default               => url('/Forensic_Head/password-requests'),
+    };
+    $pendingPasswordRequestsCount = (!$isStaffShell && !$isDG && $authUser && $authUser->is_head)
+        ? \App\Models\StaffPasswordResetRequest::countPendingForContext((string) ($cfg['userUnit'] ?? ($authUser->unit ?? '')), $authUser)
+        : 0;
     $approvalsUrl = $isDG ? null : match ($unitKey) {
         'crime_scene_support' => url('/Crime_Scene_Support/reviews-approvals'),
         'lab_analysis'        => url('/Lab_Analysis/reviews-approvals'),
@@ -1533,6 +1543,15 @@
             <span>Permissions</span>
           </a>
         @endif
+        @if(!$isStaffShell && !$isDG && $authUser && $authUser->is_head && $passwordRequestsUrl)
+          <a href="{{ $passwordRequestsUrl }}" class="nav-link">
+            <i data-lucide="key-round" style="width:15px;height:15px;"></i>
+            <span>Password</span>
+            @if($pendingPasswordRequestsCount > 0)
+              <span class="nb animate-pulse" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $pendingPasswordRequestsCount }}</span>
+            @endif
+          </a>
+        @endif
         @if(!$isStaffShell && !$isDG && !$isForensicHead && $notificationsUrl)
         <a href="{{ $notificationsUrl }}" class="nav-link">
           <i data-lucide="bell" style="width:15px;height:15px;"></i>
@@ -1655,6 +1674,15 @@
             <span>Permissions</span>
           </a>
         @endif
+        @if(!$isStaffShell && !$isDG && $authUser && $authUser->is_head && $passwordRequestsUrl)
+          <a href="{{ $passwordRequestsUrl }}" class="mobile-nav-link">
+            <i data-lucide="key-round" style="width:16px;height:16px;"></i>
+            <span>Password</span>
+            @if($pendingPasswordRequestsCount > 0)
+              <span class="nb animate-pulse" style="background:#dc2626;color:#ffffff;min-width:18px;height:18px;padding:0 5px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;margin-left:4px;">{{ $pendingPasswordRequestsCount }}</span>
+            @endif
+          </a>
+        @endif
         @if(!$isStaffShell && !$isDG && !$isForensicHead && $notificationsUrl)
         <a href="{{ $notificationsUrl }}" class="mobile-nav-link">
           <i data-lucide="bell" style="width:16px;height:16px;"></i>
@@ -1739,9 +1767,8 @@
 
       <!-- Legend -->
       <div class="map-legend" aria-hidden="true">
-        <span class="sw"><i style="background:#dc2626;"></i>High / Critical &amp; High-Case Area</span>
-        <span class="sw"><i style="background:#0284c7;"></i>Medium</span>
-        <span class="sw"><i style="background:#0f766e;"></i>Low</span>
+        <span class="sw"><i style="background:#dc2626;"></i>High Priority &amp; High-Case Area</span>
+        <span class="sw"><i style="background:#0f766e;"></i>Low Priority</span>
       </div>
 
       <!-- Zoom controls -->
@@ -2515,7 +2542,7 @@
                       const item = topItems[ctx.dataIndex];
                       if (!item) return 'Cases: ' + ctx.raw;
                       let tip = 'Cases: ' + item.cases_count;
-                      if (item.critical_count) tip += ' (' + item.critical_count + ' Critical)';
+                      if (item.critical_count) tip += ' (' + item.critical_count + ' High Priority)';
                       if (item.percentage) tip += ' · ' + item.percentage + '%';
                       return tip;
                     },

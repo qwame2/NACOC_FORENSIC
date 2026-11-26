@@ -377,7 +377,7 @@ class CaseShowReviewPresenter
         $officerRole = $isHof ? 'Forensic Head' : 'Commanding Officer';
 
         $status = $case->status ?? 'Awaiting Sign-off';
-        $priority = strtoupper($case->priority ?? 'HIGH');
+        $priority = \App\Models\ForensicCase::normalizePriority($case->priority ?? 'HIGH');
 
         $docketData = is_array($case->docket_data)
             ? $case->docket_data

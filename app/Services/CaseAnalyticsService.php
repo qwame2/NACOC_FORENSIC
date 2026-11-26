@@ -284,10 +284,7 @@ class CaseAnalyticsService
 
             $statusBadge = $c->case_status ?? ($c->status ?? 'Under Investigation');
             $isApproved = in_array(strtolower($statusBadge), ['approved', 'completed', 'authorized'], true);
-            $priorityNorm = strtoupper(trim((string) ($c->priority ?? 'HIGH')));
-            if (!in_array($priorityNorm, ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], true)) {
-                $priorityNorm = 'HIGH';
-            }
+            $priorityNorm = ForensicCase::normalizePriority($c->priority ?? 'HIGH');
 
             if ($diffDays > 30 && !$isApproved) {
                 $overdueSum += $totalEstVal;
@@ -353,8 +350,7 @@ class CaseAnalyticsService
         $pendingCount = $casesCol->filter(fn($c) => in_array(strtolower($c['status_badge']), ['pending', 'awaiting sign-off', 'pending approval']))->count();
         $inProgressCount = $casesCol->filter(fn($c) => in_array(strtolower($c['status_badge']), ['in progress', 'under investigation', 'under multi-unit processing', 'active']))->count();
         $approvedCount = $casesCol->filter(fn($c) => in_array(strtolower($c['status_badge']), ['approved', 'completed', 'authorized']))->count();
-        $criticalHighCount = $casesCol->filter(fn($c) => in_array($c['priority'], ['CRITICAL', 'HIGH'], true))->count();
-        $mediumCount = $casesCol->where('priority', 'MEDIUM')->count();
+        $criticalHighCount = $casesCol->where('priority', 'HIGH')->count();
         $lowCount = $casesCol->where('priority', 'LOW')->count();
         $totalExhibitsCount = Exhibit::count();
 
@@ -433,7 +429,6 @@ class CaseAnalyticsService
                 'approved_cases'     => $approvedCount,
                 'completion_rate'    => $completionRate,
                 'high_priority_cases'=> $criticalHighCount,
-                'medium_cases'       => $mediumCount,
                 'low_cases'          => $lowCount,
                 'total_exhibits'     => $totalExhibitsCount,
                 'overdue_amount'     => $overdueCount > 0 ? '$' . number_format($overdueSum, 2) : 'N/A',
@@ -459,9 +454,8 @@ class CaseAnalyticsService
             ],
             'breakdowns' => [
                 'severity' => [
-                    'high'   => $criticalHighCount,
-                    'medium' => $mediumCount,
-                    'low'    => $lowCount,
+                    'high' => $criticalHighCount,
+                    'low'  => $lowCount,
                 ],
                 'status' => [
                     'pending'     => $pendingCount,
@@ -499,10 +493,7 @@ class CaseAnalyticsService
             $lngSum += $lng;
 
             $statusBadge = $c->case_status ?? ($c->status ?? 'Under Investigation');
-            $priorityNorm = strtoupper(trim((string) ($c->priority ?? 'HIGH')));
-            if (!in_array($priorityNorm, ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'], true)) {
-                $priorityNorm = 'HIGH';
-            }
+            $priorityNorm = ForensicCase::normalizePriority($c->priority ?? 'HIGH');
 
             $exhibitsCount = is_countable($c->exhibits ?? null) ? count($c->exhibits) : 0;
             $encodedRef = rawurlencode((string) ($c->case_number ?: $c->id));
@@ -629,8 +620,8 @@ class CaseAnalyticsService
             }
 
             $buckets[$key]['cases_count']++;
-            $priority = strtoupper(trim((string) ($c->priority ?? 'HIGH')));
-            if ($priority === 'CRITICAL' || $priority === 'HIGH') {
+            $priority = ForensicCase::normalizePriority($c->priority ?? 'HIGH');
+            if ($priority === 'HIGH') {
                 $buckets[$key]['critical_count']++;
             }
             $totalMapped++;

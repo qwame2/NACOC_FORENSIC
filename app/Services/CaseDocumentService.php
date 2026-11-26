@@ -6,7 +6,6 @@ use App\Models\ForensicCase;
 use App\Models\MultipleSuspectCase;
 use App\Models\SingleSuspectCase;
 use App\Models\CaseSuspect;
-use App\Models\NlrReport;
 use App\Models\SuspectNlrReport;
 use App\Models\SuspectPreliminaryReport;
 use App\Models\SuspectGsaReport;
@@ -65,72 +64,35 @@ class CaseDocumentService
         $exhibitDesc = trim((string)$request->input('detailed_exhibit_description'));
         $condition   = trim((string)$request->input('condition_of_reserved_sample'));
 
-        $report = NlrReport::where(function ($q) use ($caseId, $caseNo, $labNo, $singleId, $multipleId) {
-            if (!empty($caseNo)) $q->orWhere('case_number', $caseNo);
-            if (!empty($labNo)) $q->orWhere('laboratory_number', $labNo);
-            if (!empty($multipleId)) $q->orWhere('multiple_suspect_case_id', $multipleId);
-            if (!empty($singleId)) $q->orWhere('single_suspect_case_id', $singleId);
-            if (!empty($caseId) && is_numeric($caseId)) {
-                $q->orWhere('single_suspect_case_id', (int)$caseId)
-                  ->orWhere('multiple_suspect_case_id', (int)$caseId);
-            }
-        })->latest('id')->first();
+        $multiCase = $multipleId ? MultipleSuspectCase::find($multipleId) : null;
+        $singleCase = $singleId ? SingleSuspectCase::find($singleId) : null;
 
-        $nlrCode = $request->input('nlr_code');
-        if (empty($nlrCode) && $report && !empty($report->nlr_code)) {
-            $nlrCode = $report->nlr_code;
+        $existingDocketData = [];
+        if ($case) {
+            $existingDocketData = is_array($case->docket_data)
+                ? $case->docket_data
+                : (json_decode($case->docket_data ?? '[]', true) ?: []);
+        } elseif ($multiCase || $singleCase) {
+            $rawRecord = $multiCase ?: $singleCase;
+            $existingDocketData = is_array($rawRecord->docket_data)
+                ? $rawRecord->docket_data
+                : (json_decode($rawRecord->docket_data ?? '[]', true) ?: []);
         }
 
-        $isTakenByOther = !empty($nlrCode) && NlrReport::where('nlr_code', $nlrCode)
-            ->when($report, fn($q) => $q->where('id', '!=', $report->id))
-            ->exists();
+        $savedCaseCode = $existingDocketData['lab_examination']['nlr_code'] ?? null;
+        $nlrCode = trim((string) ($request->input('nlr_code') ?: ($savedCaseCode ?? '')));
+
+        $isTakenByOther = !empty($nlrCode)
+            && $nlrCode !== $savedCaseCode
+            && ReferenceRegistry::isReserved($nlrCode);
 
         if (empty($nlrCode) || $nlrCode === 'NLR-FM-T35-F' || $isTakenByOther) {
             $nlrCode = app(CaseReferenceService::class)->generateExamReference('Forensic Laboratory');
         }
 
-        $multiCase = $multipleId ? MultipleSuspectCase::find($multipleId) : null;
-        $singleCase = $singleId ? SingleSuspectCase::find($singleId) : null;
-
         for ($attempt = 1; $attempt <= 5; $attempt++) {
             try {
-                if ($report) {
-                    $updatePayload = array_filter([
-                        'multiple_suspect_case_id'     => $multipleId ?: $report->multiple_suspect_case_id,
-                        'single_suspect_case_id'       => $singleId ?: $report->single_suspect_case_id,
-                        'case_number'                  => $caseNo ?: ($report->case_number ?: ($case ? $case->case_number : null)),
-                        'laboratory_number'            => $labNo ?: $report->laboratory_number,
-                        'nlr_code'                     => $nlrCode,
-                    ], fn($v) => !is_null($v));
-
-                    if (\App\Services\SchemaCache::hasColumn('nlr_reports', 'detailed_exhibit_description')) {
-                        $updatePayload['detailed_exhibit_description'] = $exhibitDesc;
-                    }
-                    if (\App\Services\SchemaCache::hasColumn('nlr_reports', 'condition_of_reserved_sample')) {
-                        $updatePayload['condition_of_reserved_sample'] = $condition ?: $report->condition_of_reserved_sample;
-                    }
-
-                    $report->update($updatePayload);
-                } else {
-                    $createPayload = [
-                        'multiple_suspect_case_id'     => $multipleId,
-                        'single_suspect_case_id'       => $singleId,
-                        'case_number'                  => $caseNo ?: ($case ? $case->case_number : ($multiCase ? $multiCase->case_number : null)),
-                        'laboratory_number'            => $labNo,
-                        'nlr_code'                     => $nlrCode,
-                    ];
-
-                    if (\App\Services\SchemaCache::hasColumn('nlr_reports', 'detailed_exhibit_description')) {
-                        $createPayload['detailed_exhibit_description'] = $exhibitDesc;
-                    }
-                    if (\App\Services\SchemaCache::hasColumn('nlr_reports', 'condition_of_reserved_sample')) {
-                        $createPayload['condition_of_reserved_sample'] = $condition;
-                    }
-
-                    $report = NlrReport::create($createPayload);
-                }
-
-                ReferenceRegistry::reserve($nlrCode, 'EXAM', NlrReport::class, $report->id);
+                ReferenceRegistry::reserve($nlrCode, 'EXAM');
                 break;
             } catch (QueryException $e) {
                 $isUniqueViolation = str_contains(strtolower($e->getMessage()), 'duplicate')
@@ -146,7 +108,7 @@ class CaseDocumentService
 
         // Sync with Case docket data
         if ($case) {
-            $docketData = is_array($case->docket_data) ? $case->docket_data : (json_decode($case->docket_data ?? '[]', true) ?: []);
+            $docketData = $existingDocketData;
             if (!isset($docketData['lab_examination'])) {
                 $docketData['lab_examination'] = [];
             }
@@ -168,21 +130,21 @@ class CaseDocumentService
             }
         }
 
-        // Attach NLR report files to suspects
-        $this->attachNlrReportToSuspects($request, $case, $report, $multiCase, $singleCase, $singleId, $multipleId, $caseNo, $caseId);
+        // Attach Preliminary Exhibit Analysis Report file records to suspects
+        $attachedReport = $this->attachNlrReportToSuspects($request, $case, $nlrCode, $labNo, $multiCase, $singleCase, $singleId, $multipleId, $caseNo, $caseId);
 
         return [
             'success'  => true,
             'message'  => 'NLR Report details saved successfully.',
-            'report'   => $report,
+            'report'   => $attachedReport,
             'nlr_code' => $nlrCode,
         ];
     }
 
     /**
-     * Attach NLR Report file records to CaseSuspect models.
+     * Attach Preliminary / NLR Report file records to CaseSuspect models.
      */
-    protected function attachNlrReportToSuspects($request, $case, $report, $multiCase, $singleCase, $singleId, $multipleId, $caseNo, $caseId): void
+    protected function attachNlrReportToSuspects($request, $case, ?string $nlrCode, ?string $labNo, $multiCase, $singleCase, $singleId, $multipleId, $caseNo, $caseId): ?SuspectPreliminaryReport
     {
         $suspectId = $request->input('suspect_id');
         $targetSuspects = [];
@@ -204,11 +166,12 @@ class CaseDocumentService
             }
         }
 
-        $finalCaseNo  = $caseNo ?: ($case ? $case->case_number : ($multiCase ? $multiCase->case_number : null));
+        $finalCaseNo  = $caseNo ?: ($case ? $case->case_number : ($multiCase ? $multiCase->case_number : ($singleCase ? $singleCase->case_number : null)));
         $pdfUrlPath   = 'Lab_Analysis/preliminary-report-pdf/' . ($finalCaseNo ?: ($caseId ?: ($multiCase ? $multiCase->id : '')));
-        $cleanRef     = preg_replace('/[^A-Za-z0-9\-]/', '_', (string)($report->nlr_code ?: ($report->laboratory_number ?: 'NACOC')));
+        $cleanRef     = preg_replace('/[^A-Za-z0-9\-]/', '_', (string)($nlrCode ?: ($labNo ?: 'NACOC')));
         $filename     = 'Preliminary_Report_' . $cleanRef . '.pdf';
-        $singleCaseId = ($case && !($case->underlyingRecord instanceof MultipleSuspectCase)) ? $case->id : ($report->single_suspect_case_id ?: ($singleCase ? $singleCase->id : null));
+        $singleCaseId = ($case && !($case->underlyingRecord instanceof MultipleSuspectCase)) ? $case->id : ($singleId ?: ($singleCase ? $singleCase->id : null));
+        $primaryAttached = null;
 
         if (empty($targetSuspects)) {
             $existingReport = SuspectPreliminaryReport::where(function ($q) use ($multiCase, $singleCaseId, $finalCaseNo) {
@@ -229,21 +192,22 @@ class CaseDocumentService
             $payload = [
                 'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
                 'single_suspect_case_id'   => $singleCaseId,
-                'lab_number'               => $report->laboratory_number ?: $finalCaseNo,
+                'lab_number'               => $labNo ?: $finalCaseNo,
                 'case_number'              => $finalCaseNo,
                 'original_filename'        => $filename,
                 'file_path'                => $pdfUrlPath,
-                'notes'                    => 'Attached Preliminary Exhibit Analysis Report PDF (' . ($report->nlr_code ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
+                'notes'                    => 'Attached Preliminary Exhibit Analysis Report PDF (' . ($nlrCode ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
                 'status'                   => 'active',
             ];
 
             if ($existingReport) {
                 $existingReport->update($payload);
+                $primaryAttached = $existingReport;
             } else {
-                SuspectPreliminaryReport::create(array_merge($payload, [
+                $primaryAttached = SuspectPreliminaryReport::create(array_merge($payload, [
                     'case_suspect_id' => null,
                     'uploaded_by'     => auth()->id(),
-                    'stored_filename' => 'preliminary_report_' . $report->id . '.pdf',
+                    'stored_filename' => 'preliminary_report_' . $cleanRef . '.pdf',
                     'file_type'       => 'application/pdf',
                     'file_extension'  => 'pdf',
                     'file_size'       => 0,
@@ -265,28 +229,32 @@ class CaseDocumentService
                 $payload = [
                     'multiple_suspect_case_id' => $multiCase ? $multiCase->id : null,
                     'single_suspect_case_id'   => $singleCaseId,
-                    'lab_number'               => $report->laboratory_number ?: $finalCaseNo,
+                    'lab_number'               => $labNo ?: $finalCaseNo,
                     'case_number'              => $finalCaseNo,
                     'original_filename'        => $filename,
                     'file_path'                => $pdfUrlPath,
-                    'notes'                    => 'Attached Preliminary Exhibit Analysis Report PDF (' . ($report->nlr_code ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
+                    'notes'                    => 'Attached Preliminary Exhibit Analysis Report PDF (' . ($nlrCode ?: app(\App\Services\CaseReferenceService::class)->generateExamReference('Forensic Laboratory')) . ')',
                     'status'                   => 'active',
                 ];
 
                 if ($existingReport) {
                     $existingReport->update($payload);
+                    $primaryAttached = $primaryAttached ?: $existingReport;
                 } else {
-                    SuspectPreliminaryReport::create(array_merge($payload, [
+                    $created = SuspectPreliminaryReport::create(array_merge($payload, [
                         'case_suspect_id' => $s->id,
                         'uploaded_by'     => auth()->id(),
-                        'stored_filename' => 'preliminary_report_' . $report->id . '_' . $s->id . '.pdf',
+                        'stored_filename' => 'preliminary_report_' . $cleanRef . '_' . $s->id . '.pdf',
                         'file_type'       => 'application/pdf',
                         'file_extension'  => 'pdf',
                         'file_size'       => 0,
                     ]));
+                    $primaryAttached = $primaryAttached ?: $created;
                 }
             }
         }
+
+        return $primaryAttached;
     }
 
     /**

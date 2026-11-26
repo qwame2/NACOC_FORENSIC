@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\PasswordResetController;
+use App\Http\Controllers\HeadPasswordRequestsController;
 use App\Http\Controllers\CaseController;
 use App\Http\Controllers\CaseWorkflowController;
 use App\Http\Controllers\CaseDocumentController;
@@ -36,6 +38,12 @@ Route::post('/login', [AuthController::class, 'login']);
 
 Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
 Route::post('/register', [AuthController::class, 'register']);
+
+Route::get('/forgot-password', [PasswordResetController::class, 'showForgotForm'])->name('password.request');
+Route::post('/forgot-password', [PasswordResetController::class, 'sendOtp'])->middleware('throttle:8,1')->name('password.email');
+Route::get('/forgot-password/request-status', [PasswordResetController::class, 'checkRequestStatus'])->middleware('throttle:30,1')->name('password.request.status');
+Route::post('/forgot-password/verify-otp', [PasswordResetController::class, 'verifyOtp'])->middleware('throttle:12,1')->name('password.otp.verify');
+Route::post('/reset-password', [PasswordResetController::class, 'resetPassword'])->middleware('throttle:8,1')->name('password.update');
 
 // Permanent Live Exhibit Information & Tamper-Evident Verification Tag Route
 Route::get('/exhibits/tag/{token}', [EvidenceManagementController::class, 'showLiveTag'])->name('exhibits.live-tag');
@@ -76,12 +84,17 @@ Route::get('/api/check-user-approval', function (\Illuminate\Http\Request $reque
         return response()->json(['exists' => false]);
     }
 
+    $revocationInfo = \App\Http\Controllers\AuthController::getStaffRevocationInfo($user);
+
     return response()->json([
         'exists' => true,
         'is_approved' => (bool) $user->is_approved,
+        'is_revoked' => $revocationInfo !== null,
+        'revoked_reason' => $revocationInfo['revoked_reason'] ?? null,
+        'unit_head_name' => $revocationInfo['unit_head_name'] ?? null,
         'is_head' => (bool) $user->is_head,
         'is_staff' => (bool) $user->is_staff,
-        'unit' => $user->unit,
+        'unit' => $revocationInfo['unit'] ?? $user->unit,
         'fullname' => $user->fullname,
         'service_id' => $user->service_id,
         'username' => $user->username,
@@ -141,7 +154,7 @@ Route::middleware(['auth'])->group(function () {
     Route::post('/field-officers/{id}/revoke', [FieldOfficersController::class, 'revoke'])->name('field_officers.revoke');
     Route::get('/api/auth/account-status', [FieldOfficersController::class, 'accountStatus'])->name('api.auth.account_status');
 
-    // UNIT HEAD STAFF PERMISSIONS MANAGEMENT
+    // UNIT HEAD STAFF PERMISSIONS & PASSWORD RESET APPROVAL MANAGEMENT
     Route::middleware([EnsureHeadOfficer::class])->group(function () {
         Route::get('/permissions', [UnitPermissionsController::class, 'index'])->name('permissions.index');
         Route::get('/Crime_Scene_Support/permissions', [UnitPermissionsController::class, 'index'])->name('crime_scene.permissions');
@@ -150,6 +163,15 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/Digital_Forensics/permissions', [UnitPermissionsController::class, 'index'])->name('digital_forensics.permissions');
         Route::get('/Forensic_Head/permissions', [UnitPermissionsController::class, 'index'])->name('forensic_head.permissions');
         Route::post('/permissions/{id}/update', [UnitPermissionsController::class, 'update'])->name('permissions.update');
+
+        Route::get('/password-requests', [HeadPasswordRequestsController::class, 'index'])->name('password_requests.index');
+        Route::get('/Crime_Scene_Support/password-requests', [HeadPasswordRequestsController::class, 'index'])->name('crime_scene.password_requests');
+        Route::get('/Lab_Analysis/password-requests', [HeadPasswordRequestsController::class, 'index'])->name('lab_analysis.password_requests');
+        Route::get('/Evidence_Management/password-requests', [HeadPasswordRequestsController::class, 'index'])->name('evidence_management.password_requests');
+        Route::get('/Digital_Forensics/password-requests', [HeadPasswordRequestsController::class, 'index'])->name('digital_forensics.password_requests');
+        Route::get('/Forensic_Head/password-requests', [HeadPasswordRequestsController::class, 'index'])->name('forensic_head.password_requests');
+        Route::post('/password-requests/{id}/approve', [HeadPasswordRequestsController::class, 'approve'])->name('password_requests.approve');
+        Route::post('/password-requests/{id}/decline', [HeadPasswordRequestsController::class, 'decline'])->name('password_requests.decline');
     });
 
     // UNIT HEAD & DIRECTORATE NOTIFICATIONS
@@ -246,9 +268,20 @@ Route::middleware(['auth'])->group(function () {
     $handleCasesLanding = function (\Illuminate\Http\Request $request) {
         $allCases = ForensicCase::allCases();
 
-        $search = trim($request->input('search', ''));
-        $status = trim($request->input('status', ''));
-        $unit = trim($request->input('unit', ''));
+        $search = trim((string) $request->input('search', ''));
+        $status = trim((string) $request->input('status', ''));
+        $unit = trim((string) $request->input('unit', ''));
+        $priority = strtoupper(trim((string) $request->input('priority', '')));
+        $from = trim((string) $request->input('from_date', ''));
+        $to = trim((string) $request->input('to_date', ''));
+
+        $kpiStats = [
+            'total'            => $allCases->count(),
+            'lab_analysis'     => $allCases->whereIn('status', ['Lab Testing', 'Lab Analysis', 'Awaiting Sign-off', 'Under Review'])->count(),
+            'pending_approval' => $allCases->whereIn('status', ['Awaiting Sign-off', 'Pending Approval', 'Pending', 'Pending Review'])->count(),
+            'court_certified'  => $allCases->whereIn('status', ['Approved', 'Court Ready', 'Certified', 'Completed', 'Authorized'])->count(),
+            'active_inv'       => $allCases->filter(fn($c) => !in_array($c->status ?? '', ['Approved', 'Court Ready', 'Certified', 'Completed', 'Authorized', 'Lab Testing', 'Lab Analysis', 'Under Review'], true))->count(),
+        ];
 
         $filtered = $allCases;
 
@@ -256,34 +289,69 @@ Route::middleware(['auth'])->group(function () {
             $sLower = strtolower($search);
             $filtered = $filtered->filter(function ($c) use ($sLower) {
                 $suspectNames = '';
+                $suspectAliases = '';
                 if (!empty($c->docket_data['suspects']) && is_array($c->docket_data['suspects'])) {
                     $suspectNames = collect($c->docket_data['suspects'])->pluck('suspect_name')->filter()->implode(' ');
+                    $suspectAliases = collect($c->docket_data['suspects'])->pluck('suspect_alias')->filter()->implode(' ');
                 }
-                return str_contains(strtolower($c->case_number ?? ''), $sLower) ||
-                       str_contains(strtolower($c->title ?? ''), $sLower) ||
-                       str_contains(strtolower($c->suspect_name ?? ''), $sLower) ||
+                return str_contains(strtolower((string) ($c->case_number ?? '')), $sLower) ||
+                       str_contains(strtolower((string) ($c->title ?? '')), $sLower) ||
+                       str_contains(strtolower((string) ($c->suspect_name ?? '')), $sLower) ||
+                       str_contains(strtolower((string) ($c->suspect_alias ?? '')), $sLower) ||
                        str_contains(strtolower($suspectNames), $sLower) ||
-                       str_contains(strtolower($c->submitting_officer ?? ''), $sLower) ||
-                       str_contains(strtolower($c->incident_scene ?? ''), $sLower) ||
-                       str_contains(strtolower($c->exhibits_summary ?? ''), $sLower);
+                       str_contains(strtolower($suspectAliases), $sLower) ||
+                       str_contains(strtolower((string) ($c->submitting_officer ?? '')), $sLower) ||
+                       str_contains(strtolower((string) ($c->raid_location ?? $c->incident_scene ?? '')), $sLower) ||
+                       str_contains(strtolower((string) ($c->unit_name ?? '')), $sLower) ||
+                       str_contains(strtolower((string) ($c->exhibits_summary ?? '')), $sLower);
             })->values();
         }
 
         if ($status !== '' && strtoupper($status) !== 'ALL') {
             $filtered = $filtered->filter(function ($c) use ($status) {
+                if (strcasecmp($status, 'Pending Approval') === 0) {
+                    return in_array($c->status ?? '', ['Awaiting Sign-off', 'Pending Approval', 'Pending', 'Pending Review'], true);
+                }
                 $statusTab = match ($c->status) {
                     'Approved', 'Court Ready', 'Certified', 'Completed', 'Authorized' => 'Court Ready',
                     'Lab Testing', 'Lab Analysis', 'Under Review' => 'Lab Analysis',
                     default => 'Active Investigation',
                 };
-                return strcasecmp($statusTab, $status) === 0 || strcasecmp($c->status ?? '', $status) === 0;
+                return strcasecmp($statusTab, $status) === 0
+                    || strcasecmp((string) ($c->status ?? ''), $status) === 0
+                    || strcasecmp((string) ($c->case_status ?? ''), $status) === 0;
             })->values();
         }
 
-        if ($unit !== '' && $unit !== 'All Units') {
-            $uLower = strtolower($unit);
+        if ($priority !== '' && $priority !== 'ALL') {
+            $normPriority = \App\Models\ForensicCase::normalizePriority($priority, 'HIGH');
+            $filtered = $filtered->filter(fn($c) => \App\Models\ForensicCase::normalizePriority($c->priority ?? 'HIGH') === $normPriority)->values();
+        }
+
+        if ($from !== '') {
+            $filtered = $filtered->filter(function ($c) use ($from) {
+                $rawD = !empty($c->incident_date) ? (string) $c->incident_date : ($c->created_at ? substr((string) $c->created_at, 0, 10) : '');
+                $ts = strtotime($rawD);
+                $iso = ($ts && $ts > 0) ? date('Y-m-d', $ts) : substr($rawD, 0, 10);
+                return $iso >= $from;
+            })->values();
+        }
+
+        if ($to !== '') {
+            $filtered = $filtered->filter(function ($c) use ($to) {
+                $rawD = !empty($c->incident_date) ? (string) $c->incident_date : ($c->created_at ? substr((string) $c->created_at, 0, 10) : '');
+                $ts = strtotime($rawD);
+                $iso = ($ts && $ts > 0) ? date('Y-m-d', $ts) : substr($rawD, 0, 10);
+                return $iso !== '' && $iso <= $to;
+            })->values();
+        }
+
+        // Only filter by unit when explicitly filtering via unit_filter param (note: ?unit= is also used by unit navigation context)
+        $unitFilterExplicit = trim((string) $request->input('unit_filter', ''));
+        if ($unitFilterExplicit !== '' && $unitFilterExplicit !== 'All Units' && strtolower($unitFilterExplicit) !== 'all') {
+            $uLower = strtolower($unitFilterExplicit);
             $filtered = $filtered->filter(function ($c) use ($uLower) {
-                return str_contains(strtolower($c->unit_name ?? ''), $uLower);
+                return str_contains(strtolower((string) ($c->unit_name ?? '')), $uLower);
             })->values();
         }
 
@@ -291,13 +359,38 @@ Route::middleware(['auth'])->group(function () {
         if ($perPage < 1) $perPage = 15;
         if ($perPage > 100) $perPage = 100;
 
-        $cases = ForensicCase::paginateCases($filtered, $perPage);
+        $cases = ForensicCase::paginateCases($filtered, $perPage)->appends($request->except('poll'));
 
-        if ($request->ajax()) {
-            return view('cases.partials.table', compact('cases', 'allCases'));
+        $sigRows = [];
+        foreach ($cases->items() as $cItem) {
+            $sigRows[] = [
+                $cItem->case_number,
+                $cItem->status,
+                $cItem->case_status,
+                $cItem->priority,
+                optional($cItem->updated_at)->timestamp,
+            ];
+        }
+        $initialSignature = md5((string) json_encode([
+            'stats' => $kpiStats,
+            'filters' => [$search, $status, $priority, $from, $to, $unitFilterExplicit, $perPage, $cases->currentPage(), $cases->total()],
+            'rows' => $sigRows,
+        ]));
+
+        if ($request->boolean('poll')) {
+            return response()->json([
+                'success' => true,
+                'html' => view('cases.partials.table', compact('cases', 'allCases', 'kpiStats'))->render(),
+                'stats' => $kpiStats,
+                'signature' => $initialSignature,
+            ]);
         }
 
-        return view('cases.landing', compact('cases', 'allCases'));
+        if ($request->ajax()) {
+            return view('cases.partials.table', compact('cases', 'allCases', 'kpiStats'));
+        }
+
+        return view('cases.landing', compact('cases', 'allCases', 'kpiStats', 'initialSignature'));
     };
 
     Route::get('/cases', $handleCasesLanding);
@@ -831,54 +924,242 @@ Route::middleware(['auth'])->group(function () {
             return !empty($elecSuspects);
         })->values();
 
-        $search = trim($request->input('search', ''));
-        $from = trim($request->input('from', ''));
-        $to = trim($request->input('to', ''));
+        $caseNumbers = $digitalCases->pluck('case_number')->filter()->unique()->values()->all();
+        $dpfReportsByCase = (\Illuminate\Support\Facades\Schema::hasTable('dpf_report') && !empty($caseNumbers))
+            ? \App\Models\DpfReport::whereIn('case_number', $caseNumbers)
+                ->orderByDesc('id')
+                ->get()
+                ->groupBy('case_number')
+            : collect();
+
+        $resolveElectronicExhibits = function ($c) {
+            $exhibits = ($c->relationLoaded('exhibits') && $c->exhibits) ? collect($c->exhibits) : collect();
+            if ($exhibits->isEmpty() && isset($c->underlyingRecord) && isset($c->underlyingRecord->exhibits)) {
+                $exhibits = collect($c->underlyingRecord->exhibits);
+            }
+            return $exhibits->filter(function ($ex) {
+                $cat = strtolower((string) ($ex->exhibit_category ?? ''));
+                $name = strtolower((string) ($ex->commodity_name ?? ''));
+                return !empty($ex->dev_model)
+                    || !empty($ex->dev_serial_no)
+                    || !empty($ex->dev_imei1)
+                    || !empty($ex->dev_imei2)
+                    || !empty($ex->dev_mac_address)
+                    || str_contains($cat, 'electronic')
+                    || str_contains($cat, 'digital')
+                    || str_contains($cat, 'device')
+                    || str_contains($name, 'phone')
+                    || str_contains($name, 'iphone')
+                    || str_contains($name, 'samsung')
+                    || str_contains($name, 'laptop')
+                    || str_contains($name, 'drive');
+            })->values();
+        };
+
+        $classifyPipeline = function ($c) use ($dpfReportsByCase) {
+            $reps = $dpfReportsByCase->get($c->case_number, collect());
+            $latest = $reps->first();
+            $extRaw = strtoupper(trim((string) ($latest->extraction_analysis_message ?? ($latest->extraction_analysis_conducted ?? ''))));
+            $courtRaw = strtoupper(trim((string) ($latest->court_order_granted ?? '')));
+            $isExtracted = $latest && (str_contains($extRaw, 'YES') || str_contains($extRaw, 'COMPLET'));
+            $isOngoing = !$isExtracted && $latest && (str_contains($extRaw, 'PROGRESS') || str_contains($extRaw, 'ONGOING'));
+            $hasCourtOrder = $latest && str_contains($courtRaw, 'YES');
+            $elecSuspects = $c->getElectronicDeviceSuspects();
+            $isMulti = !empty($c->is_multiple) || count($elecSuspects) > 1;
+
+            return [
+                'latest_report' => $latest,
+                'is_extracted'  => $isExtracted,
+                'is_ongoing'    => $isOngoing,
+                'has_warrant'   => $hasCourtOrder,
+                'is_multi'      => $isMulti,
+            ];
+        };
+
+        $totalDevices = 0;
+        $extractedCasesCount = 0;
+        $courtOrderCasesCount = 0;
+        $multiSubjectCasesCount = 0;
+
+        foreach ($digitalCases as $dc) {
+            $devList = $resolveElectronicExhibits($dc);
+            $totalDevices += max(1, $devList->count());
+            $meta = $classifyPipeline($dc);
+            if ($meta['is_extracted']) {
+                $extractedCasesCount++;
+            }
+            if ($meta['has_warrant']) {
+                $courtOrderCasesCount++;
+            }
+            if ($meta['is_multi']) {
+                $multiSubjectCasesCount++;
+            }
+        }
+
+        $totalDigitalCasesCount = $digitalCases->count();
+        $registerStats = [
+            'total_cases'        => $totalDigitalCasesCount,
+            'total_devices'      => $totalDevices,
+            'extracted_cases'    => $extractedCasesCount,
+            'pending_extraction' => max(0, $totalDigitalCasesCount - $extractedCasesCount),
+            'court_order_cases'  => $courtOrderCasesCount,
+            'multi_subject_cases'=> $multiSubjectCasesCount,
+            'extraction_rate'    => $totalDigitalCasesCount > 0 ? (int) round(($extractedCasesCount / $totalDigitalCasesCount) * 100) : 0,
+        ];
+
+        $search = trim((string) $request->input('search', ''));
+        $from = trim((string) $request->input('from', ''));
+        $to = trim((string) $request->input('to', ''));
+        $pipeline = strtolower(trim((string) $request->input('pipeline', 'all')));
+        $disposition = strtolower(trim((string) $request->input('disposition', 'all')));
 
         $filtered = $digitalCases;
 
         if ($search !== '') {
             $sLower = strtolower($search);
-            $filtered = $filtered->filter(function ($c) use ($sLower) {
+            $filtered = $filtered->filter(function ($c) use ($sLower, $resolveElectronicExhibits, $dpfReportsByCase) {
                 $elecSuspects = $c->getElectronicDeviceSuspects();
                 $userNames = implode(' ', array_filter(array_column($elecSuspects, 'suspect_name')));
                 $userAliases = implode(' ', array_filter(array_column($elecSuspects, 'suspect_alias')));
+                $devExhibits = $resolveElectronicExhibits($c);
+                $devBlob = $devExhibits->map(function ($ex) {
+                    return implode(' ', array_filter([
+                        $ex->commodity_name ?? null,
+                        $ex->dev_model ?? null,
+                        $ex->dev_serial_no ?? null,
+                        $ex->dev_imei1 ?? null,
+                        $ex->dev_imei2 ?? null,
+                        $ex->dev_mac_address ?? null,
+                    ]));
+                })->implode(' ');
+                $rep = $dpfReportsByCase->get($c->case_number, collect())->first();
 
-                return str_contains(strtolower($c->case_number ?? ''), $sLower) ||
-                       str_contains(strtolower($c->title ?? ''), $sLower) ||
-                       str_contains(strtolower($c->suspect_name ?? ''), $sLower) ||
-                       str_contains(strtolower($userNames), $sLower) ||
-                       str_contains(strtolower($userAliases), $sLower) ||
-                       str_contains(strtolower($c->submitting_officer ?? ''), $sLower) ||
-                       str_contains(strtolower($c->incident_scene ?? ''), $sLower) ||
-                       str_contains(strtolower($c->exhibits_summary ?? ''), $sLower);
+                return str_contains(strtolower((string) ($c->case_number ?? '')), $sLower)
+                    || str_contains(strtolower((string) ($c->title ?? '')), $sLower)
+                    || str_contains(strtolower((string) ($c->suspect_name ?? '')), $sLower)
+                    || str_contains(strtolower($userNames), $sLower)
+                    || str_contains(strtolower($userAliases), $sLower)
+                    || str_contains(strtolower((string) ($c->submitting_officer ?? '')), $sLower)
+                    || str_contains(strtolower((string) ($c->raid_location ?? $c->seizure_location ?? '')), $sLower)
+                    || str_contains(strtolower((string) ($c->dev_model ?? '')), $sLower)
+                    || str_contains(strtolower((string) ($c->dev_serial_no ?? '')), $sLower)
+                    || str_contains(strtolower((string) ($c->dev_imei1 ?? '')), $sLower)
+                    || str_contains(strtolower((string) ($c->dev_mac_address ?? '')), $sLower)
+                    || str_contains(strtolower($devBlob), $sLower)
+                    || str_contains(strtolower((string) ($rep->dpf_code ?? '')), $sLower)
+                    || str_contains(strtolower((string) ($rep->hash_checksum ?? '')), $sLower);
+            })->values();
+        }
+
+        if ($pipeline !== '' && $pipeline !== 'all') {
+            $filtered = $filtered->filter(function ($c) use ($pipeline, $classifyPipeline) {
+                $meta = $classifyPipeline($c);
+                return match ($pipeline) {
+                    'extracted'          => $meta['is_extracted'],
+                    'pending_extraction' => !$meta['is_extracted'],
+                    'court_order'        => $meta['has_warrant'],
+                    'multi_subject'      => $meta['is_multi'],
+                    default              => true,
+                };
+            })->values();
+        }
+
+        if ($disposition !== '' && $disposition !== 'all') {
+            $filtered = $filtered->filter(function ($c) use ($disposition) {
+                $susList = $c->getElectronicDeviceSuspects();
+                if (empty($susList)) {
+                    $susList = $c->getSuspectsList();
+                }
+                foreach ($susList as $sObj) {
+                    $dispLower = strtolower((string) ($sObj['suspect_disposition'] ?? 'active'));
+                    $matched = match ($disposition) {
+                        'cleared'  => str_contains($dispLower, 'cleared'),
+                        'referred' => str_contains($dispLower, 'referred'),
+                        'released' => str_contains($dispLower, 'released') || str_contains($dispLower, 'reclassified'),
+                        'active'   => !str_contains($dispLower, 'cleared') && !str_contains($dispLower, 'referred') && !str_contains($dispLower, 'released') && !str_contains($dispLower, 'reclassified'),
+                        default    => true,
+                    };
+                    if ($matched) {
+                        return true;
+                    }
+                }
+                return false;
             })->values();
         }
 
         if ($from !== '') {
             $filtered = $filtered->filter(function ($c) use ($from) {
-                $d = $c->created_at ? substr((string)$c->created_at, 0, 10) : '';
-                return $d >= $from;
+                $rawDate = !empty($c->incident_date) ? (string) $c->incident_date : ($c->created_at ? substr((string) $c->created_at, 0, 10) : '');
+                $ts = strtotime($rawDate);
+                $iso = ($ts && $ts > 0) ? date('Y-m-d', $ts) : substr($rawDate, 0, 10);
+                return $iso >= $from;
             })->values();
         }
 
         if ($to !== '') {
             $filtered = $filtered->filter(function ($c) use ($to) {
-                $d = $c->created_at ? substr((string)$c->created_at, 0, 10) : '';
-                return $d <= $to;
+                $rawDate = !empty($c->incident_date) ? (string) $c->incident_date : ($c->created_at ? substr((string) $c->created_at, 0, 10) : '');
+                $ts = strtotime($rawDate);
+                $iso = ($ts && $ts > 0) ? date('Y-m-d', $ts) : substr($rawDate, 0, 10);
+                return $iso !== '' && $iso <= $to;
             })->values();
         }
 
         $perPage = (int) $request->input('per_page', 15);
         if ($perPage < 1) $perPage = 15;
         if ($perPage > 100) $perPage = 100;
-        $cases = ForensicCase::paginateCases($filtered, $perPage);
+        $cases = ForensicCase::paginateCases($filtered, $perPage)->appends($request->except('poll'));
 
-        if ($request->ajax()) {
-            return view('Digital_Forensics.partials.cases_table', compact('cases', 'digitalCases', 'allCases'));
+        $sigRows = [];
+        foreach ($cases->items() as $cItem) {
+            $rep = $dpfReportsByCase->get($cItem->case_number, collect())->first();
+            $sigRows[] = [
+                $cItem->case_number,
+                $cItem->status,
+                $cItem->case_status,
+                optional($cItem->updated_at)->timestamp,
+                $rep?->id,
+                optional($rep?->updated_at)->timestamp,
+                $rep?->court_order_granted,
+                $rep?->extraction_analysis_conducted,
+            ];
+        }
+        $initialSignature = md5((string) json_encode([
+            'stats' => $registerStats,
+            'filters' => [$search, $pipeline, $disposition, $from, $to, $perPage, $cases->currentPage(), $cases->total()],
+            'rows' => $sigRows,
+        ]));
+
+        $viewData = compact(
+            'cases',
+            'headName',
+            'allCases',
+            'digitalCases',
+            'dpfReportsByCase',
+            'registerStats',
+            'search',
+            'from',
+            'to',
+            'pipeline',
+            'disposition',
+            'perPage',
+            'initialSignature'
+        );
+
+        if ($request->boolean('poll')) {
+            return response()->json([
+                'success' => true,
+                'html' => view('Digital_Forensics.partials.cases_table', $viewData)->render(),
+                'stats' => $registerStats,
+                'signature' => $initialSignature,
+            ]);
         }
 
-        return view('Digital_Forensics.cases', compact('cases', 'headName', 'allCases', 'digitalCases'));
+        if ($request->ajax()) {
+            return view('Digital_Forensics.partials.cases_table', $viewData);
+        }
+
+        return view('Digital_Forensics.cases', $viewData);
     })->name('digital_forensics.cases');
 
     Route::get('/Digital_Forensics/case-register', function () {
@@ -1555,7 +1836,7 @@ Route::middleware(['auth'])->group(function () {
 
         $viewName = $isMultiSuspect ? 'Digital_Forensics.multi_dpf_pdf' : 'Digital_Forensics.dpf_pdf';
         return view($viewName, compact('report', 'case', 'suspectReports'));
-    })->name('digital.dpf.pdf');
+    })->where('id', '.*')->name('digital.dpf.pdf');
 
     Route::get('/Digital_Forensics/multi_dpf_pdf/{id?}', function ($id = null) {
         return app()->call(Route::getRoutes()->getByName('digital.dpf.pdf')->getAction('uses'), ['id' => $id]);

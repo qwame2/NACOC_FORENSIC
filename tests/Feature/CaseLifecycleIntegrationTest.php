@@ -1017,7 +1017,8 @@ class CaseLifecycleIntegrationTest extends TestCase
         $storeResponse->assertStatus(200);
         $storeResponse->assertJson(['success' => true]);
 
-        $this->assertDatabaseHas('nlr_reports', [
+        $this->assertFalse(\Illuminate\Support\Facades\Schema::hasTable('nlr_reports'));
+        $this->assertDatabaseHas('suspect_preliminary_reports', [
             'case_number' => $case->case_number,
         ]);
 

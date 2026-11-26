@@ -96,33 +96,33 @@
                                         {{ strtoupper($suspect['resolved_view']['sRoleLabel']) }}
                                     </div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="suspect_name" data-rollback-target="Suspect Name">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Suspect
                                         Full Name</div>
                                     <div class="font-extrabold text-slate-900 text-sm mt-0.5">{{ $suspect['resolved_view']['sName'] }}
                                     </div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="suspect_alias" data-rollback-target="Suspect Alias">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Alias /
                                         Street Name</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $suspect['resolved_view']['sAlias'] }}</div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="ghana_card" data-rollback-target="Ghana Card">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Ghana
                                         Card #</div>
                                     <div class="font-bold font-mono-code text-sm mt-0.5">{{ $suspect['resolved_view']['sCard'] }}</div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="nationality" data-rollback-target="Nationality">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
                                         Nationality</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $suspect['resolved_view']['sNat'] }}</div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="pob" data-rollback-target="Place of Birth">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Hometown
                                         / POB</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $suspect['resolved_view']['sPOB'] }}</div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="phone" data-rollback-target="Contact Phone">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase flex items-center justify-between">
                                         <span>Contact Phone(s)</span>
                                         @if(count($suspect['resolved_view']['sPhones']) > 1)
@@ -144,7 +144,7 @@
                                         <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $suspect['resolved_view']['sPhone'] }}</div>
                                     @endif
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="address" data-rollback-target="Residential Address">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
                                         Residential Address / GPS</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">{{ $suspect['resolved_view']['sAddr'] }}</div>
@@ -159,37 +159,37 @@
                                 Physical Descriptors &amp; Arrest Details (Suspect #{{ $suspect['resolved_view']['sNum'] }})
                             </div>
                             <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5 text-xs">
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="gender" data-rollback-target="Gender">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Gender</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">
                                         {{ $suspect['resolved_view']['sGender'] ?: 'N/A' }}
                                     </div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="age" data-rollback-target="Age">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Age</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">
                                         {{ !empty($suspect['resolved_view']['sAge']) ? "{$suspect['resolved_view']['sAge']} yrs" : 'N/A' }}
                                     </div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="dob" data-rollback-target="Date of Birth">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Date of Birth (DOB)</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">
                                         {{ !empty($suspect['resolved_view']['sDOB']) ? (strtotime($suspect['resolved_view']['sDOB']) !== false ? date('M d, Y', strtotime($suspect['resolved_view']['sDOB'])) : $suspect['resolved_view']['sDOB']) : 'N/A' }}
                                     </div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="height" data-rollback-target="Height">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Height</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">
                                         {{ !empty($suspect['resolved_view']['sHeight']) ? $suspect['resolved_view']['sHeight'] : 'N/A' }}
                                     </div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="eye_color" data-rollback-target="Eye Color">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Eye Color</div>
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">
                                         {{ !empty($suspect['resolved_view']['sEye']) ? $suspect['resolved_view']['sEye'] : 'N/A' }}
                                     </div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="arrest_date" data-rollback-target="Arrest Date & Time">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest Date &amp; Time</div>
                                     @php
                                         $rawArrestDate = trim((string) ($suspect['resolved_view']['sArrestDate'] ?? ''));
@@ -219,12 +219,12 @@
                                 Family &amp; Relationship Records (Suspect #{{ $suspect['resolved_view']['sNum'] }})
                             </div>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="marital_status" data-rollback-target="Marital Status">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Marital
                                         / Relationship Status</div>
                                     <div class="font-bold text-slate-900 mt-0.5">{{ $suspect['resolved_view']['sMarital'] ?: 'N/A' }}</div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="spouse_name" data-rollback-target="Spouse / Partner Details">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Spouse /
                                         Partner Details</div>
                                     <div class="font-bold text-slate-900 mt-0.5">
@@ -257,7 +257,7 @@
                                         @endif
                                     </div>
                                 </div>
-                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+                                <div class="p-3 rounded-xl bg-slate-50 border border-slate-200" data-field-group="children" data-rollback-target="Children & Dependents">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Children
                                         &amp; Dependents</div>
                                     <div class="font-bold text-slate-900 mt-0.5">
@@ -274,12 +274,12 @@
                                 Offence Charges &amp; Custody Details (Suspect #{{ $suspect['resolved_view']['sNum'] }})
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
-                                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1" data-field-group="raid_location" data-rollback-target="Raid Scene Location">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Raid
                                         Scene / Offence Location</div>
                                     <div class="font-extrabold text-slate-900 text-sm">{{ $suspect['resolved_view']['sRaid'] }}</div>
                                 </div>
-                                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1" data-field-group="arrest_date" data-rollback-target="Arrest Date & Time">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Arrest
                                         Date &amp; Time</div>
                                     <div class="font-bold text-slate-900 text-sm">
@@ -287,13 +287,13 @@
                                         {{ $hasValidTime ? "@ {$rawArrestTime}" : '' }}
                                     </div>
                                 </div>
-                                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1">
+                                <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1" data-field-group="holding_facility" data-rollback-target="Custody Holding Facility">
                                     <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Assigned
                                         Custody Holding Facility</div>
                                     <div class="font-bold text-slate-900 text-sm">{{ $suspect['resolved_view']['sFacility'] }}</div>
                                 </div>
                             </div>
-                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1 text-xs">
+                            <div class="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-1 text-xs" data-field-group="offense_description" data-rollback-target="Charge Description">
                                 <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">Brief Facts/
                                     Charge Description</div>
                                 <p class="text-slate-800 leading-relaxed font-semibold">

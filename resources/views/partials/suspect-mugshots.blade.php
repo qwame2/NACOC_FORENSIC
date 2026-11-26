@@ -69,7 +69,7 @@
     $sName = $sArray['resolved_view']['sName'] ?? ($sArray['suspect_name'] ?? (is_object($suspect) ? ($suspect->suspect_name ?? 'Suspect') : 'Suspect'));
 @endphp
                     <!-- MUGSHOT (MULTI-ANGLE PHOTO CAPTURE FOR SUSPECT #{{ $sNum }}) -->
-                    <div class="dossier-card p-6 border border-slate-200" data-rollback-target="Biometric Mugshots">
+                    <div class="dossier-card p-6 border border-slate-200" data-field-group="mugshots" data-rollback-target="Biometric Mugshots">
                         <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
                             <div class="flex items-center gap-3">
                                 <span

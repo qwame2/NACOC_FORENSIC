@@ -279,7 +279,7 @@
 
                         <button type="button" onclick="focusRollbackFilter('URGENT')" class="metric-action-btn p-5 text-left flex items-start justify-between gap-3">
                             <div>
-                                <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">High &amp; Critical</div>
+                                <div class="text-[11px] font-mono-code font-bold uppercase tracking-wider text-slate-500">High Priority</div>
                                 <div class="text-2xl font-extrabold {{ $urgentRollbackCount > 0 ? 'text-red-600' : 'text-slate-900' }} tnum mt-1">{{ $urgentRollbackCount }}</div>
                                 <div class="text-[11px] font-medium {{ $urgentRollbackCount > 0 ? 'text-red-600' : 'text-slate-500' }} mt-1">Priority docket attention</div>
                             </div>
@@ -307,7 +307,7 @@
                                 All Cases
                             </button>
                             <button type="button" class="filter-underline-tab" data-rollback-tab="URGENT" onclick="setRollbackFilter('URGENT', this)">
-                                High &amp; Critical ({{ $urgentRollbackCount }})
+                                High Priority ({{ $urgentRollbackCount }})
                             </button>
                             <button type="button" class="filter-underline-tab" data-rollback-tab="MULTI" onclick="setRollbackFilter('MULTI', this)">
                                 Multiple Corrections ({{ $multiCorrectionCount }})
@@ -339,15 +339,10 @@
                             @foreach($submissions as $sub)
                                 @php
                                     $meta = $extractRollbackMeta($sub);
-                                    $prio = strtoupper((string) ($sub->priority ?: 'MEDIUM'));
-                                    $isUrgent = in_array($prio, ['HIGH', 'CRITICAL'], true);
+                                    $prio = \App\Models\ForensicCase::normalizePriority($sub->priority ?: 'LOW');
+                                    $isUrgent = $prio === 'HIGH';
                                     $isMulti = $meta['corr_count'] >= 2;
-                                    $prioTextColor = match ($prio) {
-                                        'CRITICAL' => 'text-red-700',
-                                        'HIGH'     => 'text-red-600',
-                                        'LOW'      => 'text-emerald-700',
-                                        default    => 'text-amber-700',
-                                    };
+                                    $prioTextColor = $prio === 'HIGH' ? 'text-red-600' : 'text-emerald-700';
                                     $subCode = 'SUB-' . str_pad((string) $sub->id, 4, '0', STR_PAD_LEFT);
                                     $editUrl = $rollbackEditUrlFor($sub->id);
                                     $searchHaystack = strtolower(implode(' ', array_filter(array_merge([

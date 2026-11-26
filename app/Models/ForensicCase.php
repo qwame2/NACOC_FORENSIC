@@ -18,7 +18,25 @@ class ForensicCase extends Model
 
     protected $guarded = [];
 
+    public const PRIORITIES = ['HIGH', 'LOW'];
+
     public $underlyingRecord = null;
+
+    /**
+     * Normalize any case priority string strictly into 'HIGH' or 'LOW'.
+     */
+    public static function normalizePriority(?string $priority, string $default = 'HIGH'): string
+    {
+        $fallback = strtoupper(trim($default)) === 'LOW' ? 'LOW' : 'HIGH';
+        $norm = strtoupper(trim((string) $priority));
+        if ($norm === '') {
+            return $fallback;
+        }
+        if (in_array($norm, ['LOW', 'NORMAL', 'MEDIUM', 'ROUTINE', 'MINOR'], true)) {
+            return 'LOW';
+        }
+        return 'HIGH';
+    }
 
     protected $casts = [
         'docket_data' => 'array',
@@ -121,7 +139,7 @@ class ForensicCase extends Model
                 if ($origSingle && !empty($origSingle->priority) && $origSingle->priority !== 'NORMAL') {
                     $casePriority = $origSingle->priority;
                     try {
-                        $record->priority = $origSingle->priority;
+                        $record->priority = self::normalizePriority($origSingle->priority, 'HIGH');
                         $record->save();
                     } catch (\Throwable $e) {}
                 }
@@ -133,7 +151,7 @@ class ForensicCase extends Model
                 $casePriority = $dData['priority'];
             }
         }
-        $instance->priority = $casePriority ?: 'HIGH';
+        $instance->priority = self::normalizePriority($casePriority, 'HIGH');
         $instance->status = $record->status ?? 'Approved';
         $instance->case_status = $record->case_status ?? 'Under Investigation';
         $instance->controller_user_id = $record->controller_user_id ?? ($record->user_id ?? null);
@@ -4224,6 +4242,37 @@ class ForensicCase extends Model
                 return true;
             }
         }
+        return false;
+    }
+
+    /**
+     * Check if this case is pending approval or awaiting approval from Head of Unit.
+     */
+    public function isPendingApproval(): bool
+    {
+        $status = strtolower(trim((string) ($this->status ?? '')));
+        $caseStatus = strtolower(trim((string) ($this->case_status ?? '')));
+
+        if (in_array($status, ['pending approval', 'awaiting approval', 'pending review', 'awaiting sign-off', 'pending'], true)) {
+            return true;
+        }
+
+        if (in_array($caseStatus, ['pending approval', 'awaiting approval', 'pending review', 'awaiting sign-off'], true)) {
+            return true;
+        }
+
+        if (isset($this->underlyingRecord) && method_exists($this->underlyingRecord, 'isPendingApproval')) {
+            if ($this->underlyingRecord->isPendingApproval()) {
+                return true;
+            }
+        }
+
+        if (!empty($this->case_number)) {
+            return \App\Models\StaffCaseSubmission::where('case_number_preview', $this->case_number)
+                ->whereIn('status', ['Pending Approval', 'Awaiting Approval', 'Pending Review'])
+                ->exists();
+        }
+
         return false;
     }
 

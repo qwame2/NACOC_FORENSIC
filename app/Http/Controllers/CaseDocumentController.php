@@ -6,7 +6,6 @@ use App\Http\Controllers\Concerns\CaseControllerHelpers;
 use App\Models\ForensicCase;
 use App\Models\MultipleSuspectCase;
 use App\Models\SingleSuspectCase;
-use App\Models\NlrReport;
 use App\Models\SuspectGsaReport;
 use App\Models\SuspectNlrReport;
 use App\Services\CaseDocumentService;

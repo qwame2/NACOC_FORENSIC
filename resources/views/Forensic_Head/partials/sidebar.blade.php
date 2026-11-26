@@ -52,6 +52,8 @@
                 @php
                     $fhNotificationsCount = \App\Http\Controllers\NotificationsController::countActiveForContext('Forensic Directorate', auth()->user(), 'forensic_head');
                     $isFhNotificationsActive = request()->is('Forensic_Head/notifications*');
+                    $fhPasswordRequestsCount = \App\Models\StaffPasswordResetRequest::countPendingForContext('Forensic Directorate', auth()->user());
+                    $isFhPasswordRequestsActive = request()->is('Forensic_Head/password-requests*') || request()->is('password-requests*');
                 @endphp
                 <a href="{{ url('/Forensic_Head/notifications') }}" class="flex items-center px-3 py-2 rounded-xl {{ $isFhNotificationsActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }} transition-colors text-decoration-none">
                     <svg class="w-4.5 h-4.5 mr-3 {{ $isFhNotificationsActive ? 'text-white' : 'text-amber-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
@@ -62,6 +64,19 @@
                         </span>
                     @else
                         <span id="sidebarNotificationsBadge" class="hidden ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs" style="display: none !important;">
+                            0
+                        </span>
+                    @endif
+                </a>
+                <a href="{{ url('/Forensic_Head/password-requests') }}" class="flex items-center px-3 py-2 rounded-xl {{ $isFhPasswordRequestsActive ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70' }} transition-colors text-decoration-none">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ $isFhPasswordRequestsActive ? 'text-white' : 'text-teal-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+                    <span class="text-xs flex-1">Password</span>
+                    @if($fhPasswordRequestsCount > 0)
+                        <span id="sidebarPasswordRequestsBadge" class="ml-auto inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse">
+                            {{ $fhPasswordRequestsCount }}
+                        </span>
+                    @else
+                        <span id="sidebarPasswordRequestsBadge" class="hidden ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-red-600 text-white font-mono-code text-[10px] font-bold shadow-xs animate-pulse items-center justify-center" style="display: none !important;">
                             0
                         </span>
                     @endif

@@ -6,6 +6,7 @@ use App\Models\StaffAccount;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
@@ -13,6 +14,17 @@ use App\Models\Unit;
 
 class AuthController extends Controller
 {
+    public const MAX_STAFF_FAILED_LOGIN_ATTEMPTS = 5;
+
+    public static function staffAttemptsCacheKey($user): string
+    {
+        return 'staff_failed_login_attempts:' . ($user instanceof StaffAccount ? 'staff:' : 'user:') . $user->getKey();
+    }
+
+    public static function staffRevokedReasonCacheKey($user): string
+    {
+        return 'staff_revoked_reason:' . ($user instanceof StaffAccount ? 'staff:' : 'user:') . $user->getKey();
+    }
     /**
      * Get the appropriate dashboard URL for a user based on role & unit.
      */
@@ -52,14 +64,86 @@ class AuthController extends Controller
     }
 
     /**
+     * Determine whether an officer account is a currently revoked staff member.
+     *
+     * @return array{revoked_reason: string, unit: string, unit_head_name: ?string, head_display: string}|null
+     */
+    public static function getStaffRevocationInfo($user): ?array
+    {
+        if (!$user) {
+            return null;
+        }
+
+        $isStaffMember = ($user instanceof StaffAccount) || (!empty($user->is_staff) && empty($user->is_head));
+        if (!$isStaffMember || $user->is_approved) {
+            return null;
+        }
+
+        $revokedReason = Cache::get(self::staffRevokedReasonCacheKey($user));
+        if ($revokedReason === null) {
+            return null;
+        }
+
+        $resolvedUnit = \App\Enums\ForensicUnit::resolve($user->unit ?? '');
+        $unitLabel = $resolvedUnit?->value ?? ($user->unit ?: 'Assigned Unit');
+        $unitHead = ($resolvedUnit !== null && $resolvedUnit !== \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE)
+            ? User::where('is_head', true)
+                ->where('is_approved', true)
+                ->get()
+                ->first(fn (User $head) => \App\Enums\ForensicUnit::resolve($head->unit) === $resolvedUnit)
+            : null;
+        $headDisplay = $unitHead ? "{$unitHead->fullname} (Head of {$unitLabel})" : "the Head of {$unitLabel}";
+
+        return [
+            'revoked_reason' => (string) $revokedReason,
+            'unit' => $unitLabel,
+            'unit_head_name' => $unitHead?->fullname,
+            'head_display' => $headDisplay,
+        ];
+    }
+
+    /**
      * Show the login form.
      */
-    public function showLogin()
+    public function showLogin(Request $request)
     {
         if (Auth::check()) {
             return redirect(self::getDashboardUrl(Auth::user()));
         }
-        return view('auth.login');
+
+        $initialRevokedStaff = null;
+        $candidateId = trim((string) ($request->query('login_id', '') ?: old('login_id', '')));
+        if ($candidateId !== '') {
+            $lower = strtolower($candidateId);
+            $matched = User::whereRaw('LOWER(service_id) = ?', [$lower])
+                ->orWhereRaw('LOWER(username) = ?', [$lower])
+                ->orWhereRaw("LOWER(COALESCE(email, '')) = ?", [$lower])
+                ->first();
+            if (!$matched && \Illuminate\Support\Facades\Schema::hasTable('staff_accounts')) {
+                $matched = StaffAccount::whereRaw('LOWER(service_id) = ?', [$lower])
+                    ->orWhereRaw('LOWER(username) = ?', [$lower])
+                    ->orWhereRaw("LOWER(COALESCE(email, '')) = ?", [$lower])
+                    ->first();
+            }
+            $revInfo = self::getStaffRevocationInfo($matched);
+            if ($matched && $revInfo !== null) {
+                $initialRevokedStaff = [
+                    'account_revoked' => true,
+                    'revoked_reason' => $revInfo['revoked_reason'],
+                    'login_id' => $matched->service_id ?: $matched->username,
+                    'fullname' => $matched->fullname,
+                    'service_id' => $matched->service_id,
+                    'unit' => $revInfo['unit'],
+                    'unit_head_name' => $revInfo['unit_head_name'],
+                ];
+            } elseif ($matched && $matched->is_approved) {
+                session()->forget('revoked_staff_payload');
+            }
+        }
+
+        return view('auth.login', [
+            'initialRevokedStaff' => $initialRevokedStaff,
+        ]);
     }
 
     /**
@@ -89,9 +173,50 @@ class AuthController extends Controller
         }
 
         $isJsonReq = $request->wantsJson() || $request->expectsJson() || $request->is('api/*') || str_contains($request->header('Accept', ''), 'application/json');
+        $isStaffMember = $user && (($user instanceof StaffAccount) || ($user->is_staff && !$user->is_head));
+
+        // If a staff member's account has been revoked (either after 5 failed attempts or manually by Head of Unit),
+        // block sign-in immediately until their Head of Unit reactivates the account.
+        if ($isStaffMember && !$user->is_approved) {
+            $revokedReason = Cache::get(self::staffRevokedReasonCacheKey($user));
+            if ($revokedReason !== null) {
+                $resolvedUnit = \App\Enums\ForensicUnit::resolve($user->unit);
+                $unitLabel = $resolvedUnit?->value ?? ($user->unit ?: 'Assigned Unit');
+                $unitHead = $this->resolveUnitHeadForStaff($user);
+                $headDisplay = $unitHead ? "{$unitHead->fullname} (Head of {$unitLabel})" : "the Head of {$unitLabel}";
+
+                $revokedMessage = $revokedReason === 'failed_login'
+                    ? "Account Revoked: Your staff account was automatically revoked after 5 failed sign-in attempts. Please see {$headDisplay} to activate your account first."
+                    : "Account Revoked: Your staff account access has been revoked. Please see {$headDisplay} to activate your account first.";
+
+                $pendingLoginId = $user->service_id ?: $user->username;
+                $revokedPayload = [
+                    'success' => false,
+                    'account_revoked' => true,
+                    'revoked_reason' => $revokedReason,
+                    'pending_approval' => true,
+                    'login_id' => $pendingLoginId,
+                    'fullname' => $user->fullname,
+                    'service_id' => $user->service_id,
+                    'unit' => $unitLabel,
+                    'unit_head_name' => $unitHead?->fullname,
+                    'message' => $revokedMessage,
+                ];
+
+                if ($isJsonReq) {
+                    return response()->json($revokedPayload, 403);
+                }
+
+                return back()
+                    ->withErrors(['login_id' => $revokedMessage])
+                    ->onlyInput('login_id')
+                    ->with('pending_login_id', $pendingLoginId)
+                    ->with('revoked_staff_payload', $revokedPayload);
+            }
+        }
 
         if ($user && Hash::check($password, $user->password)) {
-            // Block login if user account is unapproved (pending Head of Unit approval) or deactivated
+            // Block login if user account is unapproved (pending initial Head of Unit approval) or deactivated
             if (isset($user->is_approved) && !$user->is_approved) {
                 $isPendingStaff = (bool) ($user->is_staff && !$user->is_head);
                 $blockedMessage = $isPendingStaff
@@ -115,6 +240,11 @@ class AuthController extends Controller
                 return $pendingLoginId
                     ? $redirect->with('pending_login_id', $pendingLoginId)
                     : $redirect;
+            }
+
+            if ($isStaffMember) {
+                Cache::forget(self::staffAttemptsCacheKey($user));
+                Cache::forget(self::staffRevokedReasonCacheKey($user));
             }
 
             $existingSessionId = $request->session()->getId();
@@ -152,6 +282,74 @@ class AuthController extends Controller
             return redirect($redirectUrl)->with('status', 'Login Successful! Welcome to NACOC Forensic Directorate.');
         }
 
+        // Track consecutive wrong credential attempts for staff members and auto-revoke on the 5th failure
+        if ($isStaffMember) {
+            $attemptsKey = self::staffAttemptsCacheKey($user);
+            $attempts = (int) Cache::get($attemptsKey, 0) + 1;
+
+            if ($attempts >= self::MAX_STAFF_FAILED_LOGIN_ATTEMPTS) {
+                $user->is_approved = false;
+                $user->save();
+                if ($user instanceof StaffAccount) {
+                    $user->markOffline();
+                }
+
+                Cache::forget($attemptsKey);
+                Cache::forever(self::staffRevokedReasonCacheKey($user), 'failed_login');
+
+                $resolvedUnit = \App\Enums\ForensicUnit::resolve($user->unit);
+                $unitLabel = $resolvedUnit?->value ?? ($user->unit ?: 'Assigned Unit');
+                $unitHead = $this->resolveUnitHeadForStaff($user);
+                $headDisplay = $unitHead ? "{$unitHead->fullname} (Head of {$unitLabel})" : "the Head of {$unitLabel}";
+
+                $autoRevokedMsg = "Account Automatically Revoked: You entered wrong credentials 5 times. Please see {$headDisplay} to activate your account first.";
+                $pendingLoginId = $user->service_id ?: $user->username;
+                $revokedPayload = [
+                    'success' => false,
+                    'account_revoked' => true,
+                    'revoked_reason' => 'failed_login',
+                    'pending_approval' => true,
+                    'login_id' => $pendingLoginId,
+                    'fullname' => $user->fullname,
+                    'service_id' => $user->service_id,
+                    'unit' => $unitLabel,
+                    'unit_head_name' => $unitHead?->fullname,
+                    'message' => $autoRevokedMsg,
+                ];
+
+                if ($isJsonReq) {
+                    return response()->json($revokedPayload, 403);
+                }
+
+                return back()
+                    ->withErrors(['login_id' => $autoRevokedMsg])
+                    ->onlyInput('login_id')
+                    ->with('pending_login_id', $pendingLoginId)
+                    ->with('revoked_staff_payload', $revokedPayload);
+            }
+
+            Cache::put($attemptsKey, $attempts, now()->addHours(24));
+            $remaining = self::MAX_STAFF_FAILED_LOGIN_ATTEMPTS - $attempts;
+            $showWarning = $attempts >= 3;
+            $errorMsg = $showWarning
+                ? "Wrong username or password. Warning: {$remaining} attempt" . ($remaining === 1 ? '' : 's') . " remaining before your staff account is automatically revoked."
+                : 'Wrong username or password.';
+
+            if ($isJsonReq) {
+                return response()->json([
+                    'success' => false,
+                    'failed_attempts' => $attempts,
+                    'remaining_attempts' => $remaining,
+                    'show_revocation_warning' => $showWarning,
+                    'message' => $errorMsg,
+                ], 401);
+            }
+
+            return back()->withErrors([
+                'login_id' => $errorMsg,
+            ])->onlyInput('login_id');
+        }
+
         if ($isJsonReq) {
             return response()->json([
                 'success' => false,
@@ -162,6 +360,22 @@ class AuthController extends Controller
         return back()->withErrors([
             'login_id' => 'Wrong username or password.',
         ])->onlyInput('login_id');
+    }
+
+    /**
+     * Locate the approved Head of Unit for a given staff member's unit.
+     */
+    private function resolveUnitHeadForStaff($staffUser): ?User
+    {
+        $resolvedUnit = \App\Enums\ForensicUnit::resolve($staffUser->unit ?? '');
+        if ($resolvedUnit === null || $resolvedUnit === \App\Enums\ForensicUnit::FORENSIC_DIRECTORATE) {
+            return null;
+        }
+
+        return User::where('is_head', true)
+            ->where('is_approved', true)
+            ->get()
+            ->first(fn (User $head) => \App\Enums\ForensicUnit::resolve($head->unit) === $resolvedUnit);
     }
 
     /**
@@ -380,9 +594,16 @@ class AuthController extends Controller
             }
         }
 
+        if ($request->has('email')) {
+            $request->merge([
+                'email' => strtolower(trim((string) $request->input('email'))),
+            ]);
+        }
+
         $validated = $request->validate([
             'fullname' => ['required', 'string', 'max:255'],
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
+            'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email', 'unique:staff_accounts,email'],
             'service_id' => ['required', 'string', 'regex:' . config('forensics.service_id.regex', '/^(SD|JD|SVC)-[0-9]{3,}$/i'), 'unique:users,service_id', 'unique:staff_accounts,service_id'],
             'phone_number' => ['required', 'string', 'regex:' . config('forensics.service_id.phone_regex', '/^[0-9]{10}$/')],
             'unit' => ['required', 'string', 'max:255'],
@@ -390,6 +611,9 @@ class AuthController extends Controller
             'terms' => ['accepted'],
         ], [
             'username.unique' => 'The username has already been taken.',
+            'email.required' => 'Please enter your email address.',
+            'email.email' => 'Please enter a valid email address (e.g. officer@gmail.com).',
+            'email.unique' => 'The email address has already been registered.',
             'service_id.required' => 'Please enter your Service ID Number.',
             'service_id.regex' => 'Service ID Number format must be SD-345 or JD-343 (SD or JD followed by digits).',
             'service_id.unique' => 'The Service ID Number has already been registered.',
@@ -444,15 +668,15 @@ class AuthController extends Controller
         $isApproved = $isHead;
 
         $inputUsername = trim($validated['username']);
-        $userEmail = null;
+        $userEmail = strtolower(trim($validated['email']));
 
-        if (filter_var($inputUsername, FILTER_VALIDATE_EMAIL) || str_contains($inputUsername, '@')) {
-            $userEmail = strtolower($inputUsername);
-            if (User::where('email', $userEmail)->exists() || StaffAccount::where('email', $userEmail)->exists()) {
-                throw ValidationException::withMessages([
-                    'username' => 'The email address has already been registered.',
-                ]);
-            }
+        if (
+            User::whereRaw("LOWER(COALESCE(email, '')) = ?", [$userEmail])->exists() ||
+            StaffAccount::whereRaw("LOWER(COALESCE(email, '')) = ?", [$userEmail])->exists()
+        ) {
+            throw ValidationException::withMessages([
+                'email' => 'The email address has already been registered.',
+            ]);
         }
 
         if (StaffAccount::whereRaw('LOWER(username) = ?', [strtolower($inputUsername)])->exists()) {

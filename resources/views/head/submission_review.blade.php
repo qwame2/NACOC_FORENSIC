@@ -241,6 +241,12 @@
                         <span class="text-[10px] font-mono-code font-bold text-amber-800">
                             SUBMISSION #{{ $submission->id }}
                         </span>
+                        @if(!empty($isEditSubmission))
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-amber-100 text-amber-950 border border-amber-300">
+                                <svg class="w-3 h-3 text-amber-700 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                <span>Edited Case</span>
+                            </span>
+                        @endif
                     </div>
                 </div>
 
@@ -268,7 +274,7 @@
                         <div class="space-y-3 flex-1">
                             <div class="flex items-center gap-3 flex-wrap">
                                 <span class="text-[11px] font-bold font-mono-code text-red-400">
-                                    {{ strtoupper($case->priority ?? 'MEDIUM') }} PRIORITY
+                                    {{ \App\Models\ForensicCase::normalizePriority($case->priority ?? 'HIGH') }} PRIORITY
                                 </span>
                                 <span class="text-gray-300">•</span>
                                 <span id="headerStatusBadge">
@@ -300,6 +306,13 @@
                                         </span>
                                     @endif
                                 </span>
+                                @if(!empty($isEditSubmission))
+                                    <span class="text-gray-300">•</span>
+                                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-mono-code font-extrabold uppercase bg-amber-400/20 text-amber-200 border border-amber-400/40 shadow-xs">
+                                        <svg class="w-3 h-3 text-amber-300 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                                        <span>Edited Case</span>
+                                    </span>
+                                @endif
                                 @if(!empty($submission->approved_case_number))
                                     <span class="px-2 py-0.5 rounded text-[10px] font-mono-code font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
                                         Case Docket: {{ $submission->approved_case_number }}
@@ -440,11 +453,55 @@
                 </div>
                 @endif
 
+                @if(!empty($isEditSubmission))
+                <!-- STAFF CASE EDIT SUBMISSION ACTIVE BANNER -->
+                <div id="staffEditNoticeBanner" class="p-5 rounded-2xl bg-amber-50 border border-amber-300 shadow-sm space-y-3 mb-6">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-amber-200">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shadow-xs shrink-0">
+                                <svg class="w-5 h-5 text-slate-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h3 class="font-black text-amber-950 text-sm flex items-center gap-2">
+                                    <span>Staff Case Edit Submission &mdash; Review &amp; Approval Required</span>
+                                    <span class="font-mono-code text-xs px-2 py-0.5 rounded bg-amber-200 text-amber-950 border border-amber-300">
+                                        {{ $submission->case_number_preview ?: ('SUB-' . str_pad((string)$submission->id, 4, '0', STR_PAD_LEFT)) }}
+                                    </span>
+                                </h3>
+                                <p class="text-xs text-amber-900 font-medium">
+                                    Submitted by <strong>{{ $submission->submitted_by_name ?? 'Staff Officer' }}</strong> ({{ $submission->unit_name ?? 'Crime Scene Support' }}). 
+                                    Review the edited sections highlighted below before approving changes into the official database.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="px-3 py-1 rounded-full text-xs font-mono-code font-bold bg-amber-200 text-amber-950 border border-amber-300">
+                                {{ count($editedFieldLabels ?? []) }} Field{{ count($editedFieldLabels ?? []) === 1 ? '' : 's' }} Edited
+                            </span>
+                        </div>
+                    </div>
+                    @if(!empty($editedFieldLabels) && count($editedFieldLabels) > 0)
+                    <div class="flex flex-wrap items-center gap-2 pt-1">
+                        <span class="text-xs font-bold text-amber-950">Jump to edited section:</span>
+                        @foreach($editedFieldLabels as $idx => $label)
+                            @php $fKey = $editedFields[$idx] ?? ''; @endphp
+                            <button type="button" onclick="scrollToEditedSection('{{ $fKey }}')" class="px-2.5 py-1 rounded-lg text-xs font-mono-code font-bold bg-white text-amber-950 hover:bg-amber-100 border border-amber-300 shadow-2xs transition-all cursor-pointer flex items-center gap-1">
+                                <span class="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span>{{ $label }}</span>
+                            </button>
+                        @endforeach
+                    </div>
+                    @endif
+                </div>
+                @endif
+
                 <!-- WRAPPER FOR ALL DOSSIER CONTENT FOR INTERACTIVE ROLLBACK -->
                 <div id="reviewDossierContent" class="space-y-8">
 
                 <!-- SECTION 1: MASTER CASE TITLE & CLASSIFICATION (EXACTLY AS SHOW_REVIEW) -->
-                <div class="dossier-card p-6 border border-slate-200">
+                <div class="dossier-card p-6 border border-slate-200" data-field-group="title" data-rollback-target="Case Legal Title">
                     <div class="flex items-center justify-between pb-4 mb-4 border-b border-slate-200">
                         <div class="flex items-center gap-3">
                             <div>
@@ -540,7 +597,7 @@
 
                 {{-- PRIMARY SUSPECT SEIZURES & EXHIBITS (PART OF CASE ROLLBACK MODE) --}}
                 @if (!empty($isJointExhibitCase) || !empty($jointCaseExhibits) || !empty($allCaseExhibits))
-                    <div class="primary-exhibit-dossier" data-exhibit-dossier="true">
+                    <div class="primary-exhibit-dossier" data-exhibit-dossier="true" data-field-group="seizures" data-rollback-target="Seized Exhibits">
                         @include('partials.exhibit_dossier_card', [
                             'dossierBadgeText' => $dossierBadgeText,
                             'dossierHeadingText' => $dossierHeadingText,
@@ -555,6 +612,7 @@
 
                     {{-- LABORATORY EXAMINATION RESULT (JOINT OWNERSHIP SECTION ON TOP OF SEIZURES INVENTORY) --}}
                     @if (!empty($savedJointLabExamCards) && count($savedJointLabExamCards) > 0)
+                        <div data-field-group="lab_examination" data-rollback-target="Laboratory Examination">
                         @foreach ($savedJointLabExamCards as $labCard)
                             @include('partials.lab-examination-card', [
                                 'labExam' => $labCard,
@@ -562,12 +620,15 @@
                                 'case' => $case,
                             ])
                         @endforeach
+                        </div>
                     @elseif (!empty($savedJointLabExam) && !empty($savedJointLabExam['has_saved']))
+                        <div data-field-group="lab_examination" data-rollback-target="Laboratory Examination">
                         @include('partials.lab-examination-card', [
                             'labExam' => $savedJointLabExamCard ?? $savedJointLabExam,
                             'labHeadingName' => $savedJointLabHeadingName ?? $jointDossierHeadingName,
                             'case' => $case,
                         ])
+                        </div>
                     @endif
                 @endif
 
@@ -1228,6 +1289,75 @@
                         }
                     });
                 });
+            }
+
+            // STAFF CASE EDIT: AUTOMATIC SCROLL TO EDITED PLACE & VISUAL HIGHLIGHTING
+            const isEditSubmission = @json($isEditSubmission ?? false);
+            const editedFields = @json($editedFields ?? []);
+            const firstSelector = @json($firstEditedSelector ?? null);
+            const firstField = @json($firstEditedField ?? null);
+
+            window.scrollToEditedSection = function(fKey) {
+                if (!fKey) return;
+                const el = document.querySelector(`[data-field-group="${fKey}"]`)
+                    || document.querySelector(`[data-rollback-target*="${fKey}" i]`)
+                    || document.getElementById(fKey);
+                if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    el.classList.add('ring-4', 'ring-amber-500', 'shadow-xl');
+                    setTimeout(() => {
+                        el.classList.remove('ring-4', 'shadow-xl');
+                        el.classList.add('ring-2', 'ring-amber-400');
+                    }, 2500);
+                }
+            };
+
+            if (isEditSubmission && (editedFields.length > 0 || firstSelector || firstField)) {
+                // Highlight all edited fields with distinct badge and ring
+                editedFields.forEach(f => {
+                    const matchedEls = document.querySelectorAll(`[data-field-group="${f}"]`);
+                    matchedEls.forEach(el => {
+                        el.classList.add('ring-2', 'ring-amber-400', 'bg-amber-50/70', 'transition-all');
+                        if (!el.querySelector('.staff-edit-badge')) {
+                            const badge = document.createElement('span');
+                            badge.className = 'staff-edit-badge inline-flex items-center gap-1 text-[10px] font-mono-code font-extrabold uppercase px-2 py-0.5 rounded bg-amber-500 text-slate-950 ml-2 shadow-xs';
+                            badge.innerHTML = '<svg class="w-3 h-3 text-slate-950 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Edited by Staff';
+                            const titleEl = el.querySelector('h2, h3, .font-bold, .font-extrabold, div');
+                            if (titleEl) {
+                                titleEl.appendChild(badge);
+                            }
+                        }
+                    });
+                });
+
+                // Find initial element to scroll to
+                let scrollTarget = null;
+                if (firstSelector) {
+                    scrollTarget = document.querySelector(firstSelector);
+                }
+                if (!scrollTarget && firstField) {
+                    scrollTarget = document.querySelector(`[data-field-group="${firstField}"]`)
+                        || document.querySelector(`[data-rollback-target*="${firstField}" i]`)
+                        || document.getElementById(firstField);
+                }
+                if (!scrollTarget && editedFields.length > 0) {
+                    for (const f of editedFields) {
+                        scrollTarget = document.querySelector(`[data-field-group="${f}"]`)
+                            || document.querySelector(`[data-rollback-target*="${f}" i]`);
+                        if (scrollTarget) break;
+                    }
+                }
+
+                if (scrollTarget) {
+                    setTimeout(() => {
+                        scrollTarget.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        scrollTarget.classList.add('ring-4', 'ring-amber-500', 'shadow-xl');
+                        setTimeout(() => {
+                            scrollTarget.classList.remove('ring-4', 'shadow-xl');
+                            scrollTarget.classList.add('ring-2', 'ring-amber-400');
+                        }, 2500);
+                    }, 500);
+                }
             }
         });
     </script>

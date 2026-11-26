@@ -204,12 +204,16 @@
                 const enabledClasses = (btn.getAttribute('data-enabled-class') || '').split(/\s+/).filter(Boolean);
                 const disabledClasses = (btn.getAttribute('data-disabled-class') || '').split(/\s+/).filter(Boolean);
 
-                if (!config.allowed) {
+                const isCasePending = btn.getAttribute('data-case-pending') === 'true';
+                if (!config.allowed || isCasePending) {
+                    const effectiveLockedMsg = isCasePending
+                        ? (btn.getAttribute('data-pending-tooltip') || 'Locked: This case is currently awaiting review and approval from the Head of Unit')
+                        : config.lockedMsg;
                     btn.removeAttribute('href');
                     btn.setAttribute('aria-disabled', 'true');
                     btn.setAttribute('tabindex', '0');
-                    btn.setAttribute('title', config.lockedMsg);
-                    btn.setAttribute('data-locked-tooltip', config.lockedMsg);
+                    btn.setAttribute('title', effectiveLockedMsg);
+                    btn.setAttribute('data-locked-tooltip', effectiveLockedMsg);
                     if (config.preventClickWhenLocked) {
                         btn.setAttribute('onclick', 'event.preventDefault(); event.stopPropagation(); return false;');
                     }

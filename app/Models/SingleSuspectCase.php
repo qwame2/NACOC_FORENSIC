@@ -151,4 +151,26 @@ class SingleSuspectCase extends Model
     {
         $this->attributes['arresting_officer'] = $value;
     }
+
+    public function isPendingApproval(): bool
+    {
+        $status = strtolower(trim((string) ($this->status ?? '')));
+        $caseStatus = strtolower(trim((string) ($this->case_status ?? '')));
+
+        if (in_array($status, ['pending approval', 'awaiting approval', 'pending review', 'awaiting sign-off', 'pending'], true)) {
+            return true;
+        }
+
+        if (in_array($caseStatus, ['pending approval', 'awaiting approval', 'pending review', 'awaiting sign-off'], true)) {
+            return true;
+        }
+
+        if (!empty($this->case_number)) {
+            return \App\Models\StaffCaseSubmission::where('case_number_preview', $this->case_number)
+                ->whereIn('status', ['Pending Approval', 'Awaiting Approval', 'Pending Review'])
+                ->exists();
+        }
+
+        return false;
+    }
 }

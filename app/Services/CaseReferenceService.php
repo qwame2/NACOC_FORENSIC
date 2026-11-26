@@ -7,7 +7,6 @@ use App\Models\DpfReport;
 use App\Models\ForensicCase;
 use App\Models\LaboratoryExaminationResult;
 use App\Models\MultipleSuspectCase;
-use App\Models\NlrReport;
 use App\Models\ReferenceRegistry;
 use App\Models\ReferenceSequence;
 use App\Models\SingleSuspectCase;
@@ -63,7 +62,6 @@ class CaseReferenceService
      * @return string
      */
     protected static ?bool $hasRefRegistryTable = null;
-    protected static ?bool $hasNlrReportsTable = null;
     protected static ?bool $hasDpfReportTable = null;
 
     /**
@@ -223,12 +221,6 @@ class CaseReferenceService
             }
         }
 
-        if ($this->hasNlrReportsTable()) {
-            if (NlrReport::where('nlr_code', $reference)->exists()) {
-                return true;
-            }
-        }
-
         if ($this->hasDpfReportTable()) {
             if (DpfReport::where('dpf_code', $reference)->exists()) {
                 return true;
@@ -244,14 +236,6 @@ class CaseReferenceService
             static::$hasRefRegistryTable = Schema::hasTable('reference_registry');
         }
         return static::$hasRefRegistryTable;
-    }
-
-    protected function hasNlrReportsTable(): bool
-    {
-        if (static::$hasNlrReportsTable === null) {
-            static::$hasNlrReportsTable = Schema::hasTable('nlr_reports') && Schema::hasColumn('nlr_reports', 'nlr_code');
-        }
-        return static::$hasNlrReportsTable;
     }
 
     protected function hasDpfReportTable(): bool

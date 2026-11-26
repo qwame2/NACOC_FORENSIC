@@ -124,12 +124,10 @@
         default => 'bg-slate-100 text-slate-800 border-slate-200',
     };
 
-    $priorityUpper = strtoupper($case->priority ?? 'HIGH');
-    $priorityBadgeClass = match($priorityUpper) {
-        'CRITICAL', 'URGENT' => 'bg-rose-100 text-rose-800 border-rose-200',
-        'HIGH' => 'bg-amber-100 text-amber-800 border-amber-200',
-        default => 'bg-blue-100 text-blue-800 border-blue-200',
-    };
+    $priorityUpper = \App\Models\ForensicCase::normalizePriority($case->priority ?? 'HIGH');
+    $priorityBadgeClass = $priorityUpper === 'HIGH'
+        ? 'bg-amber-100 text-amber-800 border-amber-200'
+        : 'bg-slate-100 text-slate-700 border-slate-300';
 
     $labResults = $dData['lab_results'] ?? ($dData['preliminary_analysis'] ?? null);
     $gsaReports = \App\Models\SuspectGsaReport::where('case_number', $case->case_number)->get();

@@ -815,26 +815,61 @@
     $defaultCourtOrderFiles = !empty($lookupKey) ? ($caseMapData[$lookupKey]['court_order_files'] ?? []) : [];
     $defaultReportWitnessStatus = !empty($lookupKey) ? ($caseMapData[$lookupKey]['report_witness_status'] ?? 'NO') : ($firstSaved ? $firstSaved->report_witness_statement_sent : 'NO');
     $defaultReportWitnessFiles = !empty($lookupKey) ? ($caseMapData[$lookupKey]['report_witness_files'] ?? []) : [];
+
+    $headParts = preg_split('/\s+/', trim((string) $headName)) ?: [];
+    $headInitials = count($headParts) >= 2
+        ? strtoupper(substr($headParts[0], 0, 1) . substr(end($headParts), 0, 1))
+        : strtoupper(substr((string) $headName, 0, 2));
+
+    $unloggedDirectoryCases = $directoryCases->filter(fn($c) => !$directorySavedReports->contains('case_number', $c->case_number ?? ($c['case_number'] ?? '')));
+    $kpiTotalRecords = count($directorySavedReports) + count($unloggedDirectoryCases);
+    $kpiWarrantsGranted = $directorySavedReports->filter(fn($r) => str_contains(strtoupper((string) ($r->court_order_granted ?? '')), 'YES'))->count();
+    $kpiExtractionDone = $directorySavedReports->filter(function ($r) {
+        $ext = strtoupper(trim((string) ($r->extraction_analysis_message ?: ($r->extraction_analysis_conducted ?: ''))));
+        return str_contains($ext, 'YES') || str_contains($ext, 'COMPLET');
+    })->count();
+    $kpiIntelSharedCount = $directorySavedReports->filter(fn($r) => str_contains(strtoupper((string) ($r->intel_shared ?? '')), 'YES'))->count();
+    $kpiPendingExtraction = max(0, $kpiTotalRecords - $kpiExtractionDone);
+    $kpiExtractionRate = $kpiTotalRecords > 0 ? (int) round(($kpiExtractionDone / $kpiTotalRecords) * 100) : 0;
+
+    $defaultSuspectName = !empty($lookupKey) ? ($caseMapData[$lookupKey]['suspect_name'] ?? 'Select Case') : 'Select Case';
+    $defaultSuspectAlias = !empty($lookupKey) ? ($caseMapData[$lookupKey]['suspect_alias'] ?? null) : null;
+    $defaultSuspectMug = !empty($lookupKey) ? ($caseMapData[$lookupKey]['suspect_mug'] ?? null) : null;
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Forensic &amp; Investigation Status | Digital &amp; Physical Forensics Unit</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
+    @else
+        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
-    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <style>
-        body { font-family: 'Inter', system-ui, sans-serif; background-color: #F8FAFC; color: #0F172A; }
-        .font-mono-code { font-family: 'JetBrains Mono', monospace; }
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: #F4F6F8;
+            color: #0F172A;
+            -webkit-font-smoothing: antialiased;
+        }
+        .font-mono-code { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+        .tnum { font-variant-numeric: tabular-nums; }
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #eef2f6; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        a[href], button:not(:disabled), select:not(:disabled) { cursor: pointer; }
+        button:disabled, select:disabled { cursor: not-allowed; }
+        a:focus-visible, button:not(:disabled):focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+            outline: 2px solid #059669;
+            outline-offset: 2px;
+        }
         input[type="date"][readonly]::-webkit-calendar-picker-indicator {
             opacity: 0.3;
             pointer-events: none;
@@ -842,87 +877,198 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex antialiased selection:bg-emerald-600 selection:text-white">
+<body class="min-h-screen flex antialiased bg-[#F4F6F8] text-slate-900 selection:bg-emerald-700 selection:text-white">
+    @include('partials.flash')
 
-    <div class="flex h-screen w-full overflow-hidden">
+    <div class="flex min-h-screen lg:h-screen w-full overflow-hidden">
         <!-- SIDEBAR PARTIAL -->
         @include('Crime_Scene_Support.partials.sidebar')
 
         <!-- MAIN WORKSPACE -->
-        <div class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
-            
-            <!-- TOP NAVBAR -->
-            <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 z-20 shadow-2xs">
-                <div class="flex items-center gap-3 flex-1 max-w-2xl">
-                    <nav class="flex items-center gap-1.5 text-xs font-mono-code text-slate-500 overflow-x-auto whitespace-nowrap">
-                        <a href="{{ url('/Digital_Forensics') }}" class="hover:text-emerald-700 font-semibold flex items-center gap-1 transition-colors">
-                            <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                            </svg>
-                            <span>Digital Forensics</span>
-                        </a>
-                        <span class="text-slate-300">/</span>
-                        <span class="text-emerald-800 font-bold bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">Forensic &amp; Investigation Status</span>
-                    </nav>
-                </div>
-                
-            </header>
+        <div class="flex-1 flex flex-col min-w-0 bg-[#F4F6F8] overflow-hidden">
 
-            <!-- MAIN CONTENT AREA -->
-            <main class="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 space-y-6 custom-scrollbar">
-                @include('partials.flash')
-
-                <!-- HERO BANNER -->
-                <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-                    <div class="space-y-1">
-                        <div class="flex items-center gap-2 flex-wrap">
-                            <span class="text-xs font-black font-mono-code uppercase tracking-wider text-emerald-700">
-                                DIGITAL &amp; PHYSICAL FORENSICS UNIT
-                            </span>
-                        </div>
-                        <h1 class="text-xl sm:text-2xl font-black font-mono-code uppercase tracking-tight text-slate-900">
+            <!-- COMMAND TOPBAR -->
+            <header class="h-16 bg-white border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between gap-4 shrink-0 z-20">
+                <div class="flex items-center gap-3 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/90 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs" aria-hidden="true">
+                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <nav class="flex items-center gap-1.5 text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-emerald-700">
+                            <a href="{{ url('/Digital_Forensics') }}" class="hover:underline">Digital &amp; Physical Forensic Unit</a>
+                            <span class="text-slate-300">/</span>
+                            <span class="text-slate-500">Status &amp; Reports</span>
+                        </nav>
+                        <h1 class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight truncate">
                             Forensic &amp; Investigation Status
                         </h1>
-                        <p class="text-xs text-slate-600 font-medium max-w-2xl leading-relaxed">
-                            Monitor hardware write-blocker extraction, chip-off memory acquisition, passcode recovery, and case investigation status for electronic exhibits across NACOC active dockets.
-                        </p>
                     </div>
                 </div>
 
+                <div class="flex items-center gap-2.5 shrink-0">
+                    <a href="#investigationDirectorySection"
+                       class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200/90 text-xs font-bold transition-colors">
+                        <svg class="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                        <span>Directory ({{ $kpiTotalRecords }})</span>
+                    </a>
 
+                    <button type="button"
+                            onclick="generateDirectoryFilter()"
+                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 text-xs font-bold shadow-2xs transition-colors"
+                            title="Export filtered investigation directory as a multi-case PDF report">
+                        <svg class="w-3.5 h-3.5 text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                        </svg>
+                        <span class="hidden md:inline">Export Report</span>
+                    </button>
 
-                <!-- INTERACTIVE STATUS ENTRY & UPDATE FORM SECTION -->
-                <div class="bg-white rounded-3xl border border-slate-200/90 shadow-xl p-6 sm:p-8 space-y-6">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-5">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-2xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center shadow-md shadow-slate-200/60 shrink-0">
-                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L20 5.828a2 2 0 010 2.828l-8.414 8.414-3.536 1.414 1.414-3.536L16.586 3.586z"/>
-                                </svg>
-                            </div>
-                            <div>
-                                <h2 class="text-base font-black text-slate-900 font-mono-code uppercase tracking-tight">
-                                    Update Forensic Investigation Status
-                                </h2>
-                                <p class="text-xs text-slate-500 font-medium">Record live extraction status, hash checksum, write-blocker mode, and findings for mobile devices &amp; digital media.</p>
-                            </div>
+                    <a href="{{ url('/Digital_Forensics/cases') }}"
+                       class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs shadow-emerald-700/20 transition-colors">
+                        <span>Case Register</span>
+                    </a>
+
+                    <div class="hidden xl:flex items-center gap-2.5 pl-2.5 ml-1 border-l border-slate-200">
+                        <div class="text-right">
+                            <div class="text-xs font-extrabold text-slate-900 leading-tight truncate max-w-[140px]">{{ $headName }}</div>
+                            <div class="text-[10.5px] font-mono-code font-semibold text-emerald-700">DPFU Command</div>
                         </div>
-                        <span class="text-xs font-mono-code font-bold text-slate-500 self-start sm:self-auto">
+                        <div class="w-8 h-8 rounded-xl bg-slate-200 border border-slate-300/80 text-slate-800 flex items-center justify-center font-mono-code font-extrabold text-[11px]">
+                            {{ $headInitials ?: 'DF' }}
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- MAIN CONTENT AREA -->
+            <main class="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-5 custom-scrollbar">
+
+                <!-- 4-COLUMN OPERATIONAL OVERVIEW STRIP -->
+                <section aria-label="Forensic Investigation Summary" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
+                    <div class="px-5 py-4 sm:px-6 bg-slate-100/90 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <div class="space-y-0.5">
+                            <div class="text-[10.5px] font-mono-code font-bold uppercase tracking-widest text-emerald-700">
+                                Digital Forensics Investigation Overview
+                            </div>
+                            <p class="text-xs text-slate-600">
+                                Track court extraction warrants, write-blocked forensic imaging, witness statement dispatches, and intelligence sharing for electronic device dockets.
+                            </p>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-lg bg-white border border-slate-200/90 text-[10.5px] font-mono-code font-bold text-slate-600 shrink-0 self-start sm:self-auto">
                             FORM REF # DF-STATUS-{{ date('Y-md') }}
                         </span>
                     </div>
 
-                    <form id="forensicStatusForm" action="{{ url('/Digital_Forensics/forensic-status') }}" method="POST" enctype="multipart/form-data" onsubmit="handleStatusSubmit(event)" class="space-y-6">
+                    <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-slate-200/70">
+                        <button type="button" onclick="quickFilterDirectory('', '')" class="p-4 sm:px-6 text-left hover:bg-slate-50/90 transition-colors group">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-slate-500 group-hover:text-slate-800">Tracked Dockets</span>
+                                <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 border border-slate-200/80 flex items-center justify-center shrink-0" aria-hidden="true">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                </span>
+                            </div>
+                            <div id="kpiStatTotal" class="text-2xl font-extrabold text-slate-900 tnum mt-1.5">{{ $kpiTotalRecords }}</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">Active electronic exhibit files</div>
+                        </button>
+
+                        <button type="button" onclick="quickFilterDirectory('YES', '')" class="p-4 sm:px-6 text-left hover:bg-emerald-50/40 transition-colors group">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-teal-800">Warrants Granted</span>
+                                <span class="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 border border-teal-200/80 flex items-center justify-center shrink-0" aria-hidden="true">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+                                </span>
+                            </div>
+                            <div id="kpiStatWarrants" class="text-2xl font-extrabold text-slate-900 tnum mt-1.5">{{ $kpiWarrantsGranted }}</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">Judicial extraction orders</div>
+                        </button>
+
+                        <button type="button" onclick="quickFilterDirectory('', 'YES')" class="p-4 sm:px-6 text-left hover:bg-emerald-50/40 transition-colors group">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-emerald-700">Extraction Complete</span>
+                                <span id="kpiStatRateBadge" class="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono-code text-[10px] font-extrabold tnum">{{ $kpiExtractionRate }}%</span>
+                            </div>
+                            <div id="kpiStatExtracted" class="text-2xl font-extrabold text-slate-900 tnum mt-1.5">{{ $kpiExtractionDone }}</div>
+                            <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
+                                <div id="kpiStatRateBar" class="h-full bg-emerald-600 rounded-full transition-all duration-300" style="width: {{ $kpiExtractionRate }}%;"></div>
+                            </div>
+                        </button>
+
+                        <button type="button" onclick="quickFilterDirectory('', 'NO')" class="p-4 sm:px-6 text-left hover:bg-amber-50/40 transition-colors group">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-amber-800">Pending Extraction</span>
+                                <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center shrink-0" aria-hidden="true">
+                                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                </span>
+                            </div>
+                            <div id="kpiStatPending" class="text-2xl font-extrabold text-slate-900 tnum mt-1.5">{{ $kpiPendingExtraction }}</div>
+                            <div class="text-[11px] text-slate-500 mt-0.5">
+                                <span id="kpiStatIntelSub" class="font-mono-code font-bold text-emerald-700 tnum">{{ $kpiIntelSharedCount }}</span> shared with Intel Dept
+                            </div>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- INTERACTIVE STATUS ENTRY & UPDATE WORKBENCH -->
+                <section id="statusWorkbenchSection" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden scroll-mt-5">
+                    <div class="px-5 py-4 sm:px-6 bg-slate-100/80 border-b border-slate-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <div class="w-9 h-9 rounded-xl bg-white text-emerald-700 border border-slate-200/90 flex items-center justify-center shadow-2xs shrink-0" aria-hidden="true">
+                                <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L20 5.828a2 2 0 010 2.828l-8.414 8.414-3.536 1.414 1.414-3.536L16.586 3.586z"/>
+                                </svg>
+                            </div>
+                            <div>
+                                <h2 class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
+                                    Update Forensic Investigation Status
+                                </h2>
+                                <p class="text-xs text-slate-500">Select a digital docket below to update court warrant status, extraction findings, statement attachments, and intelligence sharing.</p>
+                            </div>
+                        </div>
+
+                        <!-- LIVE SELECTED SUBJECT PREVIEW PILL -->
+                        <div id="selectedSuspectBanner" class="flex items-center gap-3 px-3.5 py-2 rounded-xl bg-white border border-slate-200/90 shadow-2xs shrink-0">
+                            <div id="selectedSuspectThumbWrap" class="w-9 h-10 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden flex items-center justify-center shrink-0">
+                                @if(!empty($defaultSuspectMug))
+                                    <img id="selectedSuspectThumbImg" src="{{ $defaultSuspectMug }}" alt="{{ $defaultSuspectName }}" class="w-full h-full object-cover cursor-pointer" onclick="openMugshotModal(this.src, document.getElementById('selectedSuspectNameLabel')?.textContent || 'Suspect')">
+                                @else
+                                    <svg id="selectedSuspectFallbackIcon" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>
+                                @endif
+                            </div>
+                            <div class="min-w-0">
+                                <div class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-slate-400">Active Subject</div>
+                                <div class="flex items-center gap-1.5">
+                                    <span id="selectedSuspectNameLabel" class="text-xs font-mono-code font-extrabold text-slate-900 uppercase truncate max-w-[180px]">{{ $defaultSuspectName }}</span>
+                                    @if(!empty($defaultSuspectAlias))
+                                        <span id="selectedSuspectAliasLabel" class="text-[10.5px] text-slate-500 italic">({{ $defaultSuspectAlias }})</span>
+                                    @else
+                                        <span id="selectedSuspectAliasLabel" class="hidden text-[10.5px] text-slate-500 italic"></span>
+                                    @endif
+                                </div>
+                            </div>
+                            <span id="selectedStageBadge" class="ml-1 px-2 py-0.5 rounded-md text-[10px] font-mono-code font-bold {{ strtoupper(trim($defaultCourtGranted)) === 'YES' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-700 border border-slate-200' }}">
+                                {{ strtoupper(trim($defaultCourtGranted)) === 'YES' ? 'Warrant Granted' : 'Stage 1 Intake' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <form id="forensicStatusForm" action="{{ url('/Digital_Forensics/forensic-status') }}" method="POST" enctype="multipart/form-data" onsubmit="handleStatusSubmit(event)" class="p-5 sm:p-6 space-y-5">
                         @csrf
 
                         <!-- CURRENT/NEW CASES SECTION CONTAINER -->
-                        <div id="currentCasesSectionContainer" class="p-5 sm:p-6 bg-slate-50/70 border border-slate-200/90 rounded-2xl shadow-xs space-y-5 transition-all">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                        <div id="currentCasesSectionContainer" class="p-5 bg-slate-50/70 border border-slate-200/90 rounded-2xl space-y-5 transition-all">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/80">
                                 <div class="flex items-center gap-2.5">
-                                    <h3 class="text-xs sm:text-sm font-black text-slate-900 font-mono-code uppercase tracking-wider">
+                                    <span class="px-2 py-0.5 rounded-md bg-slate-200/90 border border-slate-300/80 text-slate-800 font-mono-code text-[10px] font-extrabold">STAGE 01</span>
+                                    <h3 class="text-xs sm:text-sm font-extrabold text-slate-900 font-mono-code uppercase tracking-wider">
                                         CURRENT/NEW CASES
                                     </h3>
                                 </div>
+                                <span class="text-[10.5px] font-mono-code text-slate-500">
+                                    Case &amp; exhibit fields are synced read-only from the Case Register
+                                </span>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1104,14 +1250,17 @@
                         </div>
 
                         <!-- ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED) SECTION CONTAINER -->
-                        <div id="ongoingCasesSectionContainer" class="hidden p-5 sm:p-6 bg-gradient-to-b from-emerald-50/50 via-white to-white border-2 border-emerald-500/40 rounded-2xl shadow-sm space-y-5 transition-all duration-300">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-emerald-200">
+                        <div id="ongoingCasesSectionContainer" class="hidden p-5 bg-emerald-50/35 border border-emerald-200 rounded-2xl space-y-5 transition-all duration-300">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-emerald-200/80">
                                 <div class="flex items-center gap-2.5">
-                                    <h3 class="text-xs sm:text-sm font-black text-emerald-950 font-mono-code uppercase tracking-wider">
+                                    <span class="px-2 py-0.5 rounded-md bg-emerald-100 border border-emerald-300/80 text-emerald-900 font-mono-code text-[10px] font-extrabold">STAGE 02</span>
+                                    <h3 class="text-xs sm:text-sm font-extrabold text-emerald-950 font-mono-code uppercase tracking-wider">
                                         ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED)
                                     </h3>
                                 </div>
-
+                                <span class="text-[10.5px] font-mono-code font-semibold text-emerald-800">
+                                    Judicial extraction authorization active
+                                </span>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -1251,83 +1400,89 @@
                         </div>
 
                         <!-- Submit Bar -->
-                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-                            <div id="statusAlertMsg" class="hidden items-center gap-2 text-xs font-mono-code font-bold text-emerald-700">
-                                <span>✔ Forensic &amp; Investigation Status updated successfully!</span>
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-200/80">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <button type="button"
+                                        onclick="openSelectedCasePdfPreview()"
+                                        class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/90 text-slate-700 border border-slate-200 text-xs font-bold transition-colors">
+                                    <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                    </svg>
+                                    <span>Preview DPF Report PDF</span>
+                                </button>
+                                <div id="statusAlertMsg" class="hidden items-center gap-2 text-xs font-mono-code font-bold text-emerald-700">
+                                    <span>Forensic &amp; Investigation Status updated.</span>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-3 justify-end ml-auto">
-                                <button type="reset" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+                            <div class="flex items-center gap-2.5 justify-end">
+                                <button type="reset" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-colors">
                                     Reset Form
                                 </button>
-                                <button type="submit" id="saveStatusBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center gap-2 cursor-pointer">
+                                <button type="submit" id="saveStatusBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs shadow-emerald-700/20 transition-all flex items-center gap-2">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                     <span>Save &amp; Log Investigation Status</span>
                                 </button>
                             </div>
                         </div>
                     </form>
-                </div>
+                </section>
 
                 <!-- LIVE FORENSIC INVESTIGATION DIRECTORY TABLE -->
-                <div id="investigationDirectorySection" class="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden space-y-4 p-5 sm:p-6 scroll-mt-6">
-                    <div class="flex flex-col xl:flex-row xl:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <section id="investigationDirectorySection" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden scroll-mt-5">
+                    <div class="px-5 py-4 sm:px-6 bg-slate-100/80 border-b border-slate-200/80 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
                         <div>
-                            <div class="flex items-center gap-2">
-                                <h3 class="text-base font-black text-slate-900 font-mono-code uppercase tracking-tight">
+                            <div class="flex items-center gap-2.5 flex-wrap">
+                                <h3 class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
                                     Digital Forensic &amp; Investigation Directory
                                 </h3>
-                                <span id="directoryRowCountBadge" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-emerald-100 text-emerald-800 font-mono-code">
-                                    Total: {{ count($directorySavedReports) + count($directoryCases->filter(fn($c) => !$directorySavedReports->contains('case_number', $c->case_number ?? ($c['case_number'] ?? '')))) }}
+                                <span id="directoryRowCountBadge" class="px-2.5 py-0.5 text-[10.5px] font-bold rounded-lg bg-emerald-50 border border-emerald-200/90 text-emerald-900 font-mono-code tnum">
+                                    Total: {{ $kpiTotalRecords }}
                                 </span>
                             </div>
-                            <p class="text-[11px] text-slate-500 font-sans mt-0.5">Real-time case tracking, extraction status &amp; dossier archives</p>
+                            <p class="text-xs text-slate-500 mt-0.5">Click <strong class="text-slate-700">Edit</strong> on any row to load its status into the workbench above, or <strong class="text-slate-700">Preview</strong> to open its single-case DPF Report PDF.</p>
                         </div>
 
                         <!-- SEARCH INPUT -->
-                        <div class="relative w-full xl:max-w-xs">
-                            <input type="text" id="directorySearchInput" oninput="applyDirectoryFilters()" onkeyup="applyDirectoryFilters()" placeholder="Filter by Suspect, Case Ref, Location, or Status..." class="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors shadow-2xs">
+                        <div class="relative w-full xl:max-w-sm">
+                            <input type="text" id="directorySearchInput" oninput="applyDirectoryFilters()" onkeyup="applyDirectoryFilters()" placeholder="Filter by Suspect, Case Ref, Location, or Status..." class="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </span>
                         </div>
                     </div>
 
-                    <!-- DATE & STATUS FILTER TOOLBAR (PRESETS: ALL, WEEKLY, MONTHLY, ANNUALLY + CUSTOM RANGE & STATUS) -->
-                    <div class="p-3 bg-slate-50/80 border border-slate-200 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-xs">
+                    <!-- DATE & STATUS FILTER TOOLBAR -->
+                    <div class="px-4 py-3 sm:px-6 bg-slate-50/70 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
                         <!-- PRESET PILLS -->
                         <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="text-[10px] font-black uppercase tracking-wider text-slate-500 font-mono-code mr-1 flex items-center gap-1">
-                                <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                <span>Period:</span>
-                            </span>
-                            <button type="button" onclick="setDateFilterPreset('all')" id="btnPresetAll" class="px-3 py-1 rounded-lg text-xs font-mono-code font-bold transition-all bg-emerald-600 text-white shadow-xs cursor-pointer">
+                            <span class="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 font-mono-code mr-1">Period:</span>
+                            <button type="button" onclick="setDateFilterPreset('all')" id="btnPresetAll" class="px-2.5 py-1 rounded-lg text-[11px] font-mono-code font-bold transition-colors bg-emerald-600 text-white shadow-2xs">
                                 All Time
                             </button>
-                            <button type="button" onclick="setDateFilterPreset('weekly')" id="btnPresetWeekly" class="px-3 py-1 rounded-lg text-xs font-mono-code font-bold transition-all bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs cursor-pointer">
+                            <button type="button" onclick="setDateFilterPreset('weekly')" id="btnPresetWeekly" class="px-2.5 py-1 rounded-lg text-[11px] font-mono-code font-bold transition-colors bg-white hover:bg-slate-100 text-slate-700 border border-slate-200">
                                 Weekly
                             </button>
-                            <button type="button" onclick="setDateFilterPreset('monthly')" id="btnPresetMonthly" class="px-3 py-1 rounded-lg text-xs font-mono-code font-bold transition-all bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs cursor-pointer">
+                            <button type="button" onclick="setDateFilterPreset('monthly')" id="btnPresetMonthly" class="px-2.5 py-1 rounded-lg text-[11px] font-mono-code font-bold transition-colors bg-white hover:bg-slate-100 text-slate-700 border border-slate-200">
                                 Monthly
                             </button>
-                            <button type="button" onclick="setDateFilterPreset('annually')" id="btnPresetAnnually" class="px-3 py-1 rounded-lg text-xs font-mono-code font-bold transition-all bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs cursor-pointer">
+                            <button type="button" onclick="setDateFilterPreset('annually')" id="btnPresetAnnually" class="px-2.5 py-1 rounded-lg text-[11px] font-mono-code font-bold transition-colors bg-white hover:bg-slate-100 text-slate-700 border border-slate-200">
                                 Annually
                             </button>
                         </div>
 
                         <!-- STATUS FILTERS & CUSTOM DATE RANGE INPUTS -->
                         <div class="flex items-center gap-2 flex-wrap">
-                            <!-- Court Order Status Dropdown Filter -->
                             <div class="flex items-center gap-1">
-                                <select id="directoryCourtFilter" onchange="applyDirectoryFilters()" class="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono-code text-slate-800 focus:outline-none focus:border-emerald-600 shadow-2xs cursor-pointer">
+                                <select id="directoryCourtFilter" onchange="applyDirectoryFilters()" class="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-mono-code font-semibold text-slate-700 focus:outline-none focus:border-emerald-600">
                                     <option value="">Court Order: All</option>
                                     <option value="YES">Granted (YES)</option>
                                     <option value="NO">Not Granted (NO)</option>
                                 </select>
                             </div>
 
-                            <!-- Extraction Status Dropdown Filter -->
                             <div class="flex items-center gap-1">
-                                <select id="directoryExtractionFilter" onchange="applyDirectoryFilters()" class="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono-code text-slate-800 focus:outline-none focus:border-emerald-600 shadow-2xs cursor-pointer">
+                                <select id="directoryExtractionFilter" onchange="applyDirectoryFilters()" class="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-mono-code font-semibold text-slate-700 focus:outline-none focus:border-emerald-600">
                                     <option value="">Extraction: All</option>
                                     <option value="YES">Completed (YES)</option>
                                     <option value="IN PROGRESS">In Progress</option>
@@ -1336,19 +1491,19 @@
                             </div>
 
                             <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] font-bold text-slate-500 font-mono-code uppercase">From:</span>
-                                <input type="date" id="dateFilterFrom" oninput="onCustomDateChange()" onchange="onCustomDateChange()" class="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono-code text-slate-800 focus:outline-none focus:border-emerald-600 shadow-2xs cursor-pointer">
+                                <span class="text-[10px] font-bold text-slate-500 font-mono-code uppercase">From</span>
+                                <input type="date" id="dateFilterFrom" oninput="onCustomDateChange()" onchange="onCustomDateChange()" class="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-mono-code text-slate-800 focus:outline-none focus:border-emerald-600">
                             </div>
                             <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] font-bold text-slate-500 font-mono-code uppercase">To:</span>
-                                <input type="date" id="dateFilterTo" oninput="onCustomDateChange()" onchange="onCustomDateChange()" class="px-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono-code text-slate-800 focus:outline-none focus:border-emerald-600 shadow-2xs cursor-pointer">
+                                <span class="text-[10px] font-bold text-slate-500 font-mono-code uppercase">To</span>
+                                <input type="date" id="dateFilterTo" oninput="onCustomDateChange()" onchange="onCustomDateChange()" class="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-mono-code text-slate-800 focus:outline-none focus:border-emerald-600">
                             </div>
-                            <button type="button" onclick="generateDirectoryFilter()" id="btnGenerateFilter" title="Generate Directory with Selected Filter" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white border border-emerald-700 rounded-lg text-xs font-mono-code font-bold transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
-                                <span>Generate</span>
+                            <button type="button" onclick="generateDirectoryFilter()" id="btnGenerateFilter" title="Export Filtered Directory PDF" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-mono-code font-bold transition-colors flex items-center gap-1.5 shadow-2xs">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
+                                <span>Generate PDF</span>
                             </button>
-                            <button type="button" onclick="resetDateFilters()" title="Reset All Filters" class="px-2.5 py-1 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-lg text-xs font-mono-code font-bold transition-colors flex items-center gap-1 shadow-2xs cursor-pointer">
-                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            <button type="button" onclick="resetDateFilters()" title="Reset All Filters" class="px-2.5 py-1 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-lg text-[11px] font-mono-code font-bold transition-colors flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                 <span>Reset</span>
                             </button>
                         </div>
@@ -1357,18 +1512,18 @@
                     <div class="overflow-x-auto custom-scrollbar">
                         <table class="w-full text-xs text-left border-collapse" id="forensicDirectoryTable">
                             <thead>
-                                <tr class="bg-slate-100 text-slate-700 font-mono-code uppercase text-[10px] tracking-wider border-b border-slate-200">
-                                    <th class="p-3">Case Ref</th>
+                                <tr class="bg-slate-50/95 text-slate-500 font-mono-code font-bold uppercase text-[10.5px] tracking-wider border-b border-slate-200/90">
+                                    <th class="p-3 pl-5">Case Ref</th>
                                     <th class="p-3">Suspect</th>
                                     <th class="p-3">Logged Date</th>
                                     <th class="p-3">Court Order</th>
                                     <th class="p-3">Extraction &amp; Analysis</th>
-                                    <th class="p-3">Report, Witness Statement &amp; Digital Evidence Sent to Investigations</th>
+                                    <th class="p-3">Statement &amp; Evidence Sent</th>
                                     <th class="p-3">Intel Shared</th>
-                                    <th class="p-3 text-right">Actions</th>
+                                    <th class="p-3 pr-5 text-right">Actions</th>
                                 </tr>
                             </thead>
-                            <tbody class="divide-y divide-slate-100 font-mono-code" id="forensicTableBody">
+                            <tbody class="divide-y divide-slate-100 bg-white font-mono-code" id="forensicTableBody">
                                 @foreach($directorySavedReports as $rep)
                                     @php
                                         $coFiles = $rep->court_order_files;
@@ -1395,8 +1550,7 @@
                                         if (!empty($sMug)) {
                                             $sMug = \App\Services\CasePhotoResolver::resolveMugshotUrl($sMug);
                                         }
-                                    @endphp
-                                    @php
+
                                         $extRaw = trim($rep->extraction_analysis_message ?: ($rep->extraction_analysis_conducted ?: 'NO'));
                                         $extBadge = null;
                                         $extNote = null;
@@ -1411,10 +1565,12 @@
                                         } else {
                                             $extNote = $extRaw;
                                         }
-                                        $extBadgeClass = $extBadge === 'YES' ? 'bg-emerald-100 text-emerald-800' : ($extBadge === 'NO' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800');
+                                        $extBadgeClass = $extBadge === 'YES'
+                                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                            : ($extBadge === 'NO' ? 'bg-slate-100 text-slate-600 border border-slate-200' : 'bg-amber-50 text-amber-800 border border-amber-200');
                                         $repExtNormalized = strtoupper(trim($extBadge ?: 'NO'));
                                     @endphp
-                                    <tr class="hover:bg-emerald-50/40 transition-colors bg-emerald-50/20 border-l-4 border-emerald-600 directory-row" 
+                                    <tr class="hover:bg-slate-50/90 transition-colors directory-row"
                                         data-date="{{ $repDateIso }}"
                                         data-case="{{ strtolower($rep->case_number) }}"
                                         data-caseref="{{ $rep->case_number }}"
@@ -1424,53 +1580,55 @@
                                         data-court="{{ $repCourt }}"
                                         data-extraction="{{ $repExtNormalized }}"
                                         data-intel="{{ strtoupper(trim($rep->intel_shared ?? 'NO')) }}">
-                                        <td class="p-3 font-extrabold text-emerald-950">
+                                        <td class="p-3.5 pl-5 align-top font-extrabold text-emerald-800">
                                             <div>{{ $rep->case_number }}</div>
-                                            <div class="flex items-center gap-1 mt-0.5">
-                                                <span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">{{ $rep->dpf_code }}</span>
-                                                <span class="text-[9px] text-slate-400 font-sans font-normal truncate max-w-[130px]" title="{{ $repLoc }}">{{ $repLoc }}</span>
+                                            <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+                                                @if(!empty($rep->dpf_code))
+                                                    <span class="text-[9.5px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">{{ $rep->dpf_code }}</span>
+                                                @endif
+                                                <span class="text-[10px] text-slate-400 font-sans font-normal truncate max-w-[140px]" title="{{ $repLoc }}">{{ $repLoc }}</span>
                                             </div>
                                         </td>
-                                        <td class="p-3 min-w-[170px]">
+                                        <td class="p-3.5 align-top min-w-[180px]">
                                             <div class="flex items-center gap-2.5">
-                                                <div class="w-9 h-11 rounded-md border border-slate-200 bg-slate-100 overflow-hidden shrink-0 shadow-2xs flex items-center justify-center relative">
+                                                <div class="w-9 h-11 rounded-xl border border-slate-200 bg-slate-100 overflow-hidden shrink-0 shadow-2xs flex items-center justify-center relative">
                                                     @if(!empty($sMug))
                                                         <img src="{{ $sMug }}" alt="{{ $sName }}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="openMugshotModal('{{ addslashes($sMug) }}', '{{ addslashes($sName) }}')" title="Click to enlarge photo">
                                                     @else
                                                         <div class="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400" title="No front mugshot on file">
-                                                            <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <svg class="w-4.5 h-4.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                                             </svg>
                                                         </div>
                                                     @endif
                                                 </div>
                                                 <div class="min-w-0">
-                                                    <div class="font-bold text-[11px] text-slate-900 leading-tight uppercase font-mono-code truncate max-w-[140px]" title="{{ $sName }}">
+                                                    <div class="font-bold text-[11px] text-slate-900 leading-tight uppercase font-mono-code truncate max-w-[145px]" title="{{ $sName }}">
                                                         {{ $sName }}
                                                     </div>
                                                     @if(!empty($sAlias))
-                                                        <div class="text-[9px] text-slate-500 font-sans italic truncate max-w-[140px]">a.k.a. {{ $sAlias }}</div>
+                                                        <div class="text-[10px] text-slate-500 font-sans italic truncate max-w-[145px]">a.k.a. {{ $sAlias }}</div>
                                                     @endif
                                                     @if($sCoCount > 0)
-                                                        <span class="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200" title="{{ $sCoCount }} Co-Suspect(s) in case">
+                                                        <span class="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[8.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200" title="{{ $sCoCount }} Co-Suspect(s) in case">
                                                             +{{ $sCoCount }} Co-Suspect{{ $sCoCount > 1 ? 's' : '' }}
                                                         </span>
                                                     @endif
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="p-3 whitespace-nowrap">
+                                        <td class="p-3.5 align-top whitespace-nowrap">
                                             <div class="font-bold text-[11px] text-slate-800">{{ $repDateDisplay }}</div>
-                                            <span class="text-[9px] text-slate-400 font-sans block">{{ $rep->created_at ? $rep->created_at->format('h:i A') : 'Saved Status' }}</span>
+                                            <span class="text-[10px] text-slate-400 font-sans block mt-0.5">{{ $rep->created_at ? $rep->created_at->format('h:i A') : 'Saved Status' }}</span>
                                         </td>
-                                        <td class="p-3">
-                                            <span class="px-2 py-0.5 {{ $rep->court_order_granted === 'YES' ? 'bg-emerald-100 text-emerald-800' : ($rep->court_order_granted === 'NO' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }} text-[10px] font-bold rounded">
+                                        <td class="p-3.5 align-top">
+                                            <span class="px-2 py-0.5 {{ $rep->court_order_granted === 'YES' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : ($rep->court_order_granted === 'NO' ? 'bg-slate-100 text-slate-600 border border-slate-200' : 'bg-amber-50 text-amber-800 border border-amber-200') }} text-[10px] font-bold rounded-md">
                                                 {{ $rep->court_order_granted }}
                                             </span>
                                             @if(!empty($coFiles))
-                                                <div class="mt-1 flex flex-wrap items-center gap-1 max-w-[200px]">
+                                                <div class="mt-1.5 flex flex-wrap items-center gap-1 max-w-[200px]">
                                                     @foreach($coFiles as $idx => $fPath)
-                                                        <a href="{{ asset($fPath) }}" target="_blank" class="px-1.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded text-[9px] font-bold flex items-center gap-0.5 transition-colors">
+                                                        <a href="{{ asset($fPath) }}" target="_blank" class="px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[9px] font-bold flex items-center gap-0.5 transition-colors">
                                                             <svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
                                                             <span>Order {{ count($coFiles) > 1 ? '#' . ($idx + 1) : '' }}</span>
                                                         </a>
@@ -1478,19 +1636,19 @@
                                                 </div>
                                             @endif
                                         </td>
-                                        <td class="p-3">
+                                        <td class="p-3.5 align-top">
                                             @if($extBadge)
-                                                <span class="px-2 py-0.5 {{ $extBadgeClass }} text-[10px] font-bold rounded">
+                                                <span class="px-2 py-0.5 {{ $extBadgeClass }} text-[10px] font-bold rounded-md">
                                                     {{ $extBadge }}
                                                 </span>
                                             @endif
                                             @if($extNote)
-                                                <p class="{{ $extBadge ? 'mt-1' : '' }} text-[10px] text-slate-700 font-sans leading-tight max-w-[220px] line-clamp-2" title="{{ $extRaw }}">
+                                                <p class="{{ $extBadge ? 'mt-1' : '' }} text-[10.5px] text-slate-600 font-sans leading-snug max-w-[220px] line-clamp-2" title="{{ $extRaw }}">
                                                     {{ $extNote }}
                                                 </p>
                                             @endif
                                         </td>
-                                        <td class="p-3">
+                                        <td class="p-3.5 align-top">
                                             @php
                                                 $rwRaw = trim($rep->report_witness_statement_message ?: ($rep->report_witness_statement_sent ?: 'NO'));
                                                 $rwBadge = null;
@@ -1506,22 +1664,24 @@
                                                 } else {
                                                     $rwNote = $rwRaw;
                                                 }
-                                                $rwBadgeClass = $rwBadge === 'YES' ? 'bg-emerald-100 text-emerald-800' : ($rwBadge === 'NO' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800');
+                                                $rwBadgeClass = $rwBadge === 'YES'
+                                                    ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                                    : ($rwBadge === 'NO' ? 'bg-slate-100 text-slate-600 border border-slate-200' : 'bg-amber-50 text-amber-800 border border-amber-200');
                                             @endphp
                                             @if($rwBadge)
-                                                <span class="px-2 py-0.5 {{ $rwBadgeClass }} text-[10px] font-bold rounded">
+                                                <span class="px-2 py-0.5 {{ $rwBadgeClass }} text-[10px] font-bold rounded-md">
                                                     {{ $rwBadge }}
                                                 </span>
                                             @endif
                                             @if($rwNote)
-                                                <p class="{{ $rwBadge ? 'mt-1' : '' }} text-[10px] text-slate-700 font-sans leading-tight max-w-[220px] line-clamp-2" title="{{ $rwRaw }}">
+                                                <p class="{{ $rwBadge ? 'mt-1' : '' }} text-[10.5px] text-slate-600 font-sans leading-snug max-w-[220px] line-clamp-2" title="{{ $rwRaw }}">
                                                     {{ $rwNote }}
                                                 </p>
                                             @endif
                                             @if(!empty($rwFiles))
-                                                <div class="mt-1 flex flex-wrap items-center gap-1 max-w-[200px]">
+                                                <div class="mt-1.5 flex flex-wrap items-center gap-1 max-w-[200px]">
                                                     @foreach($rwFiles as $idx => $fPath)
-                                                        <a href="{{ asset($fPath) }}" target="_blank" class="px-1.5 py-0.5 bg-emerald-100 hover:bg-emerald-200 text-emerald-900 rounded text-[9px] font-bold flex items-center gap-0.5 transition-colors">
+                                                        <a href="{{ asset($fPath) }}" target="_blank" class="px-1.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded text-[9px] font-bold flex items-center gap-0.5 transition-colors">
                                                             <svg class="w-2.5 h-2.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                                             <span>Evidence / Stmt {{ count($rwFiles) > 1 ? '#' . ($idx + 1) : '' }}</span>
                                                         </a>
@@ -1529,15 +1689,24 @@
                                                 </div>
                                             @endif
                                         </td>
-                                        <td class="p-3">
-                                            <span class="px-2 py-0.5 {{ $rep->intel_shared === 'YES' ? 'bg-emerald-100 text-emerald-800' : ($rep->intel_shared === 'NO' ? 'bg-rose-100 text-rose-800' : 'bg-amber-100 text-amber-800') }} text-[10px] font-bold rounded">
+                                        <td class="p-3.5 align-top">
+                                            <span class="px-2 py-0.5 {{ $rep->intel_shared === 'YES' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : ($rep->intel_shared === 'NO' ? 'bg-slate-100 text-slate-600 border border-slate-200' : 'bg-amber-50 text-amber-800 border border-amber-200') }} text-[10px] font-bold rounded-md">
                                                 {{ $rep->intel_shared }}
                                             </span>
                                         </td>
-                                        <td class="p-3 text-right space-x-1 whitespace-nowrap">
-                                            <a href="{{ url('/Digital_Forensics/dpf-report-pdf/' . ($rep->dpf_code ?? $rep->case_number)) }}" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-colors no-underline inline-block">
-                                                Preview
-                                            </a>
+                                        <td class="p-3.5 pr-5 align-top text-right whitespace-nowrap">
+                                            <div class="inline-flex items-center justify-end gap-1.5">
+                                                <button type="button"
+                                                        onclick="selectCaseInStatusForm('{{ addslashes($rep->case_number) }}')"
+                                                        class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[10.5px] font-bold transition-colors"
+                                                        title="Load {{ $rep->case_number }} into the status form above">
+                                                    Edit
+                                                </button>
+                                                <a href="{{ url('/Digital_Forensics/dpf-report-pdf/' . rawurlencode($rep->dpf_code ?? $rep->case_number)) }}"
+                                                   class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10.5px] font-bold transition-colors no-underline inline-block">
+                                                    Preview
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach
@@ -1573,88 +1742,98 @@
                                             $sMug = \App\Services\CasePhotoResolver::resolveMugshotUrl($sMug);
                                         }
                                     @endphp
-                                    <tr class="hover:bg-emerald-50/40 transition-colors directory-row" 
+                                    <tr class="hover:bg-slate-50/90 transition-colors directory-row"
                                         data-date="{{ $cDateIso }}"
                                         data-case="{{ strtolower($cRef) }}"
+                                        data-caseref="{{ $cRef }}"
                                         data-code=""
                                         data-location="{{ strtolower($cLoc) }}"
                                         data-suspect="{{ strtolower($sName . ' ' . ($sAlias ?? '')) }}"
                                         data-court="{{ $cCourt }}"
                                         data-extraction="{{ $cExt }}"
                                         data-intel="{{ $cIntel }}">
-                                        <td class="p-3 font-extrabold text-slate-900">
+                                        <td class="p-3.5 pl-5 align-top font-extrabold text-slate-900">
                                             <div>{{ $cRef }}</div>
-                                            <div class="text-[9px] text-slate-400 font-sans font-normal truncate max-w-[140px]" title="{{ $cLoc }}">{{ $cLoc }}</div>
+                                            <div class="text-[10px] text-slate-400 font-sans font-normal truncate max-w-[145px] mt-0.5" title="{{ $cLoc }}">{{ $cLoc }}</div>
                                         </td>
-                                        <td class="p-3 min-w-[170px]">
+                                        <td class="p-3.5 align-top min-w-[180px]">
                                             <div class="flex items-center gap-2.5">
-                                                <div class="w-9 h-11 rounded-md border border-slate-200 bg-slate-100 overflow-hidden shrink-0 shadow-2xs flex items-center justify-center relative">
+                                                <div class="w-9 h-11 rounded-xl border border-slate-200 bg-slate-100 overflow-hidden shrink-0 shadow-2xs flex items-center justify-center relative">
                                                     @if(!empty($sMug))
                                                         <img src="{{ $sMug }}" alt="{{ $sName }}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="openMugshotModal('{{ addslashes($sMug) }}', '{{ addslashes($sName) }}')" title="Click to enlarge photo">
                                                     @else
                                                         <div class="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400" title="No front mugshot on file">
-                                                            <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                            <svg class="w-4.5 h-4.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                                             </svg>
                                                         </div>
                                                     @endif
                                                 </div>
                                                 <div class="min-w-0">
-                                                    <div class="font-bold text-[11px] text-slate-900 leading-tight uppercase font-mono-code truncate max-w-[140px]" title="{{ $sName }}">
+                                                    <div class="font-bold text-[11px] text-slate-900 leading-tight uppercase font-mono-code truncate max-w-[145px]" title="{{ $sName }}">
                                                         {{ $sName }}
                                                     </div>
                                                     @if(!empty($sAlias))
-                                                        <div class="text-[9px] text-slate-500 font-sans italic truncate max-w-[140px]">a.k.a. {{ $sAlias }}</div>
+                                                        <div class="text-[10px] text-slate-500 font-sans italic truncate max-w-[145px]">a.k.a. {{ $sAlias }}</div>
                                                     @endif
                                                     @if($sCoCount > 0)
-                                                        <span class="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200" title="{{ $sCoCount }} Co-Suspect(s) in case">
+                                                        <span class="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[8.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200" title="{{ $sCoCount }} Co-Suspect(s) in case">
                                                             +{{ $sCoCount }} Co-Suspect{{ $sCoCount > 1 ? 's' : '' }}
                                                         </span>
                                                     @endif
                                                 </div>
                                             </div>
                                         </td>
-                                        <td class="p-3 whitespace-nowrap">
+                                        <td class="p-3.5 align-top whitespace-nowrap">
                                             <div class="font-bold text-[11px] text-slate-800">{{ $cDateDisplay }}</div>
-                                            <span class="text-[9px] text-slate-400 font-sans block">Registry Intake</span>
+                                            <span class="text-[10px] text-slate-400 font-sans block mt-0.5">Registry Intake</span>
                                         </td>
-                                        <td class="p-3">
-                                            <span class="px-2 py-0.5 {{ $cCourt === 'YES' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800' }} text-[10px] font-bold rounded">
+                                        <td class="p-3.5 align-top">
+                                            <span class="px-2 py-0.5 {{ $cCourt === 'YES' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200' }} text-[10px] font-bold rounded-md">
                                                 {{ $cCourt === 'YES' ? 'Granted' : 'NO' }}
                                             </span>
                                         </td>
-                                        <td class="p-3">
-                                            <span class="px-2 py-0.5 {{ $cExt === 'YES' ? 'bg-emerald-100 text-emerald-800' : ($cExt === 'IN PROGRESS' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800') }} text-[10px] font-bold rounded">
+                                        <td class="p-3.5 align-top">
+                                            <span class="px-2 py-0.5 {{ $cExt === 'YES' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : ($cExt === 'IN PROGRESS' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-slate-200') }} text-[10px] font-bold rounded-md">
                                                 {{ $cExt }}
                                             </span>
                                         </td>
-                                        <td class="p-3">
-                                            <span class="px-2 py-0.5 {{ $cRw === 'YES' ? 'bg-emerald-100 text-emerald-800' : ($cRw === 'PENDING' ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800') }} text-[10px] font-bold rounded">
+                                        <td class="p-3.5 align-top">
+                                            <span class="px-2 py-0.5 {{ $cRw === 'YES' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : ($cRw === 'PENDING' ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-slate-100 text-slate-600 border border-slate-200') }} text-[10px] font-bold rounded-md">
                                                 {{ $cRw }}
                                             </span>
                                         </td>
-                                        <td class="p-3">
-                                            <span class="px-2 py-0.5 {{ $cIntel === 'YES' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800' }} text-[10px] font-bold rounded">
+                                        <td class="p-3.5 align-top">
+                                            <span class="px-2 py-0.5 {{ $cIntel === 'YES' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-slate-100 text-slate-600 border border-slate-200' }} text-[10px] font-bold rounded-md">
                                                 {{ $cIntel }}
                                             </span>
                                         </td>
-                                        <td class="p-3 text-right">
-                                            <a href="{{ url('/Digital_Forensics/dpf-report-pdf/' . $cRef) }}" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-colors no-underline inline-block">
-                                                Preview
-                                            </a>
+                                        <td class="p-3.5 pr-5 align-top text-right whitespace-nowrap">
+                                            <div class="inline-flex items-center justify-end gap-1.5">
+                                                <button type="button"
+                                                        onclick="selectCaseInStatusForm('{{ addslashes($cRef) }}')"
+                                                        class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[10.5px] font-bold transition-colors"
+                                                        title="Load {{ $cRef }} into the status form above">
+                                                    Edit
+                                                </button>
+                                                <a href="{{ url('/Digital_Forensics/dpf-report-pdf/' . rawurlencode($cRef)) }}"
+                                                   class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10.5px] font-bold transition-colors no-underline inline-block">
+                                                    Preview
+                                                </a>
+                                            </div>
                                         </td>
                                     </tr>
                                 @endforeach
 
                                 @php
-                                    $totalDirectoryRows = count($directorySavedReports) + count($directoryCases->filter(fn($c) => !$directorySavedReports->contains('case_number', $c->case_number ?? ($c['case_number'] ?? ''))));
+                                    $totalDirectoryRows = $kpiTotalRecords;
                                 @endphp
                                 <tr id="directoryNoRecordsRow" class="{{ $totalDirectoryRows > 0 ? 'hidden' : '' }}">
-                                    <td colspan="8" class="p-8 text-center text-slate-400 font-sans">
+                                    <td colspan="8" class="p-10 text-center text-slate-400 font-sans">
                                         <div class="flex flex-col items-center justify-center">
                                             <svg class="w-8 h-8 text-slate-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                                            <p class="text-xs font-bold text-slate-600 mb-0.5">No Investigation Records Found</p>
-                                            <p class="text-[11px] text-slate-400">Try adjusting your date range filter or search keywords.</p>
+                                            <p class="text-xs font-bold text-slate-700 mb-0.5">No Investigation Records Found</p>
+                                            <p class="text-[11px] text-slate-500">Adjust your date range, court warrant filter, or search keywords.</p>
                                         </div>
                                     </td>
                                 </tr>
@@ -1663,11 +1842,11 @@
                     </div>
 
                     <!-- PAGINATION FOOTER PANEL -->
-                    <div id="directoryPaginationPanel" class="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono-code">
+                    <div id="directoryPaginationPanel" class="px-5 py-3.5 bg-slate-50/70 border-t border-slate-200/80 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs font-mono-code">
                         <div class="flex items-center space-x-3 text-slate-600">
                             <div class="flex items-center space-x-1.5">
                                 <span class="text-slate-500 font-bold uppercase text-[10px]">Rows:</span>
-                                <select id="dirPerPageSelect" onchange="changeDirectoryPerPage(this.value)" class="bg-white border border-slate-300 rounded-lg px-2 py-1 text-xs font-extrabold text-slate-800 outline-none focus:ring-2 focus:ring-emerald-500/20 shadow-2xs cursor-pointer">
+                                <select id="dirPerPageSelect" onchange="changeDirectoryPerPage(this.value)" class="bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800 outline-none focus:border-emerald-600">
                                     <option value="10">10</option>
                                     <option value="15" selected>15</option>
                                     <option value="25">25</option>
@@ -1676,25 +1855,25 @@
                             </div>
                             <span class="text-slate-300">|</span>
                             <div>
-                                Showing <span id="dirPaginationRange" class="font-extrabold text-slate-900">0 - 0</span> of <span id="dirPaginationTotal" class="font-extrabold text-slate-900">0</span> records
+                                Showing <span id="dirPaginationRange" class="font-extrabold text-slate-900 tnum">0 - 0</span> of <span id="dirPaginationTotal" class="font-extrabold text-slate-900 tnum">0</span> records
                             </div>
                         </div>
 
                         <div class="flex items-center space-x-1.5" id="dirPaginationControls">
-                            <button id="dirPrevPageBtn" onclick="goToDirectoryPage(currentDirPage - 1)" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
+                            <button id="dirPrevPageBtn" onclick="goToDirectoryPage(currentDirPage - 1)" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                                 <span>Prev</span>
                             </button>
-                            
+
                             <div id="dirPageNumbersContainer" class="flex items-center space-x-1"></div>
 
-                            <button id="dirNextPageBtn" onclick="goToDirectoryPage(currentDirPage + 1)" class="px-3 py-1.5 bg-white border border-slate-300 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-all disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center space-x-1 shadow-2xs">
+                            <button id="dirNextPageBtn" onclick="goToDirectoryPage(currentDirPage + 1)" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1">
                                 <span>Next</span>
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                             </button>
                         </div>
                     </div>
-                </div>
+                </section>
 
             </main>
         </div>
@@ -1726,16 +1905,25 @@
         function toggleCourtOrderFile(val) {
             const wrapper = document.getElementById('courtOrderFileWrapper');
             const ongoingContainer = document.getElementById('ongoingCasesSectionContainer');
+            const stageBadge = document.getElementById('selectedStageBadge');
 
             if (val === 'YES') {
                 if (wrapper) wrapper.classList.remove('hidden');
                 if (ongoingContainer) {
                     ongoingContainer.classList.remove('hidden');
                 }
+                if (stageBadge) {
+                    stageBadge.textContent = 'Warrant Granted';
+                    stageBadge.className = 'ml-1 px-2 py-0.5 rounded-md text-[10px] font-mono-code font-bold bg-emerald-50 text-emerald-800 border border-emerald-200';
+                }
             } else {
                 if (wrapper) wrapper.classList.add('hidden');
                 if (ongoingContainer) {
                     ongoingContainer.classList.add('hidden');
+                }
+                if (stageBadge) {
+                    stageBadge.textContent = 'Stage 1 Intake';
+                    stageBadge.className = 'ml-1 px-2 py-0.5 rounded-md text-[10px] font-mono-code font-bold bg-slate-100 text-slate-700 border border-slate-200';
                 }
                 courtOrderDataTransfer = new DataTransfer();
                 const fileInput = document.getElementById('courtOrderFileInput');
@@ -2098,11 +2286,107 @@
                 const rem = document.getElementById('statusRemark');
                 if (rem) rem.value = data.remark;
             }
+
+            updateSelectedSuspectBanner(data);
+        }
+
+        function updateSelectedSuspectBanner(data) {
+            if (!data) return;
+            const nameEl = document.getElementById('selectedSuspectNameLabel');
+            const aliasEl = document.getElementById('selectedSuspectAliasLabel');
+            const thumbWrap = document.getElementById('selectedSuspectThumbWrap');
+            if (nameEl) nameEl.textContent = data.suspect_name || 'Unknown Suspect';
+            if (aliasEl) {
+                if (data.suspect_alias && String(data.suspect_alias).toUpperCase() !== 'N/A') {
+                    aliasEl.textContent = `(${data.suspect_alias})`;
+                    aliasEl.classList.remove('hidden');
+                } else {
+                    aliasEl.textContent = '';
+                    aliasEl.classList.add('hidden');
+                }
+            }
+            if (thumbWrap) {
+                if (data.suspect_mug) {
+                    const safeMug = String(data.suspect_mug).replace(/"/g, '&quot;');
+                    const safeName = String(data.suspect_name || 'Suspect').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                    thumbWrap.innerHTML = `<img id="selectedSuspectThumbImg" src="${safeMug}" alt="${safeName}" class="w-full h-full object-cover cursor-pointer" onclick="openMugshotModal('${safeMug.replace(/'/g, "\\'")}', '${safeName}')">`;
+                } else {
+                    thumbWrap.innerHTML = `<svg id="selectedSuspectFallbackIcon" class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.8" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>`;
+                }
+            }
+        }
+
+        function selectCaseInStatusForm(caseRef) {
+            if (!caseRef) return;
+            const selectEl = document.getElementById('statusCaseRef');
+            if (!selectEl) return;
+            const targetLower = String(caseRef).trim().toLowerCase();
+            let matchedVal = null;
+            Array.from(selectEl.options).forEach(opt => {
+                const val = String(opt.value || '').trim();
+                const baseCase = val.includes('|') ? val.split('|')[0] : val;
+                if (!matchedVal && (val.toLowerCase() === targetLower || baseCase.toLowerCase() === targetLower)) {
+                    matchedVal = val;
+                }
+            });
+            if (matchedVal) {
+                selectEl.value = matchedVal;
+                onDigitalCaseRefChanged(matchedVal);
+                document.getElementById('statusWorkbenchSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function openSelectedCasePdfPreview() {
+            const selectEl = document.getElementById('statusCaseRef');
+            const rawVal = selectEl ? String(selectEl.value || '').trim() : '';
+            const caseNo = rawVal.includes('|') ? rawVal.split('|')[0] : rawVal;
+            if (!caseNo) return;
+            window.location.href = '{{ url("/Digital_Forensics/dpf-report-pdf") }}/' + encodeURIComponent(caseNo);
+        }
+
+        function quickFilterDirectory(courtVal, extVal) {
+            const courtSel = document.getElementById('directoryCourtFilter');
+            const extSel = document.getElementById('directoryExtractionFilter');
+            if (courtSel) courtSel.value = courtVal || '';
+            if (extSel) extSel.value = extVal || '';
+            applyDirectoryFilters();
+            document.getElementById('investigationDirectorySection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function recomputeDirectoryKpis() {
+            const rows = document.querySelectorAll('#forensicDirectoryTable tbody tr.directory-row');
+            const total = rows.length;
+            let warrants = 0;
+            let extracted = 0;
+            let intel = 0;
+            rows.forEach(r => {
+                const c = (r.getAttribute('data-court') || '').toUpperCase();
+                const e = (r.getAttribute('data-extraction') || '').toUpperCase();
+                const i = (r.getAttribute('data-intel') || '').toUpperCase();
+                if (c.includes('YES') || c.includes('GRANT')) warrants++;
+                if (e.startsWith('YES') || e.includes('COMPLET')) extracted++;
+                if (i.includes('YES')) intel++;
+            });
+            const pending = Math.max(0, total - extracted);
+            const rate = total > 0 ? Math.round((extracted / total) * 100) : 0;
+
+            const setTxt = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = String(v); };
+            setTxt('kpiStatTotal', total);
+            setTxt('kpiStatWarrants', warrants);
+            setTxt('kpiStatExtracted', extracted);
+            setTxt('kpiStatPending', pending);
+            setTxt('kpiStatIntelSub', intel);
+            setTxt('kpiStatRateBadge', rate + '%');
+            const bar = document.getElementById('kpiStatRateBar');
+            if (bar) bar.style.width = rate + '%';
         }
 
         document.addEventListener('DOMContentLoaded', function() {
             const selectEl = document.getElementById('statusCaseRef');
-            if (selectEl && selectEl.value) {
+            const queryCase = new URLSearchParams(window.location.search).get('case');
+            if (queryCase && selectEl) {
+                selectCaseInStatusForm(queryCase);
+            } else if (selectEl && selectEl.value) {
                 onDigitalCaseRefChanged(selectEl.value);
             } else {
                 const coReqEl = document.getElementById('courtOrderRequested');
@@ -2134,6 +2418,7 @@
             }
 
             applyDirectoryFilters();
+            recomputeDirectoryKpis();
         });
 
         function handleStatusSubmit(e) {
@@ -2504,7 +2789,7 @@
             if (isNewRow) {
                 tr = document.createElement('tr');
             }
-            tr.className = 'hover:bg-emerald-50/40 transition-colors bg-emerald-50/30 border-l-4 border-emerald-600 animate-in fade-in duration-300 directory-row';
+            tr.className = 'hover:bg-slate-50/90 transition-colors directory-row';
             
             const now = new Date();
             const pad = n => String(n).padStart(2, '0');
@@ -2560,48 +2845,55 @@
             const escapedJsName = suspectName.replace(/'/g, "\\'");
             const escapedJsMug = suspectMug ? suspectMug.replace(/'/g, "\\'") : '';
 
+            const escapedCaseJs = String(r.case_number || '').replace(/'/g, "\\'");
+
             tr.innerHTML = `
-                <td class="p-3 font-extrabold text-emerald-950">
+                <td class="p-3.5 pl-5 align-top font-extrabold text-emerald-800">
                     <div>${r.case_number}</div>
-                    <div class="flex items-center gap-1 mt-0.5">
-                        <span class="text-[9px] font-bold text-emerald-700 bg-emerald-100 px-1.5 py-0.5 rounded">${r.dpf_code || ''}</span>
-                        ${r.location_post ? `<span class="text-[9px] text-slate-400 font-sans font-normal truncate max-w-[130px]" title="${r.location_post}">${r.location_post}</span>` : ''}
+                    <div class="flex items-center gap-1.5 mt-1 flex-wrap">
+                        ${r.dpf_code ? `<span class="text-[9.5px] font-bold text-slate-700 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded">${r.dpf_code}</span>` : ''}
+                        ${r.location_post ? `<span class="text-[10px] text-slate-400 font-sans font-normal truncate max-w-[140px]" title="${r.location_post}">${r.location_post}</span>` : ''}
                     </div>
                 </td>
-                <td class="p-3 min-w-[170px]">
+                <td class="p-3.5 align-top min-w-[180px]">
                     <div class="flex items-center gap-2.5">
-                        <div class="w-9 h-11 rounded-md border border-slate-200 bg-slate-100 overflow-hidden shrink-0 shadow-2xs flex items-center justify-center relative">
+                        <div class="w-9 h-11 rounded-xl border border-slate-200 bg-slate-100 overflow-hidden shrink-0 shadow-2xs flex items-center justify-center relative">
                             ${suspectMug ? `
                                 <img src="${suspectMug}" alt="${escapedSuspectName}" class="w-full h-full object-cover cursor-pointer hover:opacity-90 transition-opacity" onclick="openMugshotModal('${escapedJsMug}', '${escapedJsName}')" title="Click to enlarge photo">
                             ` : `
                                 <div class="w-full h-full flex items-center justify-center bg-slate-100 text-slate-400" title="No front mugshot on file">
-                                    <svg class="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg class="w-4.5 h-4.5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                     </svg>
                                 </div>
                             `}
                         </div>
                         <div class="min-w-0">
-                            <div class="font-bold text-[11px] text-slate-900 leading-tight uppercase font-mono-code truncate max-w-[140px]" title="${escapedSuspectName}">
+                            <div class="font-bold text-[11px] text-slate-900 leading-tight uppercase font-mono-code truncate max-w-[145px]" title="${escapedSuspectName}">
                                 ${suspectName}
                             </div>
-                            ${suspectAlias ? `<div class="text-[9px] text-slate-500 font-sans italic truncate max-w-[140px]">a.k.a. ${suspectAlias}</div>` : ''}
-                            ${coCount > 0 ? `<span class="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[8px] font-bold bg-slate-100 text-slate-600 border border-slate-200" title="${coCount} Co-Suspect(s) in case">+${coCount} Co-Suspect${coCount > 1 ? 's' : ''}</span>` : ''}
+                            ${suspectAlias ? `<div class="text-[10px] text-slate-500 font-sans italic truncate max-w-[145px]">a.k.a. ${suspectAlias}</div>` : ''}
+                            ${coCount > 0 ? `<span class="inline-block px-1.5 py-0.2 mt-0.5 rounded text-[8.5px] font-bold bg-slate-100 text-slate-600 border border-slate-200" title="${coCount} Co-Suspect(s) in case">+${coCount} Co-Suspect${coCount > 1 ? 's' : ''}</span>` : ''}
                         </div>
                     </div>
                 </td>
-                <td class="p-3 whitespace-nowrap">
+                <td class="p-3.5 align-top whitespace-nowrap">
                     <div class="font-bold text-[11px] text-slate-800">${todayDisplay}</div>
-                    <span class="text-[9px] text-slate-400 font-sans block">${timeDisplay}</span>
+                    <span class="text-[10px] text-slate-400 font-sans block mt-0.5">${timeDisplay}</span>
                 </td>
-                <td class="p-3">${getMultiBadgesHtml(r.court_order_granted, courtFiles, 'Order')}</td>
-                <td class="p-3">${getExtractionBadgeHtml(r.extraction_analysis_message || r.extraction_analysis_conducted)}</td>
-                <td class="p-3">${getMultiBadgesHtml(r.report_witness_statement_message || r.report_witness_statement_sent, reportFiles, 'Evidence / Stmt')}</td>
-                <td class="p-3">${getMultiBadgesHtml(r.intel_shared)}</td>
-                <td class="p-3 text-right space-x-1 whitespace-nowrap">
-                    <a href="${pdfUrl}" class="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold transition-colors no-underline inline-block">
-                        Preview
-                    </a>
+                <td class="p-3.5 align-top">${getMultiBadgesHtml(r.court_order_granted, courtFiles, 'Order')}</td>
+                <td class="p-3.5 align-top">${getExtractionBadgeHtml(r.extraction_analysis_message || r.extraction_analysis_conducted)}</td>
+                <td class="p-3.5 align-top">${getMultiBadgesHtml(r.report_witness_statement_message || r.report_witness_statement_sent, reportFiles, 'Evidence / Stmt')}</td>
+                <td class="p-3.5 align-top">${getMultiBadgesHtml(r.intel_shared)}</td>
+                <td class="p-3.5 pr-5 align-top text-right whitespace-nowrap">
+                    <div class="inline-flex items-center justify-end gap-1.5">
+                        <button type="button" onclick="selectCaseInStatusForm('${escapedCaseJs}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[10.5px] font-bold transition-colors">
+                            Edit
+                        </button>
+                        <a href="${pdfUrl}" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10.5px] font-bold transition-colors no-underline inline-block">
+                            Preview
+                        </a>
+                    </div>
                 </td>
             `;
 
@@ -2643,6 +2935,7 @@
             }
 
             applyDirectoryFilters();
+            recomputeDirectoryKpis();
         }
 
         let currentPreset = 'all';
@@ -2729,12 +3022,14 @@
             }
 
             applyDirectoryFilters();
+            recomputeDirectoryKpis();
         }
 
         function onCustomDateChange() {
             currentPreset = 'custom';
             updatePresetButtonsVisual('custom');
             applyDirectoryFilters();
+            recomputeDirectoryKpis();
         }
 
         function generateDirectoryFilter() {
@@ -3014,6 +3309,7 @@
                 searchInput.value = query;
             }
             applyDirectoryFilters();
+            recomputeDirectoryKpis();
         }
 
         // Suspect Mugshot Lightbox / Enlarge Modal Handlers
@@ -3054,30 +3350,35 @@
     </script>
 
     <!-- SUSPECT MUGSHOT ENLARGE PREVIEW MODAL -->
-    <div id="mugshotModal" class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-950/75 backdrop-blur-xs transition-opacity duration-200" onclick="handleMugshotBackdropClick(event)">
-        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden animate-in zoom-in-95 duration-200" onclick="event.stopPropagation()">
+    <div id="mugshotModal"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="mugshotModalTitle"
+         class="fixed inset-0 z-50 hidden items-center justify-center p-4 bg-slate-500/50 backdrop-blur-xs transition-opacity duration-200"
+         onclick="handleMugshotBackdropClick(event)">
+        <div class="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-sm w-full overflow-hidden" onclick="event.stopPropagation()">
             <!-- MODAL HEADER -->
-            <div class="px-5 py-3.5 bg-slate-900 text-white flex items-center justify-between">
+            <div class="px-5 py-3.5 bg-slate-100 border-b border-slate-200 text-slate-900 flex items-center justify-between">
                 <div class="flex items-center gap-2">
-                    <h4 class="font-mono-code font-bold text-xs uppercase tracking-wider text-slate-100">Custodial Front Portrait</h4>
+                    <h4 id="mugshotModalTitle" class="font-mono-code font-bold text-xs uppercase tracking-wider text-slate-800">Custodial Front Portrait</h4>
                 </div>
-                <button type="button" onclick="closeMugshotModal()" class="text-slate-400 hover:text-white transition-colors p-1 rounded-lg hover:bg-slate-800 cursor-pointer" title="Close Preview">
+                <button type="button" onclick="closeMugshotModal()" class="text-slate-500 hover:text-slate-900 transition-colors p-1 rounded-lg hover:bg-slate-200/80" title="Close Preview">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
             <!-- MODAL IMAGE BODY -->
             <div class="p-6 flex flex-col items-center bg-slate-50">
                 <div class="relative w-56 h-64 rounded-2xl overflow-hidden border-2 border-slate-300 bg-slate-200 shadow-md flex items-center justify-center">
-                    <img id="modalMugshotImg" src="" alt="Suspect Mugshot" class="w-full h-full object-cover">
+                    <img id="modalMugshotImg" src="" alt="Suspect Mugshot" width="224" height="256" class="w-full h-full object-cover">
                 </div>
                 <div class="mt-4 text-center">
-                    <div id="modalSuspectName" class="font-mono-code font-black text-sm uppercase text-slate-900 tracking-tight"></div>
+                    <div id="modalSuspectName" class="font-mono-code font-extrabold text-sm uppercase text-slate-900 tracking-tight"></div>
                     <div class="text-[10px] font-mono-code text-slate-500 uppercase mt-0.5 tracking-wider">NACOC Custodial Photographic Archive</div>
                 </div>
             </div>
             <!-- MODAL FOOTER -->
             <div class="px-5 py-3 bg-white border-t border-slate-100 flex items-center justify-end">
-                <button type="button" onclick="closeMugshotModal()" class="px-4 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono-code font-bold rounded-xl transition-colors cursor-pointer">
+                <button type="button" onclick="closeMugshotModal()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-mono-code font-bold rounded-xl transition-colors">
                     Close
                 </button>
             </div>

@@ -482,5 +482,212 @@
     #regSubmitBtn:hover {
         background: var(--teal-deep) !important;
     }
+
+    /* ---------- Credential Recovery (Forgot / Reset) ---------- */
+    .auth-panel__inner--recovery {
+        max-width: 620px;
+    }
+
+    .auth-card--recovery {
+        padding: 34px 32px;
+        border-radius: 28px;
+    }
+
+    @media (min-width: 640px) {
+        .auth-card--recovery {
+            padding: 42px 46px;
+        }
+    }
+
+    .auth-logo--compact {
+        width: 136px;
+        height: 136px;
+        margin: 0 auto 16px;
+    }
+
+    @media (min-width: 640px) {
+        .auth-logo--compact {
+            width: 152px;
+            height: 152px;
+        }
+    }
+
+    .recovery-rail {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 10px;
+        margin-bottom: 26px;
+    }
+
+    .recovery-step {
+        display: flex;
+        align-items: center;
+        gap: 9px;
+        padding: 10px 13px;
+        border-radius: 14px;
+        background: #f4f7f6;
+        border: 1px solid #e1e8e6;
+        font-size: 12.5px;
+        font-weight: 700;
+        color: #64748b;
+        transition: all .2s ease;
+    }
+
+    .recovery-step__num {
+        width: 22px;
+        height: 22px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10.5px;
+        font-weight: 800;
+        background: #e2e8f0;
+        color: #475569;
+        flex-shrink: 0;
+    }
+
+    .recovery-step.is-active {
+        background: #f0fdfa;
+        border-color: rgba(15, 118, 110, 0.35);
+        color: var(--ink);
+        box-shadow: 0 2px 8px rgba(15, 118, 110, 0.08);
+    }
+
+    .recovery-step.is-active .recovery-step__num {
+        background: var(--teal);
+        color: #ffffff;
+    }
+
+    .recovery-step.is-done {
+        background: #f8faf9;
+        border-color: rgba(15, 118, 110, 0.25);
+        color: var(--teal-deep);
+    }
+
+    .recovery-step.is-done .recovery-step__num {
+        background: #ccfbf1;
+        color: var(--teal-deep);
+    }
+
+    .auth-secondary-btn {
+        width: 100%;
+        padding: 11px 18px;
+        border-radius: 12px;
+        background: #f8faf9;
+        border: 1.5px solid var(--line);
+        color: #1e293b;
+        font-weight: 700;
+        font-size: 13px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        cursor: pointer;
+        transition: all .18s ease;
+        text-decoration: none;
+    }
+
+    .auth-secondary-btn:hover:not(:disabled) {
+        background: #ffffff;
+        border-color: var(--teal);
+        color: var(--teal-deep);
+        box-shadow: 0 3px 10px rgba(15, 118, 110, 0.08);
+    }
+
+    .auth-secondary-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .auth-secondary-btn:focus-visible {
+        outline: 3px solid var(--brass);
+        outline-offset: 2px;
+    }
+
+    /* 6-Digit OTP Input Grid */
+    .otp-grid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 8px;
+    }
+
+    @media (min-width: 640px) {
+        .otp-grid {
+            gap: 12px;
+        }
+    }
+
+    .otp-digit-input {
+        width: 100%;
+        height: 56px;
+        text-align: center;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 1.45rem;
+        font-weight: 800;
+        color: var(--ink);
+        background: #f8faf9;
+        border: 1.5px solid var(--line);
+        border-radius: 14px;
+        transition: all .18s ease;
+    }
+
+    @media (min-width: 640px) {
+        .otp-digit-input {
+            height: 62px;
+            font-size: 1.6rem;
+        }
+    }
+
+    .otp-digit-input:hover {
+        background: #ffffff;
+        border-color: #94a3b8;
+    }
+
+    .otp-digit-input:focus {
+        outline: none;
+        background: #ffffff;
+        border-color: var(--teal);
+        box-shadow: 0 0 0 4px rgba(15, 118, 110, 0.14);
+        transform: translateY(-1px);
+    }
+
+    .otp-digit-input.is-filled {
+        background: #f0fdfa;
+        border-color: rgba(15, 118, 110, 0.45);
+    }
+
+    .otp-digit-input.is-verifying {
+        background: #f0fdfa;
+        border-color: var(--teal);
+        opacity: 0.8;
+        cursor: wait;
+    }
+
+    .otp-digit-input.is-valid {
+        background: #ecfdf5;
+        border-color: #059669;
+        color: #065f46;
+        box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.16);
+    }
+
+    .otp-digit-input.is-invalid {
+        background: #fef2f2;
+        border-color: #dc2626;
+        color: #991b1b;
+        box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.14);
+    }
+
+    @keyframes otpShake {
+        0%, 100% { transform: translateX(0); }
+        20%, 60% { transform: translateX(-5px); }
+        40%, 80% { transform: translateX(5px); }
+    }
+
+    @media (prefers-reduced-motion: no-preference) {
+        .otp-grid.is-shaking {
+            animation: otpShake 0.36s ease-in-out;
+        }
+    }
 </style>
 

@@ -87,15 +87,15 @@
                                 </div>
 
                                 <div class="ref-input-line pb-1">
-                                    <label
+                                    <label for="username"
                                         class="block text-[11px] font-bold text-slate-600 font-mono-code uppercase mb-1">
-                                        Username / Email <span class="text-red-600 font-bold">*</span>
+                                        Username <span class="text-red-600 font-bold">*</span>
                                     </label>
                                     <div class="relative flex items-center">
                                         <input type="text" id="username" name="username" required
                                             value="{{ old('username') }}"
                                             oninput="checkPasswordStrength(document.getElementById('password').value)"
-                                            placeholder="e.g. smensah or officer@nacoc.gov.gh"
+                                            placeholder="e.g. smensah"
                                             class="w-full py-1.5 bg-transparent text-xs text-slate-900 font-semibold placeholder-slate-400 font-mono-code focus:outline-none pr-7">
                                         <svg class="w-4 h-4 text-teal-700 absolute right-0 pointer-events-none"
                                             fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -107,6 +107,30 @@
                                         <p class="text-[11px] text-red-600 mt-1 font-semibold">{{ $message }}</p>
                                     @enderror
                                 </div>
+                            </div>
+
+                            <!-- EMAIL ADDRESS (REQUIRED FOR OTP & ACCOUNT RECOVERY) -->
+                            <div class="ref-input-line pb-1">
+                                <label for="email"
+                                    class="block text-[11px] font-bold text-slate-600 font-mono-code uppercase mb-1 flex items-center justify-between">
+                                    <span>Email Address <span class="text-red-600 font-bold">*</span></span>
+                                    <span class="text-[10px] text-teal-700 font-extrabold font-mono-code">Gmail / Official Email</span>
+                                </label>
+                                <div class="relative flex items-center">
+                                    <input type="email" id="email" name="email" required
+                                        autocomplete="email"
+                                        value="{{ old('email') }}"
+                                        placeholder="e.g. officer@gmail.com"
+                                        class="w-full py-1.5 bg-transparent text-xs text-slate-900 font-semibold placeholder-slate-400 font-mono-code focus:outline-none pr-7">
+                                    <svg class="w-4 h-4 text-teal-700 absolute right-0 pointer-events-none"
+                                        fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                            d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                </div>
+                                @error('email')
+                                    <p class="text-[11px] text-red-600 mt-1 font-semibold">{{ $message }}</p>
+                                @enderror
                             </div>
 
                             <!-- ROW 2: SERVICE ID NUMBER & PHONE NUMBER -->
@@ -893,6 +917,12 @@
             const usernameVal = document.getElementById('username') ? document.getElementById('username').value.trim() : '';
             if (!usernameVal || usernameVal.length < 3) {
                 showRegisterError("Validation Error: Username must be at least 3 characters.");
+                return;
+            }
+
+            const emailVal = document.getElementById('email') ? document.getElementById('email').value.trim() : '';
+            if (!emailVal || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+                showRegisterError("Validation Error: Please enter a valid Email Address (e.g. officer@gmail.com).");
                 return;
             }
 

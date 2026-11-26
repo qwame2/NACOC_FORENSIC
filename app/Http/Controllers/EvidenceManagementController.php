@@ -523,7 +523,7 @@ class EvidenceManagementController extends Controller
             'suspect_name'            => 'Unassigned (No Suspect)',
             'status'                  => 'Pending Approval',
             'case_status'             => 'Under Investigation',
-            'priority'                => 'MEDIUM',
+            'priority'                => 'LOW',
             'raid_location'           => $firstSz['raid_location'] ?? null,
             'offense_description'     => 'Direct seized exhibit lodgement into vault without suspect. Pending suspect identification and arrest linking.',
             'description_of_exhibits' => $firstCommodity,

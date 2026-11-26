@@ -618,37 +618,6 @@ CREATE TABLE `multiple_suspect_cases` (
   CONSTRAINT `chk_multi_cases_counts` CHECK ((`total_suspects_count` is null or `total_suspects_count` >= 0) and (`total_exhibits_count` is null or `total_exhibits_count` >= 0))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
-DROP TABLE IF EXISTS `nlr_reports`;
-/*!40101 SET @saved_cs_client     = @@character_set_client */;
-/*!40101 SET character_set_client = utf8 */;
-CREATE TABLE `nlr_reports` (
-  `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-  `case_number` varchar(255) DEFAULT NULL,
-  `laboratory_number` varchar(255) DEFAULT NULL,
-  `nlr_code` varchar(255) DEFAULT NULL,
-  `single_suspect_case_id` bigint(20) unsigned DEFAULT NULL,
-  `multiple_suspect_case_id` bigint(20) unsigned DEFAULT NULL,
-  `suspect_id` bigint(20) unsigned DEFAULT NULL,
-  `analyst` varchar(255) DEFAULT NULL,
-  `user_id` bigint(20) unsigned DEFAULT NULL,
-  `status` varchar(255) NOT NULL DEFAULT 'active',
-  `created_at` timestamp NULL DEFAULT NULL,
-  `updated_at` timestamp NULL DEFAULT NULL,
-  PRIMARY KEY (`id`),
-  UNIQUE KEY `nlr_reports_nlr_code_unique` (`nlr_code`),
-  KEY `nlr_reports_single_suspect_case_id_foreign` (`single_suspect_case_id`),
-  KEY `nlr_reports_multiple_suspect_case_id_foreign` (`multiple_suspect_case_id`),
-  KEY `nlr_reports_suspect_id_foreign` (`suspect_id`),
-  KEY `nlr_reports_user_id_foreign` (`user_id`),
-  KEY `nlr_reports_case_number_index` (`case_number`),
-  KEY `nlr_reports_laboratory_number_index` (`laboratory_number`),
-  CONSTRAINT `nlr_reports_multiple_suspect_case_id_foreign` FOREIGN KEY (`multiple_suspect_case_id`) REFERENCES `multiple_suspect_cases` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `nlr_reports_single_suspect_case_id_foreign` FOREIGN KEY (`single_suspect_case_id`) REFERENCES `single_suspect_cases` (`id`) ON DELETE CASCADE,
-  CONSTRAINT `nlr_reports_suspect_id_foreign` FOREIGN KEY (`suspect_id`) REFERENCES `case_suspects` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `nlr_reports_user_id_foreign` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
-  CONSTRAINT `chk_nlr_case_exclusivity` CHECK (`single_suspect_case_id` is null or `multiple_suspect_case_id` is null)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-/*!40101 SET character_set_client = @saved_cs_client */;
 DROP TABLE IF EXISTS `password_reset_tokens`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!40101 SET character_set_client = utf8 */;

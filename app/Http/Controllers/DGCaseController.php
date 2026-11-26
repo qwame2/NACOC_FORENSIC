@@ -725,19 +725,17 @@ class DGCaseController extends Controller
                 $singleSuspectCount += 1;
             }
 
-            // Month & Priority Breakdown
+            // Month & Priority Breakdown (strictly HIGH / LOW)
             $cDate = $case->incident_date ?: ($case->arrest_date ?: ($case->seizure_date ?: $case->created_at));
             $mLabel = $cDate ? \Carbon\Carbon::parse($cDate)->format('F Y') : 'Unspecified Period';
             if (!isset($monthStats[$mLabel])) {
-                $monthStats[$mLabel] = ['high' => 0, 'low' => 0, 'medium' => 0, 'total' => 0];
+                $monthStats[$mLabel] = ['high' => 0, 'low' => 0, 'total' => 0];
             }
-            $p = strtoupper(trim((string)($case->priority ?? 'MEDIUM')));
-            if (in_array($p, ['HIGH', 'CRITICAL', 'URGENT'])) {
+            $p = \App\Models\ForensicCase::normalizePriority($case->priority ?? 'HIGH');
+            if ($p === 'HIGH') {
                 $monthStats[$mLabel]['high']++;
-            } elseif (in_array($p, ['LOW', 'ROUTINE', 'MINOR'])) {
-                $monthStats[$mLabel]['low']++;
             } else {
-                $monthStats[$mLabel]['medium']++;
+                $monthStats[$mLabel]['low']++;
             }
             $monthStats[$mLabel]['total']++;
 
@@ -813,11 +811,9 @@ class DGCaseController extends Controller
 
         $totalHighPriorityCases = 0;
         $totalLowPriorityCases = 0;
-        $totalMediumPriorityCases = 0;
         foreach ($monthStats as $mCounts) {
             $totalHighPriorityCases += $mCounts['high'];
             $totalLowPriorityCases += $mCounts['low'];
-            $totalMediumPriorityCases += $mCounts['medium'];
         }
 
         if ($hasMultipleMonths) {
@@ -870,7 +866,6 @@ class DGCaseController extends Controller
             'hasMultipleMonths'          => $hasMultipleMonths,
             'totalHighPriorityCases'     => $totalHighPriorityCases,
             'totalLowPriorityCases'      => $totalLowPriorityCases,
-            'totalMediumPriorityCases'   => $totalMediumPriorityCases,
             'monthStats'                 => $monthStats,
             'highestPriorityMonth'       => $highestPriorityMonth,
             'highestPriorityCount'       => $highestPriorityCount,

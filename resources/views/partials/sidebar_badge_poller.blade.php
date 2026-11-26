@@ -50,6 +50,9 @@
                     if (data.field_officers !== undefined) {
                         updateBadgeElement('sidebarFieldOfficersBadge', data.field_officers);
                     }
+                    if (data.password_requests !== undefined) {
+                        updateBadgeElement('sidebarPasswordRequestsBadge', data.password_requests);
+                    }
                     if (data.case_rollback !== undefined || data.staff_rollback !== undefined) {
                         const rbCount = parseInt(data.case_rollback !== undefined ? data.case_rollback : data.staff_rollback, 10) || 0;
                         const rbBadges = document.querySelectorAll('#sidebarStaffRollbackBadge, [data-rollback-badge="sidebar"]');

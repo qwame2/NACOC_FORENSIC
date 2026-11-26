@@ -218,7 +218,7 @@ class CrimeSceneSupportCaseController extends Controller
         });
 
         $criticalPriorityCount = $cssCases->filter(function ($c) {
-            return in_array(strtoupper(trim((string)($c->priority ?? ''))), ['CRITICAL', 'HIGH']);
+            return \App\Models\ForensicCase::normalizePriority($c->priority ?? 'HIGH') === 'HIGH';
         })->count();
 
         // 2. Parse request filter parameters
@@ -278,9 +278,9 @@ class CrimeSceneSupportCaseController extends Controller
 
         // Apply Priority filter
         if ($priority !== '' && strtoupper($priority) !== 'ALL') {
-            $pUpper = strtoupper($priority);
+            $pUpper = \App\Models\ForensicCase::normalizePriority($priority, 'HIGH');
             $filtered = $filtered->filter(function ($c) use ($pUpper) {
-                return strtoupper(trim((string)($c->priority ?? ''))) === $pUpper;
+                return \App\Models\ForensicCase::normalizePriority($c->priority ?? 'HIGH') === $pUpper;
             })->values();
         }
 
@@ -330,13 +330,7 @@ class CrimeSceneSupportCaseController extends Controller
             'case_asc' => $filtered->sortBy(fn($c) => strtoupper(trim((string)$c->case_number)))->values(),
             'case_desc' => $filtered->sortByDesc(fn($c) => strtoupper(trim((string)$c->case_number)))->values(),
             'priority' => $filtered->sortBy(function ($c) {
-                return match (strtoupper(trim((string)($c->priority ?? '')))) {
-                    'CRITICAL' => 1,
-                    'HIGH' => 2,
-                    'NORMAL', 'MEDIUM' => 3,
-                    'LOW' => 4,
-                    default => 5,
-                };
+                return \App\Models\ForensicCase::normalizePriority($c->priority ?? 'HIGH') === 'HIGH' ? 1 : 2;
             })->values(),
             default => $filtered->sortByDesc(fn($c) => $c->created_at)->values(),
         };

@@ -331,6 +331,7 @@
                                         } catch (\Throwable $e) {
                                             $subDate = date('Y-m-d');
                                         }
+                                        $subIsEdit = !empty($sub->payload['is_edit_submission']) || (($sub->payload['submission_type'] ?? '') === 'edit');
                                     @endphp
                                     <tr class="hover:bg-slate-50/80 transition-colors staff-case-row" data-caseref="{{ strtolower($sub->case_number_preview ?? ('sub-' . $sub->id)) }}" data-suspect="{{ strtolower($subSuspect) }}" data-operation="{{ strtolower($sub->title ?? '') }}" data-status="pending" data-approval="pending" data-priority="{{ strtolower($sub->priority ?? 'high') }}" data-date="{{ $subDate }}">
                                         <td class="py-4 px-4 whitespace-nowrap">
@@ -341,6 +342,11 @@
                                                 <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold {{ $subPriorityClass }}">
                                                     {{ strtoupper($sub->priority ?? 'HIGH') }}
                                                 </span>
+                                                @if($subIsEdit)
+                                                    <span class="inline-flex items-center px-1.5 py-0.2 rounded text-[9px] font-bold font-mono-code bg-amber-100 text-amber-950 border border-amber-300">
+                                                        Edited Case
+                                                    </span>
+                                                @endif
                                             </div>
                                         </td>
                                         <td class="py-4 px-4">
@@ -373,9 +379,15 @@
                                             </span>
                                         </td>
                                         <td class="py-4 px-4 text-center whitespace-nowrap">
-                                            <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border bg-amber-100 text-amber-800 border-amber-200">
-                                                Pending
-                                            </span>
+                                            @if($subIsEdit)
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border bg-amber-100 text-amber-950 border-amber-300">
+                                                    Pending Edit Approval
+                                                </span>
+                                            @else
+                                                <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase border bg-amber-100 text-amber-800 border-amber-200">
+                                                    Pending
+                                                </span>
+                                            @endif
                                         </td>
                                         <td class="py-4 px-4 text-right whitespace-nowrap">
                                             <span class="inline-flex items-center px-2.5 py-1.5 bg-amber-50 text-amber-700 font-bold rounded-lg border border-amber-200 text-[11px]">
