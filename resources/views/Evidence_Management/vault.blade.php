@@ -1,11 +1,19 @@
 @php
     $authUser = auth()->user();
+    $isStaffAccount = $authUser instanceof \App\Models\StaffAccount;
+    $isEvidenceContext = true;
     $userUnit = 'Evidence Management';
     $sidebarUnit = 'Evidence Management';
-    $dbUnitHead = \App\Models\User::where('unit', 'LIKE', '%Evidence%')->where('is_head', true)->first()
-               ?? \App\Models\User::where('is_head', true)->first();
-    $headName = $dbUnitHead ? $dbUnitHead->fullname : 'Chief Evidence Custodian';
-    $officerName = $authUser->fullname ?? session('user_name') ?? 'Evidence Vault Officer';
+
+    $officerName = $authUser ? ($authUser->fullname ?? $authUser->name ?? session('user_name') ?? 'Evidence Vault Officer') : 'Evidence Vault Officer';
+    $officerParts = preg_split('/\s+/', trim((string) $officerName)) ?: [];
+    $officerInitials = count($officerParts) >= 2
+        ? strtoupper(substr($officerParts[0], 0, 1) . substr(end($officerParts), 0, 1))
+        : strtoupper(substr((string) $officerName, 0, 2));
+
+    $sealedPct = ($totalExhibitsCount ?? 0) > 0
+        ? (int) round((($completedCount ?? 0) / $totalExhibitsCount) * 100)
+        : 0;
 @endphp
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
@@ -13,387 +21,529 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>NACOC EXHIBIT LOGS | NACOC Forensic</title>
+    <title>Evidence Management Unit | Exhibit Log &amp; Seized Property Registry | NACOC Forensic</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @else
-        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
-    <!-- Lucide Icons -->
+
+    <script>
+        const _origWarn = console.warn;
+        console.warn = function(...args) {
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('tailwindcss')) return;
+            _origWarn.apply(console, args);
+        };
+    </script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     <script src="{{ asset('vendor/lucide.min.js') }}"></script>
-    <!-- QRCode Generator for Seized Property Badge Tags -->
     <script src="{{ asset('vendor/qrcode.min.js') }}"></script>
 
+    @include('partials.report_design_system')
+
     <style>
-        body { font-family: 'Inter', system-ui, -apple-system, sans-serif; background-color: #f1f5f9; color: #0f172a; }
-        .font-mono-code { font-family: 'JetBrains Mono', monospace; }
-        .custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f5f9; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        /* Category Semantic Pills */
         .badge-category-drug { background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
         .badge-category-weapon { background-color: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
         .badge-category-vehicle { background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
         .badge-category-device { background-color: #f5f3ff; color: #5b21b6; border: 1px solid #ddd6fe; }
         .badge-category-money { background-color: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; }
-        .badge-category-other { background-color: #f8fafc; color: #475569; border: 1px solid #e2e8f0; }
-        .vault-stats-horizontal-row {
-            display: grid !important;
-            grid-template-columns: repeat(7, minmax(120px, 1fr)) !important;
-            gap: 10px !important;
-            width: 100% !important;
-            align-items: stretch !important;
+        .badge-category-other { background-color: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
+
+        /* Grey Modal Executive Header */
+        .vault-modal-header {
+            background: linear-gradient(180deg, #f1f5f9 0%, #e6ecf3 100%);
+            border-bottom: 1px solid #cbd5e1;
+            color: #0f172a;
         }
+
+        /* Vault Dossier Card Hover Elevation */
+        .vault-dossier-card {
+            background: #ffffff;
+            border: 1px solid rgba(203, 213, 225, 0.9);
+            border-radius: 1.15rem;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 6px 18px -8px rgba(15, 23, 42, 0.06);
+            transition: transform 0.16s ease, border-color 0.16s ease, box-shadow 0.16s ease;
+        }
+        .vault-dossier-card:hover {
+            border-color: #6ee7b7;
+            box-shadow: 0 10px 26px -10px rgba(5, 150, 105, 0.16), 0 2px 6px rgba(15, 23, 42, 0.05);
+            transform: translateY(-1px);
+        }
+
+        /* Active KPI Tile Indicator */
+        .vault-kpi-active {
+            background: #ecfdf5 !important;
+            box-shadow: inset 0 -2px 0 #059669;
+        }
+
+        /* Vault Category Filter Pills (Grey Container + Backshadow when Inactive) */
+        .vault-pill-active {
+            background-color: #059669;
+            color: #ffffff;
+            border: 1px solid #047857;
+            box-shadow: 0 4px 12px rgba(5, 150, 105, 0.28), 0 2px 4px rgba(15, 23, 42, 0.12);
+        }
+        .vault-pill-active:hover {
+            background-color: #047857;
+            color: #ffffff;
+        }
+        .vault-pill-inactive {
+            background-color: #e2e8f0;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12), 0 1px 2px rgba(15, 23, 42, 0.08);
+        }
+        .vault-pill-inactive:hover {
+            background-color: #cbd5e1;
+            color: #0f172a;
+            border-color: #94a3b8;
+            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.16), 0 2px 4px rgba(15, 23, 42, 0.10);
+        }
+
+        /* Responsive 3-Column Exhibit Grid */
         .exhibits-grid-3cols {
-            display: grid !important;
-            grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-            gap: 1.25rem !important;
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.25rem;
+            width: 100%;
         }
-        @media (max-width: 768px) {
+        @media (max-width: 1180px) {
             .exhibits-grid-3cols {
-                grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
             }
         }
-        @media (max-width: 520px) {
+        @media (max-width: 680px) {
             .exhibits-grid-3cols {
-                grid-template-columns: 1fr !important;
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
-<body class="min-h-screen bg-slate-100 text-slate-800 antialiased flex flex-col">
+<body class="min-h-screen flex antialiased selection:bg-emerald-600 selection:text-white">
 
-    <div class="flex h-screen overflow-hidden">
-        
-        <!-- ========================================== -->
-        <!-- 1. UNIVERSAL COMMAND ASIDE BAR            -->
-        <!-- ========================================== -->
-        @include('Crime_Scene_Support.partials.sidebar')
+    <div class="flex h-screen w-full overflow-hidden">
 
-        <!-- ========================================== -->
-        <!-- 2. MAIN VAULT WORKSPACE                    -->
-        <!-- ========================================== -->
-        <div class="flex-1 flex flex-col min-w-0 bg-slate-50 overflow-hidden">
-            
-            <!-- TOP WORKSPACE BAR -->
-            <header class="h-16 bg-white border-b border-slate-200 px-6 flex items-center justify-between shrink-0 shadow-2xs z-20">
-                <div class="flex items-center space-x-3">
-                    <div class="w-9 h-9 rounded-xl bg-white flex items-center justify-center text-emerald-600 border border-slate-200/90 shadow-md shadow-slate-200/60">
-                        <i data-lucide="archive" class="w-5 h-5"></i>
+        <!-- 1. UNIVERSAL COMMAND SIDEBAR -->
+        @if($isStaffAccount)
+            @include('staff.partials.sidebar', ['sidebarUnit' => 'Evidence Management'])
+        @else
+            @include('Crime_Scene_Support.partials.sidebar')
+        @endif
+
+        <!-- 2. MAIN VAULT WORKSPACE -->
+        <div class="flex-1 flex flex-col min-w-0 bg-[#f3f5f8] overflow-hidden">
+
+            <!-- STICKY COMMAND HEADER -->
+            <header class="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-5 sm:px-6 flex items-center justify-between gap-4 shrink-0 z-20">
+                <div class="flex items-center gap-3.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-emerald-700 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs">
+                        <i data-lucide="archive" class="w-4 h-4"></i>
                     </div>
-                    <div>
-                        <div class="flex items-center space-x-2">
-                            <h1 class="text-sm font-extrabold text-slate-900 tracking-tight uppercase">EXHIBIT LOG</h1>
+                    <div class="min-w-0">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <span class="text-[10px] font-extrabold font-mono-code uppercase tracking-widest text-emerald-700">
+                                Evidence Management Unit
+                            </span>
                         </div>
-                        <p class="text-[11px] text-slate-500 font-medium">
-                            NACOC Evidence Logs &amp; Associated Suspects Registry
-                        </p>
+                        <h1 class="text-sm font-extrabold text-slate-900 tracking-tight truncate">
+                            Exhibit Log &amp; Seized Property Registry
+                        </h1>
                     </div>
                 </div>
 
-                <!-- Right Toolbar Actions -->
-                <div class="flex items-center space-x-3">
-                    <div class="flex items-center space-x-2 pl-1">
-                        <div class="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center">
-                            {{ strtoupper(substr($officerName, 0, 2)) }}
+                <!-- Right Header Officer Profile -->
+                <div class="flex items-center gap-2.5 shrink-0">
+                    <div class="flex items-center gap-2.5">
+                        <div class="text-right hidden md:block">
+                            <div class="text-xs font-bold text-slate-900 leading-tight truncate max-w-[160px]">{{ $officerName }}</div>
+                            <div class="text-[10px] font-mono-code font-semibold text-slate-500">{{ $isStaffAccount ? 'Vault Custodian' : 'Vault Command' }}</div>
                         </div>
-                        <span class="text-xs font-bold text-slate-700 hidden md:inline truncate max-w-[120px]">{{ $officerName }}</span>
+                        <div class="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200/90 text-slate-800 flex items-center justify-center font-mono-code font-extrabold text-[11px]">
+                            {{ $officerInitials ?: 'EM' }}
+                        </div>
                     </div>
                 </div>
             </header>
 
-            <!-- SCROLLABLE BODY -->
-            <main class="flex-1 overflow-y-auto p-4 sm:p-6 space-y-5 custom-scrollbar">
+            <!-- SCROLLABLE WORKSPACE -->
+            <main class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 custom-scrollbar">
 
                 @include('partials.flash')
 
-                <!-- ==================================================== -->
-                <!-- 3. TOP TELEMETRY STATS CARDS (HORIZONTAL ROW)       -->
-                <!-- ==================================================== -->
-                <div class="w-full overflow-x-auto pb-2 custom-scrollbar" style="overflow-x: auto; width: 100%;">
-                    <div class="vault-stats-horizontal-row" style="display: grid !important; grid-template-columns: repeat(7, minmax(120px, 1fr)) !important; gap: 10px !important; width: 100% !important; align-items: stretch !important;">
-                        
-                        <!-- TOTAL EXHIBITS -->
-                        <div onclick="selectCategory('all'); selectActionStatus('all');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to view all vault exhibits">
-                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
-                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-emerald-700 transition-colors truncate">All Exhibits</span>
-                                <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <!-- 3. EXECUTIVE GREY COMMAND MASTHEAD + 7-COLUMN INTERACTIVE TELEMETRY MATRIX -->
+                <section class="rep-masthead" aria-label="Vault Custodial Overview">
+                    <div class="rep-masthead-hero px-6 py-5 sm:px-7 sm:py-6">
+                        <div class="rep-masthead-inner flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div class="space-y-1.5 max-w-3xl">
+                                <h2 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
+                                    Exhibit Log &amp; Seized Property Vault
+                                </h2>
+                                <p class="text-xs text-slate-600 leading-relaxed">
+                                    Inspect seized exhibits, generate tamper-evident QR property badges, assign drug classifications, and verify associated suspect dockets.
+                                </p>
+                            </div>
+
+                            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                                <div class="px-3.5 py-2 rounded-xl bg-white border border-slate-200/90 shadow-2xs" title="Estimated Seizure Value: GH₵ {{ number_format($totalSeizureValue, 2) }}">
+                                    <div class="text-[9.5px] font-mono-code uppercase tracking-wider text-slate-500">Total Vault Valuation</div>
+                                    <div class="text-xs sm:text-sm font-mono-code font-extrabold text-slate-900 mt-0.5 tnum">
+                                        GH₵ <span data-metric="total_value_formatted">{{ number_format($totalSeizureValue, 0) }}</span>
+                                    </div>
+                                </div>
+
+                                <div class="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200/90 shadow-2xs">
+                                    <div class="text-[9.5px] font-mono-code uppercase tracking-wider text-emerald-700">Tagged &amp; Classified</div>
+                                    <div class="text-xs sm:text-sm font-mono-code font-extrabold text-emerald-800 mt-0.5 tnum">
+                                        <span data-metric="completed">{{ $completedCount }}</span> / <span data-metric="total">{{ $totalExhibitsCount }}</span> ({{ $sealedPct }}%)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 7-COLUMN CLICKABLE TELEMETRY STRIP -->
+                    <div class="rep-kpi-grid grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-7 divide-x divide-y xl:divide-y-0 divide-slate-200/80">
+
+                        <!-- Tile 1: All Exhibits -->
+                        <button type="button"
+                                data-kpi-tile="all"
+                                onclick="selectCategory('all'); selectActionStatus('all');"
+                                class="rep-kpi-tile p-4 text-left group cursor-pointer {{ ($category === 'all' && $actionStatus === 'all') ? 'vault-kpi-active' : '' }}">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-slate-500 group-hover:text-emerald-700 truncate">All Exhibits</span>
+                                <span class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shrink-0">
                                     <i data-lucide="box" class="w-3.5 h-3.5"></i>
-                                </div>
+                                </span>
                             </div>
-                            <div>
-                                <div class="text-xl font-extrabold text-slate-900 font-mono-code leading-none">{{ number_format($totalExhibitsCount) }}</div>
-                                <div class="text-[10px] text-emerald-600 font-semibold mt-1 truncate">Active Vault Items</div>
-                            </div>
-                        </div>
+                            <div class="text-xl font-black text-slate-900 font-mono-code tnum mt-2" data-metric="total_formatted">{{ number_format($totalExhibitsCount) }}</div>
+                            <div class="text-[10px] text-emerald-700 font-semibold mt-1 truncate">Active vault items</div>
+                        </button>
 
-                        <!-- NEEDS QR / CLASSIFY (ALERT CARD) -->
-                        <div onclick="selectActionStatus('pending');" class="bg-white rounded-2xl p-3.5 border {{ $pendingCount > 0 ? 'border-amber-300 bg-amber-50/20 shadow-amber-500/5' : 'border-slate-200' }} shadow-2xs hover:border-amber-400 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter exhibits pending QR code or classification">
-                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800 group-hover:text-amber-900 transition-colors truncate">Pending Intake</span>
-                                <div class="w-6 h-6 rounded-lg {{ $pendingCount > 0 ? 'bg-amber-100 text-amber-700 animate-pulse' : 'bg-slate-100 text-slate-500' }} flex items-center justify-center shrink-0">
+                        <!-- Tile 2: Pending Intake -->
+                        <button type="button"
+                                data-kpi-tile="pending"
+                                onclick="selectActionStatus('pending');"
+                                class="rep-kpi-tile p-4 text-left group cursor-pointer {{ $actionStatus === 'pending' ? 'vault-kpi-active' : '' }}">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-amber-700 truncate">Pending Intake</span>
+                                <span class="w-6 h-6 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center shrink-0">
                                     <i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i>
-                                </div>
+                                </span>
                             </div>
-                            <div>
-                                <div class="text-xl font-extrabold text-amber-700 font-mono-code leading-none">{{ number_format($pendingCount) }}</div>
-                                <div class="text-[10px] text-amber-700 font-semibold mt-1 truncate">Needs QR / Classify</div>
-                            </div>
-                        </div>
+                            <div class="text-xl font-black text-amber-700 font-mono-code tnum mt-2" data-metric="pending_formatted">{{ number_format($pendingCount) }}</div>
+                            <div class="text-[10px] text-amber-700 font-semibold mt-1 truncate">Needs QR / Classify</div>
+                        </button>
 
-                        <!-- TOTAL ESTIMATED VALUE -->
-                        <div class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-emerald-300 transition-colors flex flex-col justify-between min-w-0" style="min-width: 0;" title="Estimated Seizure Value: GH₵ {{ number_format($totalSeizureValue, 2) }}">
-                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
-                                <span class="text-[10px] font-bold uppercase tracking-wider truncate">Total Value</span>
-                                <div class="w-6 h-6 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
-                                    <i data-lucide="badge-dollar-sign" class="w-3.5 h-3.5"></i>
-                                </div>
+                        <!-- Tile 3: Sealed & Classified -->
+                        <button type="button"
+                                data-kpi-tile="completed"
+                                onclick="selectActionStatus('completed');"
+                                class="rep-kpi-tile p-4 text-left group cursor-pointer {{ $actionStatus === 'completed' ? 'vault-kpi-active' : '' }}">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-teal-700 truncate">Sealed Ready</span>
+                                <span class="w-6 h-6 rounded-lg bg-teal-50 text-teal-700 border border-teal-200/80 flex items-center justify-center shrink-0">
+                                    <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
+                                </span>
                             </div>
-                            <div>
-                                <div class="text-base sm:text-lg font-extrabold text-slate-900 font-mono-code truncate leading-none" title="GH₵ {{ number_format($totalSeizureValue, 2) }}">
-                                    GH₵ {{ number_format($totalSeizureValue, 0) }}
-                                </div>
-                                <div class="text-[10px] text-teal-600 font-semibold mt-1 truncate">Estimated Value</div>
-                            </div>
-                        </div>
+                            <div class="text-xl font-black text-slate-900 font-mono-code tnum mt-2" data-metric="completed">{{ $completedCount }}</div>
+                            <div class="text-[10px] text-teal-700 font-semibold mt-1 truncate">QR &amp; Type complete</div>
+                        </button>
 
-                        <!-- DRUGS -->
-                        <div onclick="selectCategory('drug');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-emerald-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter narcotics">
-                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
-                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-emerald-700 transition-colors truncate">Narcotics</span>
-                                <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                        <!-- Tile 4: Narcotics -->
+                        <button type="button"
+                                data-kpi-tile="drug"
+                                onclick="selectCategory('drug');"
+                                class="rep-kpi-tile p-4 text-left group cursor-pointer {{ str_contains(strtolower($category), 'drug') ? 'vault-kpi-active' : '' }}">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-emerald-700 truncate">Narcotics</span>
+                                <span class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/70 flex items-center justify-center shrink-0">
                                     <i data-lucide="pill" class="w-3.5 h-3.5"></i>
-                                </div>
+                                </span>
                             </div>
-                            <div>
-                                <div class="text-xl font-extrabold text-emerald-700 font-mono-code leading-none">{{ $drugsCount }}</div>
-                                <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Drug Consignments</div>
-                            </div>
-                        </div>
+                            <div class="text-xl font-black text-slate-900 font-mono-code tnum mt-2" data-metric="drugs">{{ $drugsCount }}</div>
+                            <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Drug consignments</div>
+                        </button>
 
-                        <!-- WEAPONS -->
-                        <div onclick="selectCategory('weapon');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-amber-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter weapons">
-                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
-                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-amber-700 transition-colors truncate">Weapons</span>
-                                <div class="w-6 h-6 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                        <!-- Tile 5: Weapons -->
+                        <button type="button"
+                                data-kpi-tile="weapon"
+                                onclick="selectCategory('weapon');"
+                                class="rep-kpi-tile p-4 text-left group cursor-pointer {{ str_contains(strtolower($category), 'weapon') ? 'vault-kpi-active' : '' }}">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-amber-700 truncate">Weapons</span>
+                                <span class="w-6 h-6 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center shrink-0">
                                     <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
-                                </div>
+                                </span>
                             </div>
-                            <div>
-                                <div class="text-xl font-extrabold text-amber-700 font-mono-code leading-none">{{ $weaponsCount }}</div>
-                                <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Guns &amp; Ammunition</div>
-                            </div>
-                        </div>
+                            <div class="text-xl font-black text-slate-900 font-mono-code tnum mt-2" data-metric="weapons">{{ $weaponsCount }}</div>
+                            <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Firearms &amp; ammo</div>
+                        </button>
 
-                        <!-- VEHICLES -->
-                        <div onclick="selectCategory('vehicle');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-blue-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter vehicles">
-                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
-                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-blue-700 transition-colors truncate">Vehicles</span>
-                                <div class="w-6 h-6 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                        <!-- Tile 6: Vehicles -->
+                        <button type="button"
+                                data-kpi-tile="vehicle"
+                                onclick="selectCategory('vehicle');"
+                                class="rep-kpi-tile p-4 text-left group cursor-pointer {{ str_contains(strtolower($category), 'vehicle') ? 'vault-kpi-active' : '' }}">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-blue-700 truncate">Vehicles</span>
+                                <span class="w-6 h-6 rounded-lg bg-blue-50 text-blue-700 border border-blue-200/80 flex items-center justify-center shrink-0">
                                     <i data-lucide="truck" class="w-3.5 h-3.5"></i>
-                                </div>
+                                </span>
                             </div>
-                            <div>
-                                <div class="text-xl font-extrabold text-blue-700 font-mono-code leading-none">{{ $vehiclesCount }}</div>
-                                <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Cars &amp; Transports</div>
-                            </div>
-                        </div>
+                            <div class="text-xl font-black text-slate-900 font-mono-code tnum mt-2" data-metric="vehicles">{{ $vehiclesCount }}</div>
+                            <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Cars &amp; transports</div>
+                        </button>
 
-                        <!-- DIGITAL & ELECTRONICS -->
-                        <div onclick="selectCategory('device');" class="bg-white rounded-2xl p-3.5 border border-slate-200 shadow-2xs hover:border-purple-300 hover:shadow-xs transition-all cursor-pointer group flex flex-col justify-between min-w-0" style="min-width: 0;" title="Click to filter electronics">
-                            <div class="flex items-center justify-between text-slate-500 mb-1 gap-1">
-                                <span class="text-[10px] font-bold uppercase tracking-wider group-hover:text-purple-700 transition-colors truncate">Electronics</span>
-                                <div class="w-6 h-6 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                        <!-- Tile 7: Electronics -->
+                        <button type="button"
+                                data-kpi-tile="device"
+                                onclick="selectCategory('device');"
+                                class="rep-kpi-tile p-4 text-left group cursor-pointer col-span-2 sm:col-span-1 {{ str_contains(strtolower($category), 'device') ? 'vault-kpi-active' : '' }}">
+                            <div class="flex items-center justify-between gap-2">
+                                <span class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-purple-700 truncate">Electronics</span>
+                                <span class="w-6 h-6 rounded-lg bg-purple-50 text-purple-700 border border-purple-200/80 flex items-center justify-center shrink-0">
                                     <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
-                                </div>
+                                </span>
                             </div>
-                            <div>
-                                <div class="text-xl font-extrabold text-purple-700 font-mono-code leading-none">{{ $devicesCount }}</div>
-                                <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Phones, PCs &amp; Media</div>
-                            </div>
-                        </div>
+                            <div class="text-xl font-black text-slate-900 font-mono-code tnum mt-2" data-metric="devices">{{ $devicesCount }}</div>
+                            <div class="text-[10px] text-slate-500 font-semibold mt-1 truncate">Phones, PCs &amp; media</div>
+                        </button>
 
                     </div>
-                </div>
+                </section>
 
-                <!-- ==================================================== -->
-                <!-- 4. ADVANCED FILTER & SEARCH CONTROL BAR              -->
-                <!-- ==================================================== -->
-                <div class="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs space-y-3">
-                    <form method="GET" action="{{ url('/Evidence_Management/vault') }}" id="vaultFilterForm" class="space-y-3" onsubmit="event.preventDefault(); fetchVaultContent();">
+                <!-- 4. PRECISION VAULT SEARCH, FILTER & VIEW WORKBENCH -->
+                <section class="rep-surface-card overflow-hidden" aria-label="Exhibit Search and Filter Controls">
+                    <form method="GET" action="{{ url('/Evidence_Management/vault') }}" id="vaultFilterForm" onsubmit="event.preventDefault(); fetchVaultContent();">
                         <input type="hidden" name="view" id="viewModeInput" value="{{ $viewMode }}">
                         <input type="hidden" name="category" id="categoryInput" value="{{ $category }}">
 
-                        <div class="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-                            
-                            <!-- Search Bar -->
-                            <div class="relative flex-1">
-                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-                                    <i data-lucide="search" class="w-4 h-4"></i>
+                        <!-- Top Filter Row -->
+                        <div class="p-4 sm:p-5 space-y-3.5">
+                            <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-center">
+
+                                <!-- Search Input -->
+                                <div class="lg:col-span-5 relative">
+                                    <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                                        <i data-lucide="search" class="w-4 h-4"></i>
+                                    </span>
+                                    <input type="text"
+                                           name="search"
+                                           id="vaultSearchInput"
+                                           value="{{ $search }}"
+                                           placeholder="Search exhibit #, property ID, commodity, suspect, case #, S/N, reg #, officer..."
+                                           oninput="handleSearchInput(this.value)"
+                                           autocomplete="off"
+                                           class="rep-input w-full pl-10 pr-9 py-2.5 text-xs font-mono-code font-semibold">
+                                    <button type="button"
+                                            id="vaultClearSearchBtn"
+                                            onclick="clearSearch()"
+                                            aria-label="Clear search query"
+                                            class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-700 {{ $search ? '' : 'hidden' }}">
+                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                    </button>
                                 </div>
-                                <input type="text" 
-                                       name="search" 
-                                       id="vaultSearchInput" 
-                                       value="{{ $search }}" 
-                                       placeholder="Search exhibit #, property ID, commodity, suspect name, case #, serial #, reg #, officer..." 
-                                       oninput="handleSearchInput(this.value)"
-                                       autocomplete="off"
-                                       class="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-900 placeholder-slate-400 focus:outline-none focus:bg-white focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 transition-all font-mono-code">
-                                <button type="button" id="vaultClearSearchBtn" onclick="clearSearch()" class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 {{ $search ? '' : 'hidden' }}">
-                                    <i data-lucide="x" class="w-4 h-4"></i>
+
+                                <!-- Intake / Tagging Status -->
+                                <div class="lg:col-span-3">
+                                    <select name="action_status"
+                                            id="actionStatusSelect"
+                                            onchange="fetchVaultContent()"
+                                            aria-label="Filter by intake and QR tag status"
+                                            class="rep-select w-full px-3 py-2.5 text-xs font-mono-code font-semibold">
+                                        <option value="all" {{ $actionStatus === 'all' ? 'selected' : '' }}>Status: All Vault Exhibits</option>
+                                        <option value="pending" {{ $actionStatus === 'pending' ? 'selected' : '' }}>Needs QR / Classify ({{ $pendingCount }})</option>
+                                        <option value="unassigned_qr" {{ $actionStatus === 'unassigned_qr' ? 'selected' : '' }}>Unassigned QR Tag ({{ $unassignedQrCount }})</option>
+                                        <option value="unclassified" {{ $actionStatus === 'unclassified' ? 'selected' : '' }}>Unclassified Exhibits ({{ $unclassifiedCount }})</option>
+                                        <option value="completed" {{ $actionStatus === 'completed' ? 'selected' : '' }}>Sealed &amp; Classified ({{ $completedCount }})</option>
+                                    </select>
+                                </div>
+
+                                <!-- Suspect Link Filter -->
+                                <div class="lg:col-span-2">
+                                    <select name="suspect_filter"
+                                            id="suspectFilterSelect"
+                                            onchange="fetchVaultContent()"
+                                            aria-label="Filter by suspect association"
+                                            class="rep-select w-full px-3 py-2.5 text-xs font-mono-code font-semibold">
+                                        <option value="all" {{ ($suspectFilter ?? 'all') === 'all' ? 'selected' : '' }}>Suspects: All</option>
+                                        <option value="with_suspects" {{ ($suspectFilter ?? '') === 'with_suspects' ? 'selected' : '' }}>Linked Suspects</option>
+                                        <option value="no_suspects" {{ ($suspectFilter ?? '') === 'no_suspects' ? 'selected' : '' }}>Unassigned Suspect</option>
+                                    </select>
+                                </div>
+
+                                <!-- Sort Order -->
+                                <div class="lg:col-span-2">
+                                    <select name="sort"
+                                            id="sortSelect"
+                                            onchange="fetchVaultContent()"
+                                            aria-label="Sort vault exhibits"
+                                            class="rep-select w-full px-3 py-2.5 text-xs font-mono-code font-semibold">
+                                        <option value="newest" {{ ($sort ?? 'newest') === 'newest' ? 'selected' : '' }}>Sort: Newest First</option>
+                                        <option value="oldest" {{ ($sort ?? '') === 'oldest' ? 'selected' : '' }}>Sort: Oldest First</option>
+                                        <option value="value_desc" {{ ($sort ?? '') === 'value_desc' ? 'selected' : '' }}>Value: High &rarr; Low</option>
+                                        <option value="value_asc" {{ ($sort ?? '') === 'value_asc' ? 'selected' : '' }}>Value: Low &rarr; High</option>
+                                        <option value="name_asc" {{ ($sort ?? '') === 'name_asc' ? 'selected' : '' }}>Commodity: A &rarr; Z</option>
+                                    </select>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        <!-- Bottom Category Pills & View Mode Bar -->
+                        <div class="px-4 py-3 sm:px-5 bg-slate-100/80 border-t border-slate-200/80 flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+
+                            <!-- Category Pills -->
+                            @php
+                                $vaultPillActiveClass = 'vault-pill-active';
+                                $vaultPillInactiveClass = 'vault-pill-inactive';
+                                $vaultBadgeActiveClass = 'bg-white/20 text-white';
+                                $vaultBadgeInactiveClass = 'bg-slate-300 text-slate-800';
+                            @endphp
+                            <div class="flex items-center gap-2 overflow-x-auto pb-0.5 custom-scrollbar text-xs font-mono-code font-bold" id="categoryPillsContainer">
+                                <button type="button" data-cat="all" onclick="selectCategory('all')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer {{ $category === 'all' ? $vaultPillActiveClass : $vaultPillInactiveClass }}">
+                                    <span>All</span>
+                                    <span class="category-count-badge text-[10px] px-1.5 py-0.5 rounded-full {{ $category === 'all' ? $vaultBadgeActiveClass : $vaultBadgeInactiveClass }} font-mono-code font-extrabold tnum" data-metric="total">{{ $totalExhibitsCount }}</span>
+                                </button>
+                                <button type="button" data-cat="drug" onclick="selectCategory('drug')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer {{ str_contains(strtolower($category), 'drug') ? $vaultPillActiveClass : $vaultPillInactiveClass }}">
+                                    <i data-lucide="pill" class="w-3.5 h-3.5"></i>
+                                    <span>Drugs</span>
+                                    <span class="category-count-badge text-[10px] px-1.5 py-0.5 rounded-full {{ str_contains(strtolower($category), 'drug') ? $vaultBadgeActiveClass : $vaultBadgeInactiveClass }} font-mono-code font-extrabold tnum" data-metric="drugs">{{ $drugsCount }}</span>
+                                </button>
+                                <button type="button" data-cat="weapon" onclick="selectCategory('weapon')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer {{ str_contains(strtolower($category), 'weapon') ? $vaultPillActiveClass : $vaultPillInactiveClass }}">
+                                    <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+                                    <span>Weapons</span>
+                                    <span class="category-count-badge text-[10px] px-1.5 py-0.5 rounded-full {{ str_contains(strtolower($category), 'weapon') ? $vaultBadgeActiveClass : $vaultBadgeInactiveClass }} font-mono-code font-extrabold tnum" data-metric="weapons">{{ $weaponsCount }}</span>
+                                </button>
+                                <button type="button" data-cat="vehicle" onclick="selectCategory('vehicle')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer {{ str_contains(strtolower($category), 'vehicle') ? $vaultPillActiveClass : $vaultPillInactiveClass }}">
+                                    <i data-lucide="truck" class="w-3.5 h-3.5"></i>
+                                    <span>Vehicles</span>
+                                    <span class="category-count-badge text-[10px] px-1.5 py-0.5 rounded-full {{ str_contains(strtolower($category), 'vehicle') ? $vaultBadgeActiveClass : $vaultBadgeInactiveClass }} font-mono-code font-extrabold tnum" data-metric="vehicles">{{ $vehiclesCount }}</span>
+                                </button>
+                                <button type="button" data-cat="device" onclick="selectCategory('device')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer {{ str_contains(strtolower($category), 'device') ? $vaultPillActiveClass : $vaultPillInactiveClass }}">
+                                    <i data-lucide="smartphone" class="w-3.5 h-3.5"></i>
+                                    <span>Devices</span>
+                                    <span class="category-count-badge text-[10px] px-1.5 py-0.5 rounded-full {{ str_contains(strtolower($category), 'device') ? $vaultBadgeActiveClass : $vaultBadgeInactiveClass }} font-mono-code font-extrabold tnum" data-metric="devices">{{ $devicesCount }}</span>
+                                </button>
+                                <button type="button" data-cat="money" onclick="selectCategory('money')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer {{ str_contains(strtolower($category), 'money') ? $vaultPillActiveClass : $vaultPillInactiveClass }}">
+                                    <i data-lucide="coins" class="w-3.5 h-3.5"></i>
+                                    <span>Currency</span>
+                                    <span class="category-count-badge text-[10px] px-1.5 py-0.5 rounded-full {{ str_contains(strtolower($category), 'money') ? $vaultBadgeActiveClass : $vaultBadgeInactiveClass }} font-mono-code font-extrabold tnum" data-metric="currency">{{ $currencyCount }}</span>
+                                </button>
+                                <button type="button" data-cat="general" onclick="selectCategory('general')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer {{ str_contains(strtolower($category), 'general') ? $vaultPillActiveClass : $vaultPillInactiveClass }}">
+                                    <i data-lucide="package" class="w-3.5 h-3.5"></i>
+                                    <span>General</span>
                                 </button>
                             </div>
 
-                            <!-- Dropdown Filters & Actions -->
-                            <div class="flex items-center space-x-2 shrink-0 flex-wrap gap-y-2">
-                                
-                                <!-- Intake / Action Status Filter Dropdown -->
-                                <select name="action_status" id="actionStatusSelect" onchange="fetchVaultContent()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-emerald-500 {{ $actionStatus === 'pending' ? 'border-amber-400 text-amber-900 bg-amber-50/50 font-bold' : '' }}">
-                                    <option value="all" {{ $actionStatus === 'all' ? 'selected' : '' }}>🏷️ All Vault Statuses</option>
-                                    <option value="pending" {{ $actionStatus === 'pending' ? 'selected' : '' }}>⚠️ Needs QR / Classify ({{ $pendingCount }})</option>
-                                    <option value="unassigned_qr" {{ $actionStatus === 'unassigned_qr' ? 'selected' : '' }}>🏷️ Unassigned QR Tag ({{ $unassignedQrCount }})</option>
-                                    <option value="unclassified" {{ $actionStatus === 'unclassified' ? 'selected' : '' }}>📋 Unclassified Exhibits ({{ $unclassifiedCount }})</option>
-                                    <option value="completed" {{ $actionStatus === 'completed' ? 'selected' : '' }}>✓ Tagged &amp; Classified ({{ $completedCount }})</option>
+                            <!-- Right Controls: Per Page + View Switcher + Filter / Reset -->
+                            <div class="flex items-center gap-2 flex-wrap shrink-0">
+                                <select name="per_page"
+                                        id="perPageSelect"
+                                        onchange="fetchVaultContent()"
+                                        aria-label="Exhibits per page"
+                                        class="rep-select px-2.5 py-1.5 text-[11px] font-mono-code font-bold">
+                                    <option value="12" {{ request('per_page', 12) == 12 ? 'selected' : '' }}>12 / page</option>
+                                    <option value="24" {{ request('per_page') == 24 ? 'selected' : '' }}>24 / page</option>
+                                    <option value="48" {{ request('per_page') == 48 ? 'selected' : '' }}>48 / page</option>
                                 </select>
 
-                               
-
-                                <!-- Items Per Page -->
-                                <select name="per_page" id="perPageSelect" onchange="fetchVaultContent()" class="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-emerald-500">
-                                    <option value="12" {{ request('per_page') == 12 ? 'selected' : '' }}>12 per page</option>
-                                    <option value="24" {{ request('per_page') == 24 ? 'selected' : '' }}>24 per page</option>
-                                    <option value="48" {{ request('per_page') == 48 ? 'selected' : '' }}>48 per page</option>
-                                </select>
-
-                                <!-- View Mode Switcher -->
-                                <div class="inline-flex rounded-xl p-0.5 bg-slate-100 border border-slate-200">
-                                    <button type="button" id="gridModeBtn" onclick="switchView('grid')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 {{ $viewMode === 'grid' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800' }}" title="Card Grid View">
+                                <!-- Segmented View Switcher (Green) -->
+                                <div class="rep-segmented font-mono-code text-xs font-bold">
+                                    <button type="button"
+                                            id="gridModeBtn"
+                                            onclick="switchView('grid')"
+                                            class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all {{ $viewMode === 'grid' ? 'rep-btn-green' : 'rep-btn-green-soft' }}"
+                                            title="Dossier Cards View">
                                         <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
-                                        <span class="hidden sm:inline">Cards</span>
+                                        <span>Cards</span>
                                     </button>
-                                    <button type="button" id="tableModeBtn" onclick="switchView('table')" class="px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 {{ $viewMode === 'table' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-800' }}" title="Data Table View">
+                                    <button type="button"
+                                            id="tableModeBtn"
+                                            onclick="switchView('table')"
+                                            class="px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all {{ $viewMode === 'table' ? 'rep-btn-green' : 'rep-btn-green-soft' }}"
+                                            title="Custodial Ledger Table View">
                                         <i data-lucide="table" class="w-3.5 h-3.5"></i>
-                                        <span class="hidden sm:inline">Table</span>
+                                        <span>Table</span>
                                     </button>
                                 </div>
 
-                                <button type="submit" class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center space-x-1">
-                                    <i data-lucide="filter" class="w-3.5 h-3.5"></i>
-                                    <span>Filter</span>
+                                <button type="submit" class="rep-btn-green px-3.5 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1.5 cursor-pointer">
+                                    <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i>
+                                    <span>Apply</span>
                                 </button>
-                                
-                                <button type="button" id="resetFiltersBtn" onclick="resetVaultFilters()" class="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-xs rounded-xl transition-colors {{ ($search || $category !== 'all' || $actionStatus !== 'all' || $sort !== 'newest') ? '' : 'hidden' }}" title="Reset all filters">
+
+                                <button type="button"
+                                        id="resetFiltersBtn"
+                                        onclick="resetVaultFilters()"
+                                        class="rep-btn-green-soft px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer {{ ($search || $category !== 'all' || $actionStatus !== 'all' || ($suspectFilter ?? 'all') !== 'all' || ($sort ?? 'newest') !== 'newest') ? '' : 'hidden' }}"
+                                        title="Reset all vault filters">
                                     Reset
                                 </button>
-
                             </div>
-                        </div>
 
-                        <!-- Category Filter Pills -->
-                        <div class="flex items-center space-x-1.5 overflow-x-auto pb-1 pt-1 custom-scrollbar text-xs font-semibold" id="categoryPillsContainer">
-                            <span class="text-[10px] uppercase font-extrabold text-slate-400 tracking-wider shrink-0 mr-1 flex items-center">
-                                <i data-lucide="layers" class="w-3 h-3 mr-1 text-slate-400"></i> Category:
-                            </span>
-                            <button type="button" data-cat="all" onclick="selectCategory('all')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center space-x-1.5 {{ $category === 'all' ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                                <span>All Categories</span>
-                                <span class="category-count-badge text-[10px] px-1.5 py-0.2 rounded-full {{ $category === 'all' ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700' }} font-mono-code font-bold" data-metric="total">{{ $totalExhibitsCount }}</span>
-                            </button>
-                            <button type="button" data-cat="drug" onclick="selectCategory('drug')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center space-x-1.5 {{ str_contains(strtolower($category), 'drug') ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                                <i data-lucide="pill" class="w-3 h-3 text-emerald-600"></i>
-                                <span>Drugs &amp; Narcotics</span>
-                                <span class="category-count-badge text-[10px] px-1.5 py-0.2 rounded-full {{ str_contains(strtolower($category), 'drug') ? 'bg-white/20 text-white' : 'bg-emerald-100 text-emerald-800' }} font-mono-code font-bold" data-metric="drugs">{{ $drugsCount }}</span>
-                            </button>
-                            <button type="button" data-cat="weapon" onclick="selectCategory('weapon')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center space-x-1.5 {{ str_contains(strtolower($category), 'weapon') ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                                <i data-lucide="crosshair" class="w-3 h-3 text-amber-600"></i>
-                                <span>Weapons &amp; Firearms</span>
-                                <span class="category-count-badge text-[10px] px-1.5 py-0.2 rounded-full {{ str_contains(strtolower($category), 'weapon') ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800' }} font-mono-code font-bold" data-metric="weapons">{{ $weaponsCount }}</span>
-                            </button>
-                            <button type="button" data-cat="vehicle" onclick="selectCategory('vehicle')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center space-x-1.5 {{ str_contains(strtolower($category), 'vehicle') ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                                <i data-lucide="truck" class="w-3 h-3 text-blue-600"></i>
-                                <span>Vehicles &amp; Transport</span>
-                                <span class="category-count-badge text-[10px] px-1.5 py-0.2 rounded-full {{ str_contains(strtolower($category), 'vehicle') ? 'bg-white/20 text-white' : 'bg-blue-100 text-blue-800' }} font-mono-code font-bold" data-metric="vehicles">{{ $vehiclesCount }}</span>
-                            </button>
-                            <button type="button" data-cat="device" onclick="selectCategory('device')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center space-x-1.5 {{ str_contains(strtolower($category), 'device') ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                                <i data-lucide="smartphone" class="w-3 h-3 text-purple-600"></i>
-                                <span>Digital Devices</span>
-                                <span class="category-count-badge text-[10px] px-1.5 py-0.2 rounded-full {{ str_contains(strtolower($category), 'device') ? 'bg-white/20 text-white' : 'bg-purple-100 text-purple-800' }} font-mono-code font-bold" data-metric="devices">{{ $devicesCount }}</span>
-                            </button>
-                            <button type="button" data-cat="money" onclick="selectCategory('money')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center space-x-1.5 {{ str_contains(strtolower($category), 'money') ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                                <i data-lucide="coins" class="w-3 h-3 text-teal-600"></i>
-                                <span>Currency / Cash</span>
-                                <span class="category-count-badge text-[10px] px-1.5 py-0.2 rounded-full {{ str_contains(strtolower($category), 'money') ? 'bg-white/20 text-white' : 'bg-teal-100 text-teal-800' }} font-mono-code font-bold" data-metric="currency">{{ $currencyCount }}</span>
-                            </button>
-                            <button type="button" data-cat="general" onclick="selectCategory('general')" class="category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center space-x-1.5 {{ str_contains(strtolower($category), 'general') ? 'bg-emerald-600 text-white font-bold shadow-xs' : 'bg-slate-100 text-slate-600 hover:bg-slate-200' }}">
-                                <i data-lucide="package" class="w-3 h-3 text-slate-600"></i>
-                                <span>General</span>
-                            </button>
                         </div>
                     </form>
-                </div>
+                </section>
 
-                <!-- ==================================================== -->
-                <!-- 5. EXHIBIT LOG CONTENT SECTION (AJAX + SKELETON)   -->
-                <!-- ==================================================== -->
-                <div id="vaultContentWrapper" class="relative min-h-[450px]">
-                    <!-- Skeleton Loader State (shown during AJAX updates) -->
+                <!-- 5. EXHIBIT VAULT CONTENT AREA (AJAX + SKELETON) -->
+                <div id="vaultContentWrapper" class="relative min-h-[420px]">
+
+                    <!-- Skeleton Loader State -->
                     <div id="vaultSkeletonContainer" class="hidden transition-opacity duration-200">
-                        <!-- Skeleton Grid View -->
-                        <div id="skeletonGridView" class="{{ $viewMode === 'table' ? 'hidden' : 'grid' }} exhibits-grid-3cols gap-5 animate-pulse" style="display: {{ $viewMode === 'table' ? 'none' : 'grid' }} !important; grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 1.25rem !important; width: 100% !important;">
+                        <div id="skeletonGridView" class="{{ $viewMode === 'table' ? 'hidden' : '' }} exhibits-grid-3cols animate-pulse">
                             @for ($i = 0; $i < 6; $i++)
-                                <div class="bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden flex flex-col">
-                                    <div class="h-48 bg-slate-200/80 relative">
-                                        <div class="absolute top-3 left-3 w-24 h-6 bg-slate-300 rounded-lg"></div>
-                                        <div class="absolute top-3 right-3 w-20 h-6 bg-slate-300 rounded-full"></div>
+                                <div class="vault-dossier-card overflow-hidden flex flex-col">
+                                    <div class="p-3.5 bg-slate-100 border-b border-slate-200/80 flex items-center justify-between">
+                                        <div class="w-24 h-5 bg-slate-200 rounded-md"></div>
+                                        <div class="w-28 h-5 bg-slate-200 rounded-md"></div>
                                     </div>
-                                    <div class="p-5 space-y-3.5 flex-1">
-                                        <div class="flex items-center justify-between">
-                                            <div class="w-24 h-4 bg-slate-200 rounded"></div>
-                                            <div class="w-16 h-4 bg-slate-200 rounded"></div>
+                                    <div class="p-4 space-y-3.5 flex-1">
+                                        <div class="w-3/4 h-5 bg-slate-200 rounded"></div>
+                                        <div class="flex gap-2">
+                                            <div class="w-24 h-5 bg-slate-200 rounded-md"></div>
+                                            <div class="w-20 h-5 bg-slate-200 rounded-md"></div>
                                         </div>
-                                        <div class="w-4/5 h-5 bg-slate-200 rounded"></div>
-                                        <div class="w-3/5 h-4 bg-slate-200 rounded"></div>
-                                        <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
-                                            <div class="w-24 h-4 bg-slate-200 rounded"></div>
-                                            <div class="w-24 h-4 bg-slate-200 rounded"></div>
-                                        </div>
+                                        <div class="h-16 bg-slate-100 rounded-xl border border-slate-200/70"></div>
+                                        <div class="h-14 bg-slate-100 rounded-xl border border-slate-200/70"></div>
                                     </div>
-                                    <div class="px-5 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
-                                        <div class="w-24 h-8 bg-slate-200 rounded-xl"></div>
-                                        <div class="w-24 h-8 bg-slate-200 rounded-xl"></div>
+                                    <div class="px-4 py-3 bg-slate-50 border-t border-slate-200/70 flex items-center justify-between">
+                                        <div class="w-20 h-4 bg-slate-200 rounded"></div>
+                                        <div class="flex gap-1.5">
+                                            <div class="w-16 h-7 bg-slate-200 rounded-lg"></div>
+                                            <div class="w-16 h-7 bg-slate-200 rounded-lg"></div>
+                                        </div>
                                     </div>
                                 </div>
                             @endfor
                         </div>
 
-                        <!-- Skeleton Table View -->
-                        <div id="skeletonTableView" class="{{ $viewMode === 'table' ? 'block' : 'hidden' }} bg-white rounded-3xl border border-slate-200 shadow-2xs overflow-hidden animate-pulse">
-                            <div class="p-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                                <div class="w-32 h-4 bg-slate-200 rounded"></div>
+                        <div id="skeletonTableView" class="{{ $viewMode === 'table' ? 'block' : 'hidden' }} rep-surface-card overflow-hidden animate-pulse">
+                            <div class="p-4 bg-slate-100 border-b border-slate-200 flex items-center justify-between">
+                                <div class="w-36 h-4 bg-slate-200 rounded"></div>
                                 <div class="w-24 h-4 bg-slate-200 rounded"></div>
                             </div>
                             <div class="divide-y divide-slate-100">
                                 @for ($i = 0; $i < 6; $i++)
-                                    <div class="p-4 flex items-center space-x-4">
-                                        <div class="w-12 h-12 bg-slate-200 rounded-2xl shrink-0"></div>
+                                    <div class="p-4 flex items-center gap-4">
+                                        <div class="w-10 h-10 bg-slate-200 rounded-xl shrink-0"></div>
                                         <div class="flex-1 space-y-2">
                                             <div class="w-1/3 h-4 bg-slate-200 rounded"></div>
                                             <div class="w-1/4 h-3 bg-slate-200 rounded"></div>
                                         </div>
-                                        <div class="w-28 h-4 bg-slate-200 rounded shrink-0 hidden sm:block"></div>
-                                        <div class="w-24 h-6 bg-slate-200 rounded-full shrink-0"></div>
-                                        <div class="w-24 h-8 bg-slate-200 rounded-xl shrink-0"></div>
+                                        <div class="w-28 h-5 bg-slate-200 rounded-lg shrink-0 hidden sm:block"></div>
+                                        <div class="w-24 h-7 bg-slate-200 rounded-lg shrink-0"></div>
                                     </div>
                                 @endfor
                             </div>
                         </div>
                     </div>
 
-                    <!-- Live Content Container -->
+                    <!-- Live Vault Content -->
                     <div id="vaultExhibitsContent">
                         @include('Evidence_Management.partials.vault_content')
                     </div>
@@ -404,300 +554,289 @@
     </div>
 
     <!-- ========================================================== -->
-    <!-- 7. EXPANDED FULL-DETAIL EXHIBIT INSPECTION MODAL           -->
+    <!-- 6. EXPANDED FULL-DETAIL EXHIBIT INSPECTION MODAL           -->
     <!-- ========================================================== -->
-    <div id="exhibitModal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
-        <div class="bg-white rounded-3xl max-w-7xl xl:max-w-[94vw] 2xl:max-w-[96vw] w-full h-[96vh] border border-slate-200/90 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
-            
-            <!-- Modal Header (Sticky) -->
-            <div class="px-5 sm:px-6 py-4 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 text-white flex items-center justify-between shrink-0 border-b border-slate-800 shadow-sm">
-                <div class="flex items-center space-x-3.5 min-w-0">
-                    <div class="w-11 h-11 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0 shadow-inner">
+    <div id="exhibitModal" class="fixed inset-0 z-50 hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 md:p-6 overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-7xl xl:max-w-[94vw] w-full h-[94vh] border border-slate-300 shadow-2xl overflow-hidden flex flex-col">
+
+            <!-- Modal Grey Executive Header -->
+            <div class="vault-modal-header px-5 sm:px-6 py-4 flex items-center justify-between gap-4 shrink-0">
+                <div class="flex items-center gap-3.5 min-w-0">
+                    <div class="w-10 h-10 rounded-xl bg-white border border-slate-200/90 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
                         <i data-lucide="archive" class="w-5 h-5"></i>
                     </div>
                     <div class="min-w-0">
-                        <div class="flex items-center space-x-2.5 flex-wrap gap-y-1">
-                            <h2 class="text-base font-black tracking-tight text-white truncate max-w-md" id="modalExhibitTitle">Exhibit Log</h2>
-                            <span class="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono-code font-bold uppercase border border-emerald-500/30" id="modalCategoryBadge">
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-base font-extrabold tracking-tight text-slate-900 truncate max-w-md" id="modalExhibitTitle">Exhibit Dossier</h2>
+                            <span class="text-[10.5px] px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-mono-code font-bold uppercase border border-emerald-200" id="modalCategoryBadge">
                                 General
                             </span>
-                            <span class="text-[11px] font-mono-code font-extrabold text-emerald-400 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-0.5 rounded-md" id="modalExhibitNumber">
+                            <span class="text-[11px] font-mono-code font-extrabold text-slate-900 bg-white border border-slate-300 px-2.5 py-0.5 rounded-md shadow-2xs" id="modalExhibitNumber">
                                 EXH-0000
                             </span>
                         </div>
-                        <div class="flex items-center space-x-2 mt-1 text-xs text-slate-400 font-mono-code">
-                            <span class="text-blue-400 font-bold" id="modalCaseSubtitle">Case: Unassigned</span>
-                            <span>•</span>
-                            <span class="text-slate-400">NACOC National Evidence Vault</span>
+                        <div class="flex items-center gap-2 mt-0.5 text-xs text-slate-600 font-mono-code">
+                            <span class="text-emerald-700 font-bold" id="modalCaseSubtitle">Case Docket: Unassigned</span>
+                            <span class="text-slate-300">&bull;</span>
+                            <span>Central Custodial Inspection Dossier</span>
                         </div>
                     </div>
                 </div>
-                <div class="flex items-center space-x-2 shrink-0">
-                    <button type="button" onclick="closeExhibitModal()" class="w-9 h-9 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition-colors flex items-center justify-center cursor-pointer" title="Close Inspection">
-                        <i data-lucide="x" class="w-5 h-5"></i>
+                <div class="flex items-center gap-2 shrink-0">
+                    <button type="button" onclick="closeExhibitModal()" class="rep-btn-green-soft w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer" title="Close Inspection">
+                        <i data-lucide="x" class="w-4 h-4"></i>
                     </button>
                 </div>
             </div>
 
-            <!-- Modal Body (Scrollable Master Workspace) -->
-            <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-6 custom-scrollbar bg-slate-50/60">
-                
-                <!-- TOP STATS METRIC BANNER (4 Cards) -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-colors">
-                        <div class="flex items-center justify-between text-slate-400 mb-1">
-                            <span class="text-[10px] uppercase font-bold tracking-wider font-mono-code">Quantity &amp; Weight</span>
-                            <i data-lucide="scale" class="w-3.5 h-3.5 text-slate-400"></i>
+            <!-- Modal Scrollable Body -->
+            <div class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 custom-scrollbar bg-[#f3f5f8]">
+
+                <!-- Top 4-Card Telemetry Strip -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                    <div class="rep-surface-card p-4">
+                        <div class="flex items-center justify-between text-slate-500 mb-1.5">
+                            <span class="text-[10px] uppercase font-extrabold tracking-wider font-mono-code">Quantity &amp; Weight</span>
+                            <i data-lucide="scale" class="w-3.5 h-3.5 text-emerald-600"></i>
                         </div>
-                        <span class="text-sm sm:text-base font-extrabold text-slate-900 font-mono-code block truncate" id="modalQuantity">N/A</span>
+                        <span class="text-sm sm:text-base font-extrabold text-slate-900 font-mono-code block truncate tnum" id="modalQuantity">N/A</span>
                         <span class="text-[11px] text-slate-500 truncate block mt-0.5 font-medium" id="modalPackaging">N/A</span>
                     </div>
 
-                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-colors">
-                        <div class="flex items-center justify-between text-slate-400 mb-1">
-                            <span class="text-[10px] uppercase font-bold tracking-wider font-mono-code">Estimated Valuation</span>
-                            <i data-lucide="badge-dollar-sign" class="w-3.5 h-3.5 text-emerald-500"></i>
+                    <div class="rep-surface-card p-4">
+                        <div class="flex items-center justify-between text-slate-500 mb-1.5">
+                            <span class="text-[10px] uppercase font-extrabold tracking-wider font-mono-code">Estimated Valuation</span>
+                            <i data-lucide="badge-dollar-sign" class="w-3.5 h-3.5 text-emerald-600"></i>
                         </div>
-                        <span class="text-sm sm:text-base font-black text-emerald-700 font-mono-code block truncate" id="modalValue">N/A</span>
+                        <span class="text-sm sm:text-base font-black text-emerald-700 font-mono-code block truncate tnum" id="modalValue">N/A</span>
                         <span class="text-[11px] text-slate-500 block mt-0.5 font-medium">Valuation on Seizure</span>
                     </div>
 
-                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-colors">
-                        <div class="flex items-center justify-between text-slate-400 mb-1">
-                            <span class="text-[10px] uppercase font-bold tracking-wider font-mono-code">Seizure Date &amp; Time</span>
-                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-blue-500"></i>
+                    <div class="rep-surface-card p-4">
+                        <div class="flex items-center justify-between text-slate-500 mb-1.5">
+                            <span class="text-[10px] uppercase font-extrabold tracking-wider font-mono-code">Seizure Date &amp; Time</span>
+                            <i data-lucide="calendar" class="w-3.5 h-3.5 text-emerald-600"></i>
                         </div>
-                        <span class="text-sm sm:text-base font-extrabold text-slate-900 font-mono-code block truncate" id="modalDateTime">N/A</span>
+                        <span class="text-sm sm:text-base font-extrabold text-slate-900 font-mono-code block truncate tnum" id="modalDateTime">N/A</span>
                         <span class="text-[11px] text-slate-500 truncate block mt-0.5 font-medium" id="modalLocationQuick">N/A</span>
                     </div>
 
-                    <div class="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-2xs hover:border-slate-300 transition-colors">
-                        <div class="flex items-center justify-between text-slate-400 mb-1">
-                            <span class="text-[10px] uppercase font-bold tracking-wider font-mono-code">Seizing Officer &amp; Source</span>
-                            <i data-lucide="shield" class="w-3.5 h-3.5 text-purple-500"></i>
+                    <div class="rep-surface-card p-4">
+                        <div class="flex items-center justify-between text-slate-500 mb-1.5">
+                            <span class="text-[10px] uppercase font-extrabold tracking-wider font-mono-code">Seizing Officer &amp; Source</span>
+                            <i data-lucide="shield" class="w-3.5 h-3.5 text-emerald-600"></i>
                         </div>
                         <span class="text-sm sm:text-base font-extrabold text-slate-900 truncate block" id="modalOfficer">N/A</span>
                         <span class="text-[11px] text-emerald-700 font-semibold truncate block mt-0.5" id="modalSource">N/A</span>
                     </div>
                 </div>
 
-                <!-- MASTER TWO-COLUMN INSPECTION GRID -->
-                <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                    
-                    <!-- LEFT COLUMN (7 Cols): Exhibit Particulars, Technical Specs, Photos & Remarks -->
-                    <div class="lg:col-span-7 space-y-6">
-                        
-                        <!-- 1. Seizure & Custody Particulars -->
-                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                                <div class="flex items-center space-x-2.5">
-                                    <div class="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-                                        <i data-lucide="file-text" class="w-4 h-4"></i>
-                                    </div>
-                                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Seizure &amp; Custody Details</h4>
+                <!-- Master 12-Column Inspection Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+                    <!-- Left Column (7 Cols): Particulars, Technical Specs, Photos & Remarks -->
+                    <div class="lg:col-span-7 space-y-5">
+
+                        <!-- 1. Seizure & Custody Details -->
+                        <div class="rep-surface-card overflow-hidden">
+                            <div class="px-5 py-3.5 bg-slate-100/85 border-b border-slate-200/80 flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="w-7 h-7 rounded-lg bg-white border border-slate-200/90 text-emerald-700 flex items-center justify-center shadow-2xs">
+                                        <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                                    </span>
+                                    <h4 class="text-xs font-extrabold text-slate-900 font-mono-code uppercase tracking-wider">Seizure &amp; Custody Details</h4>
                                 </div>
-                                <span class="text-[10px] font-mono-code text-slate-400 uppercase font-bold">Dossier File</span>
+                                <span class="text-[10px] font-mono-code text-slate-500 uppercase font-bold">Dossier Particulars</span>
                             </div>
 
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700">
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Case Reference</span>
-                                    <span class="font-extrabold text-blue-600 font-mono-code text-xs mt-0.5 block" id="modalCaseNumberDetail">N/A</span>
+                            <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-700">
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold font-mono-code block">Case Reference</span>
+                                    <span class="font-extrabold text-emerald-700 font-mono-code text-xs mt-0.5 block" id="modalCaseNumberDetail">N/A</span>
                                 </div>
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Commodity / Item</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold font-mono-code block">Commodity / Item</span>
                                     <span class="font-extrabold text-slate-900 text-xs mt-0.5 block" id="modalCommodityName">N/A</span>
                                 </div>
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Exhibit Type</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold font-mono-code block">Exhibit Type</span>
                                     <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalExhibitType">N/A</span>
                                 </div>
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Seizure Location</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold font-mono-code block">Seizure Location</span>
                                     <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalLocation">N/A</span>
                                 </div>
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Concealment Method</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold font-mono-code block">Concealment Method</span>
                                     <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalConcealment">N/A</span>
                                 </div>
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Seizure Reason</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold font-mono-code block">Seizure Reason</span>
                                     <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalReason">N/A</span>
                                 </div>
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Investigating Officer</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold font-mono-code block">Investigating Officer</span>
                                     <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalInvestigatingOfficer">N/A</span>
                                 </div>
-                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                    <span class="text-[10px] text-slate-400 uppercase font-bold font-mono-code block">Source / Requesting Unit</span>
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/70">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold font-mono-code block">Source / Requesting Unit</span>
                                     <span class="font-bold text-slate-800 text-xs mt-0.5 block" id="modalSourceRequestingUnit">N/A</span>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 2. Category-Specific Forensic Attributes -->
-                        <div id="modalCategorySpecsContainer" class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
-                            <div class="flex items-center space-x-2.5 border-b border-slate-100 pb-3">
-                                <div class="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-                                    <i data-lucide="cpu" class="w-4 h-4"></i>
-                                </div>
-                                <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider" id="modalCategorySpecsTitle">
+                        <div id="modalCategorySpecsContainer" class="rep-surface-card overflow-hidden">
+                            <div class="px-5 py-3.5 bg-slate-100/85 border-b border-slate-200/80 flex items-center gap-2.5">
+                                <span class="w-7 h-7 rounded-lg bg-white border border-slate-200/90 text-emerald-700 flex items-center justify-center shadow-2xs">
+                                    <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+                                </span>
+                                <h4 class="text-xs font-extrabold text-slate-900 font-mono-code uppercase tracking-wider" id="modalCategorySpecsTitle">
                                     Category Technical Specifications
                                 </h4>
                             </div>
-                            <div id="modalCategorySpecsBody" class="text-xs space-y-2">
-                                <!-- Populated dynamically based on category -->
-                            </div>
+                            <div id="modalCategorySpecsBody" class="p-5 text-xs space-y-2"></div>
                         </div>
 
                         <!-- 3. Exhibit Evidence Photographs & Media Gallery -->
-                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                                <div class="flex items-center space-x-2.5">
-                                    <div class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-                                        <i data-lucide="camera" class="w-4 h-4"></i>
-                                    </div>
-                                    <h3 class="text-xs font-black text-slate-900 uppercase tracking-wider">
+                        <div class="rep-surface-card overflow-hidden">
+                            <div class="px-5 py-3.5 bg-slate-100/85 border-b border-slate-200/80 flex items-center justify-between">
+                                <div class="flex items-center gap-2.5">
+                                    <span class="w-7 h-7 rounded-lg bg-white border border-slate-200/90 text-emerald-700 flex items-center justify-center shadow-2xs">
+                                        <i data-lucide="camera" class="w-3.5 h-3.5"></i>
+                                    </span>
+                                    <h3 class="text-xs font-extrabold text-slate-900 font-mono-code uppercase tracking-wider">
                                         Exhibit Evidence Photographs &amp; Media Gallery
                                     </h3>
                                 </div>
-                                <span class="text-[11px] font-mono-code font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200" id="modalPhotosCountBadge">
+                                <span class="text-[10.5px] font-mono-code font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200" id="modalPhotosCountBadge">
                                     0 Photos
                                 </span>
                             </div>
 
-                            <div id="modalPhotosGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
-                                <!-- Populated by JavaScript -->
+                            <div class="p-5">
+                                <div id="modalPhotosGallery" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
                             </div>
                         </div>
 
                         <!-- 4. Remarks & Custody Notes -->
-                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
-                            <div class="flex items-center space-x-2.5 border-b border-slate-100 pb-3">
-                                <div class="w-7 h-7 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center">
-                                    <i data-lucide="message-square" class="w-4 h-4"></i>
-                                </div>
-                                <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Remarks &amp; Custody Notes</h4>
+                        <div class="rep-surface-card overflow-hidden">
+                            <div class="px-5 py-3.5 bg-slate-100/85 border-b border-slate-200/80 flex items-center gap-2.5">
+                                <span class="w-7 h-7 rounded-lg bg-white border border-slate-200/90 text-emerald-700 flex items-center justify-center shadow-2xs">
+                                    <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+                                </span>
+                                <h4 class="text-xs font-extrabold text-slate-900 font-mono-code uppercase tracking-wider">Remarks &amp; Custody Notes</h4>
                             </div>
 
-                            <!-- Exhibit Remark -->
-                            <div class="space-y-1">
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-amber-800 font-mono-code block">Exhibit Lodgement Remark:</span>
-                                <div class="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200/90 text-xs text-slate-800 italic leading-relaxed" id="modalRemark">
-                                    No remark recorded.
+                            <div class="p-5 space-y-3.5">
+                                <div class="space-y-1">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-slate-600 font-mono-code block">Exhibit Lodgement Remark:</span>
+                                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 text-xs text-slate-800 italic leading-relaxed" id="modalRemark">
+                                        No remark recorded.
+                                    </div>
                                 </div>
-                            </div>
 
-                            <!-- Lab Remark (if any) -->
-                            <div id="modalLabRemarkContainer" class="space-y-1 hidden">
-                                <span class="text-[10px] font-bold uppercase tracking-wider text-teal-800 font-mono-code block">Laboratory Analyst Remark:</span>
-                                <div class="bg-teal-50/70 p-3.5 rounded-2xl border border-teal-200/90 text-xs text-slate-800 italic leading-relaxed" id="modalLabRemark">
-                                    No laboratory remarks.
+                                <div id="modalLabRemarkContainer" class="space-y-1 hidden">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-emerald-800 font-mono-code block">Laboratory Analyst Remark:</span>
+                                    <div class="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200/80 text-xs text-slate-800 italic leading-relaxed" id="modalLabRemark">
+                                        No laboratory remarks.
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                     </div>
 
-                    <!-- RIGHT COLUMN (5 Cols): Official QR Badge, Custodial Management & Suspects -->
-                    <div class="lg:col-span-5 space-y-6">
-                        
-                        <!-- 1. SEIZED PROPERTY BADGE SPECIFICATION PREVIEW CARD -->
-                        <div id="inspectBadgePreviewCard" class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-4">
-                            <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3.5">
-                                <div class="flex items-center space-x-3">
-                                    <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0 shadow-2xs">
-                                        <i data-lucide="qr-code" class="w-5 h-5"></i>
-                                    </div>
-                                    <div>
-                                        <div class="flex items-center space-x-2">
-                                            <h3 class="text-sm font-extrabold text-slate-900 tracking-tight">
-                                                Seized Property Badge Specification Preview
-                                            </h3>
-                                        </div>
-                                        <span id="inspectBadgeStatusPill" class="text-[9.5px] font-mono-code font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 inline-block mt-1">
+                    <!-- Right Column (5 Cols): Official QR Badge, Custodial Management & Suspects -->
+                    <div class="lg:col-span-5 space-y-5">
+
+                        <!-- 1. Seized Property Badge Specification Preview Card -->
+                        <div id="inspectBadgePreviewCard" class="rep-surface-card overflow-hidden">
+                            <div class="px-5 py-3.5 bg-slate-100/85 border-b border-slate-200/80 flex items-center justify-between gap-3">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <span class="w-8 h-8 rounded-xl bg-white text-emerald-700 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs">
+                                        <i data-lucide="qr-code" class="w-4 h-4"></i>
+                                    </span>
+                                    <div class="min-w-0">
+                                        <h3 class="text-xs font-extrabold text-slate-900 font-mono-code uppercase tracking-wider truncate">
+                                            Seized Property QR Badge
+                                        </h3>
+                                        <span id="inspectBadgeStatusPill" class="text-[9.5px] font-mono-code font-bold uppercase px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200 inline-block mt-0.5">
                                             Officially Tagged
                                         </span>
                                     </div>
                                 </div>
 
-                                <button type="button" 
-                                        onclick="openInspectLivePortal()" 
-                                        class="px-2.5 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-[11px] border border-slate-200 flex items-center space-x-1 transition-colors cursor-pointer shrink-0" 
-                                        title="Open public scan verification page">
-                                    <i data-lucide="external-link" class="w-3.5 h-3.5 text-blue-600"></i>
+                                <button type="button"
+                                        onclick="openInspectLivePortal()"
+                                        class="rep-btn-green-soft px-2.5 py-1.5 rounded-xl font-bold text-[11px] flex items-center gap-1 cursor-pointer shrink-0"
+                                        title="Open live scan verification page">
+                                    <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
                                     <span>Live Portal</span>
                                 </button>
                             </div>
 
-                            <!-- Badge Preview Frame -->
-                            <div class="bg-slate-100/90 p-3 sm:p-4 rounded-2xl border border-slate-200 flex flex-col items-center justify-center overflow-hidden">
-                                <div class="w-full aspect-[780/330] bg-white rounded-xl shadow-sm border border-slate-300 relative flex items-center justify-center overflow-hidden transition-all duration-200 group">
-                                    <canvas id="inspectBadgeCanvas" width="780" height="330" class="w-full h-full object-contain cursor-zoom-in" onclick="openInspectBadgeLightbox()" title="Click to enlarge badge preview"></canvas>
-                                    <img id="inspectBadgeImg" src="" class="w-full h-full object-contain cursor-zoom-in hidden" alt="Seized Property Badge Specification" onclick="openInspectBadgeLightbox()" title="Click to enlarge badge preview">
-                                    
-                                    <!-- Hover zoom hint overlay -->
-                                    <div class="absolute bottom-2 right-2 px-2 py-1 bg-slate-900/80 text-white text-[9px] font-semibold rounded-md backdrop-blur-xs flex items-center space-x-1 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
-                                        <i data-lucide="zoom-in" class="w-3 h-3"></i>
-                                        <span>Click to enlarge</span>
+                            <div class="p-5 space-y-4">
+                                <div class="bg-slate-100 p-3 sm:p-4 rounded-xl border border-slate-200/90 flex flex-col items-center justify-center overflow-hidden">
+                                    <div class="w-full aspect-[780/330] bg-white rounded-lg shadow-xs border border-slate-300 relative flex items-center justify-center overflow-hidden group">
+                                        <canvas id="inspectBadgeCanvas" width="780" height="330" class="w-full h-full object-contain cursor-zoom-in" onclick="openInspectBadgeLightbox()" title="Click to enlarge badge preview"></canvas>
+                                        <img id="inspectBadgeImg" src="" class="w-full h-full object-contain cursor-zoom-in hidden" alt="Seized Property Badge Specification" onclick="openInspectBadgeLightbox()">
+
+                                        <div class="absolute bottom-2 right-2 px-2 py-1 bg-slate-800/80 text-white text-[9px] font-semibold rounded-md backdrop-blur-xs flex items-center gap-1 pointer-events-none opacity-80 group-hover:opacity-100 transition-opacity">
+                                            <i data-lucide="zoom-in" class="w-3 h-3"></i>
+                                            <span>Click to enlarge</span>
+                                        </div>
+                                    </div>
+                                    <div class="mt-2 text-center text-[10px] text-slate-500 font-mono-code" id="inspectBadgeNoticeText">
+                                        Official QR Code &bull; Scans to display instant exhibit details
                                     </div>
                                 </div>
-                                <div class="mt-2 text-center text-[10px] text-slate-500 font-mono-code" id="inspectBadgeNoticeText">
-                                    Official QR Code • Scans to display instant exhibit details
+
+                                <div class="grid grid-cols-2 gap-2">
+                                    <button type="button"
+                                            id="inspectOpenQrModalBtn"
+                                            onclick="if(window.currentModalExhibit) openVaultQrModal(window.currentModalExhibit)"
+                                            class="rep-btn-green col-span-2 px-3.5 py-2.5 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                                        <i data-lucide="tag" class="w-4 h-4"></i>
+                                        <span id="inspectOpenQrModalBtnText">Assign / View QR Tag</span>
+                                    </button>
+
+                                    <button type="button"
+                                            id="inspectDownloadQrBtn"
+                                            onclick="downloadInspectQrCodePNG()"
+                                            class="rep-btn-green-soft px-3 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                                        <i data-lucide="qr-code" class="w-3.5 h-3.5"></i>
+                                        <span>Save QR</span>
+                                    </button>
+
+                                    <button type="button"
+                                            id="inspectDownloadBadgeBtn"
+                                            onclick="downloadInspectBadgePNG()"
+                                            class="rep-btn-green-soft px-3 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                                        <i data-lucide="download" class="w-3.5 h-3.5"></i>
+                                        <span>Save Badge</span>
+                                    </button>
+
+                                    <button type="button"
+                                            id="inspectClassifyBtn"
+                                            onclick="if(window.currentModalExhibit) openVaultClassifyModal(window.currentModalExhibit)"
+                                            class="rep-btn-green-soft col-span-2 px-3 py-2 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                                        <i data-lucide="sliders" class="w-4 h-4"></i>
+                                        <span>Classify &amp; Set Type</span>
+                                    </button>
                                 </div>
-                            </div>
-
-                            <!-- Action Buttons Toolbar -->
-                            <div class="grid grid-cols-2 gap-2 pt-1">
-                                <button type="button" 
-                                        id="inspectOpenQrModalBtn"
-                                        onclick="if(window.currentModalExhibit) openVaultQrModal(window.currentModalExhibit)" 
-                                        class="col-span-2 px-3.5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer"
-                                        title="Open Official Seized Property Tag Modal">
-                                    <i data-lucide="tag" class="w-4 h-4 text-white"></i>
-                                    <span id="inspectOpenQrModalBtnText">Assign / View QR Tag</span>
-                                </button>
-
-                                <button type="button" 
-                                        id="inspectDownloadQrBtn"
-                                        onclick="downloadInspectQrCodePNG()" 
-                                        class="px-3 py-2 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 font-bold text-xs border border-emerald-300 shadow-2xs flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
-                                        title="Download Standalone QR Code PNG">
-                                    <i data-lucide="qr-code" class="w-3.5 h-3.5 text-emerald-600"></i>
-                                    <span>Save QR</span>
-                                </button>
-
-                                <button type="button" 
-                                        id="inspectDownloadBadgeBtn"
-                                        onclick="downloadInspectBadgePNG()" 
-                                        class="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs border border-slate-200 shadow-2xs flex items-center justify-center space-x-1.5 transition-colors cursor-pointer"
-                                        title="Download High-Res Seized Property Badge PNG">
-                                    <i data-lucide="download" class="w-3.5 h-3.5 text-slate-500"></i>
-                                    <span>Save Badge</span>
-                                </button>
-
-                                <button type="button" 
-                                        id="inspectClassifyBtn"
-                                        onclick="if(window.currentModalExhibit) openVaultClassifyModal(window.currentModalExhibit)" 
-                                        class="col-span-2 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs border border-slate-200 flex items-center justify-center space-x-1.5 transition-all cursor-pointer"
-                                        title="Classify Drug Schedule & Exhibit Type">
-                                    <i data-lucide="sliders" class="w-4 h-4 text-emerald-600"></i>
-                                    <span>Classify &amp; Set Type</span>
-                                </button>
                             </div>
                         </div>
 
-                        <!-- 2. UNASSIGNED QR TAG NOTICE (WHEN NO QR ASSIGNED YET) -->
-                        <div id="inspectBadgeUnassignedCard" class="hidden bg-white rounded-3xl p-5 border border-dashed border-amber-300 bg-gradient-to-r from-amber-50/40 via-white to-amber-50/20 shadow-2xs space-y-4">
-                            <div class="flex items-start space-x-3.5">
-                                <div class="w-10 h-10 rounded-2xl bg-amber-100/80 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0 shadow-2xs">
+                        <!-- 2. Unassigned QR Tag Notice -->
+                        <div id="inspectBadgeUnassignedCard" class="hidden rep-surface-card p-5 border-dashed border-amber-300 bg-amber-50/30 space-y-4">
+                            <div class="flex items-start gap-3.5">
+                                <div class="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 border border-amber-200 flex items-center justify-center shrink-0">
                                     <i data-lucide="qr-code" class="w-5 h-5"></i>
                                 </div>
                                 <div>
-                                    <div class="flex items-center space-x-2">
-                                        <h3 class="text-sm font-extrabold text-slate-900 tracking-tight">
-                                            Tag Not Assigned
-                                        </h3>
+                                    <div class="flex items-center gap-2">
+                                        <h3 class="text-sm font-extrabold text-slate-900 tracking-tight">Tag Not Assigned</h3>
                                         <span class="text-[9.5px] font-mono-code font-bold uppercase px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
                                             Pending QR
                                         </span>
@@ -708,123 +847,112 @@
                                 </div>
                             </div>
 
-                            <div class="flex items-center space-x-2 pt-1">
-                                <button type="button" 
+                            <div class="flex items-center gap-2">
+                                <button type="button"
                                         id="inspectUnassignedAssignQrBtn"
-                                        onclick="if(window.currentModalExhibit) openVaultQrModal(window.currentModalExhibit)" 
-                                        class="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center space-x-1.5 shadow-sm transition-all cursor-pointer"
-                                        title="Assign Official Seized Property QR Tag">
-                                    <i data-lucide="tag" class="w-4 h-4 text-white"></i>
+                                        onclick="if(window.currentModalExhibit) openVaultQrModal(window.currentModalExhibit)"
+                                        class="rep-btn-green flex-1 px-4 py-2.5 rounded-xl font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer">
+                                    <i data-lucide="tag" class="w-4 h-4"></i>
                                     <span>Assign QR Tag</span>
                                 </button>
 
-                                <button type="button" 
+                                <button type="button"
                                         id="inspectUnassignedClassifyBtn"
-                                        onclick="if(window.currentModalExhibit) openVaultClassifyModal(window.currentModalExhibit)" 
-                                        class="px-3.5 py-2.5 rounded-xl bg-white hover:bg-slate-100 text-slate-800 font-bold text-xs border border-slate-200 shadow-2xs flex items-center space-x-1.5 transition-all cursor-pointer"
-                                        title="Classify Drug Schedule & Exhibit Type">
-                                    <i data-lucide="sliders" class="w-4 h-4 text-emerald-600"></i>
+                                        onclick="if(window.currentModalExhibit) openVaultClassifyModal(window.currentModalExhibit)"
+                                        class="rep-btn-green-soft px-3.5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer">
+                                    <i data-lucide="sliders" class="w-4 h-4"></i>
                                     <span>Classify</span>
                                 </button>
                             </div>
                         </div>
 
-                        <!-- 3. OFFICIAL CUSTODIAL STATE DISPLAY -->
-                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <div class="flex items-center space-x-2">
-                                    <div class="w-6 h-6 rounded-lg bg-teal-50 text-teal-600 flex items-center justify-center">
+                        <!-- 3. Vault Custodial State & Chain of Custody -->
+                        <div class="rep-surface-card overflow-hidden">
+                            <div class="px-5 py-3.5 bg-slate-100/85 border-b border-slate-200/80 flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-7 h-7 rounded-lg bg-white border border-slate-200/90 text-emerald-700 flex items-center justify-center shadow-2xs">
                                         <i data-lucide="shield-check" class="w-3.5 h-3.5"></i>
-                                    </div>
-                                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Vault Custodial State</h4>
+                                    </span>
+                                    <h4 class="text-xs font-extrabold text-slate-900 font-mono-code uppercase tracking-wider">Vault Custodial State</h4>
                                 </div>
-                                <span class="text-[10px] font-mono-code font-bold uppercase text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200" id="inspectCustodialStatusLabel">
-                                    Seized (Active Vault Custody)
+                                <span class="text-[10px] font-mono-code font-bold uppercase text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200" id="inspectCustodialStatusLabel">
+                                    In Vault Custody
                                 </span>
                             </div>
-                            <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-xs text-slate-600 flex items-center space-x-2.5">
-                                <i data-lucide="lock" class="w-4 h-4 text-emerald-600 shrink-0"></i>
-                                <span class="leading-relaxed">Official Seizure custody is locked and secured under NACOC Evidence Management protocols. Status is automatically synchronized across the central registry and live scan verification.</span>
-                            </div>
 
-                            <!-- Chain of Custody Input & Custody Trail -->
-                            <div class="space-y-2 pt-2 border-t border-slate-100">
-                                <div class="flex items-center justify-between mb-1">
-                                    <label class="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
-                                        <i data-lucide="link" class="w-3.5 h-3.5 text-teal-600"></i>
-                                        <span>Chain of Custody</span>
-                                    </label>
-                                    <span class="text-[9.5px] font-mono-code font-bold uppercase text-teal-700 bg-teal-50 px-2 py-0.5 rounded-full border border-teal-200">
-                                        CUSTODY TRANSFER
-                                    </span>
+                            <div class="p-5 space-y-3.5">
+                                <div class="p-3 bg-slate-50 rounded-xl border border-slate-200/80 text-xs text-slate-600 flex items-start gap-2.5">
+                                    <i data-lucide="lock" class="w-4 h-4 text-emerald-600 shrink-0 mt-0.5"></i>
+                                    <span class="leading-relaxed">Seizure custody is secured under Evidence Management protocols and synchronized with live QR scan verification.</span>
                                 </div>
 
-                                <!-- HORIZONTAL LINE CHAIN OF CUSTODY WITH EXCHANGE ICON -->
-                                <div class="flex items-center gap-2 sm:gap-2.5 w-full">
-                                    <!-- CURRENT LOCATION (FROM) -->
-                                    <div class="relative flex-1 min-w-0 flex items-center group">
-                                        <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                <div class="space-y-2.5 pt-2 border-t border-slate-100">
+                                    <div class="flex items-center justify-between">
+                                        <label for="inspectCustodyFrom" class="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                            <i data-lucide="link" class="w-3.5 h-3.5 text-emerald-600"></i>
+                                            <span>Chain of Custody Transfer</span>
+                                        </label>
+                                        <span class="text-[9.5px] font-mono-code font-bold uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
+                                            Custody Log
                                         </span>
-                                        <input type="text" id="inspectCustodyFrom"
-                                            class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20"
-                                            value="Evidence Vault"
-                                            placeholder="Current Location (e.g. Evidence Vault)"
-                                            oninput="updateInspectChainOfCustodyValue(this)">
                                     </div>
 
-                                    <!-- EXCHANGE ICON -->
-                                    <div class="flex items-center justify-center p-2.5 rounded-xl bg-teal-50 border border-teal-200 text-teal-700 shadow-2xs shrink-0 self-center" title="Custody Transfer / Exchange">
-                                        <svg class="w-4 h-4 text-teal-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
-                                        </svg>
+                                    <div class="flex items-center gap-2 w-full">
+                                        <div class="relative flex-1 min-w-0">
+                                            <input type="text"
+                                                   id="inspectCustodyFrom"
+                                                   class="rep-input w-full px-3 py-2 text-xs font-bold"
+                                                   value="Evidence Vault"
+                                                   placeholder="From (e.g. Evidence Vault)"
+                                                   oninput="updateInspectChainOfCustodyValue(this)">
+                                        </div>
+
+                                        <div class="p-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 shrink-0" title="Custody Transfer">
+                                            <i data-lucide="arrow-left-right" class="w-3.5 h-3.5"></i>
+                                        </div>
+
+                                        <div class="relative flex-1 min-w-0">
+                                            <input type="text"
+                                                   id="inspectCustodyTo"
+                                                   class="rep-input w-full px-3 py-2 text-xs font-bold"
+                                                   placeholder="Transfer To (Lab, Court...)"
+                                                   oninput="updateInspectChainOfCustodyValue(this)">
+                                        </div>
                                     </div>
 
-                                    <!-- DESTINATION / TRANSFER TO -->
-                                    <div class="relative flex-1 min-w-0 flex items-center group">
-                                        <span class="absolute left-3 text-slate-400 group-focus-within:text-teal-600 transition-colors pointer-events-none">
-                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
-                                        </span>
-                                        <input type="text" id="inspectCustodyTo"
-                                            class="w-full pl-9 pr-3 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs focus:outline-none focus:border-teal-600 focus:ring-2 focus:ring-teal-600/20 placeholder:text-slate-400"
-                                            placeholder="Transfer To (e.g. Central Vault, Forensic Lab, Court...)"
-                                            oninput="updateInspectChainOfCustodyValue(this)">
+                                    <textarea id="inspectChainOfCustody" class="hidden">Evidence Vault</textarea>
+
+                                    <div class="flex items-center justify-between pt-1">
+                                        <span class="text-[10px] text-slate-500">Saved directly to central exhibit registry</span>
+                                        <button type="button"
+                                                id="inspectSaveChainOfCustodyBtn"
+                                                onclick="saveInspectChainOfCustody()"
+                                                class="rep-btn-green px-3.5 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 cursor-pointer">
+                                            <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                                            <span>Save Chain of Custody</span>
+                                        </button>
                                     </div>
-                                </div>
-
-                                <!-- Hidden textarea synchronized with the inputs -->
-                                <textarea id="inspectChainOfCustody" class="hidden">Evidence Vault</textarea>
-
-                                <div class="flex items-center justify-between pt-1">
-                                    <span class="text-[10px] text-slate-400 italic">Saved directly to central exhibit registry</span>
-                                    <button type="button" 
-                                            id="inspectSaveChainOfCustodyBtn" 
-                                            onclick="saveInspectChainOfCustody()" 
-                                            class="px-3.5 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center space-x-1.5 shadow-2xs hover:shadow transition-all cursor-pointer">
-                                        <i data-lucide="save" class="w-3.5 h-3.5"></i>
-                                        <span>Save Chain of Custody</span>
-                                    </button>
                                 </div>
                             </div>
                         </div>
 
                         <!-- 4. Associated Suspect(s) Profile -->
-                        <div class="bg-white rounded-3xl p-5 border border-slate-200 shadow-2xs space-y-3.5">
-                            <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
-                                <div class="flex items-center space-x-2">
-                                    <div class="w-6 h-6 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                        <div class="rep-surface-card overflow-hidden">
+                            <div class="px-5 py-3.5 bg-slate-100/85 border-b border-slate-200/80 flex items-center justify-between gap-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="w-7 h-7 rounded-lg bg-white border border-slate-200/90 text-emerald-700 flex items-center justify-center shadow-2xs">
                                         <i data-lucide="users" class="w-3.5 h-3.5"></i>
-                                    </div>
-                                    <h4 class="text-xs font-black text-slate-900 uppercase tracking-wider">Associated Suspect(s) Profile</h4>
+                                    </span>
+                                    <h4 class="text-xs font-extrabold text-slate-900 font-mono-code uppercase tracking-wider">Associated Suspect(s)</h4>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200" id="modalSuspectsCountBadge">0 Suspect(s)</span>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-[10px] font-mono-code font-bold px-2 py-0.5 rounded-full bg-white text-slate-700 border border-slate-200" id="modalSuspectsCountBadge">0 Suspect(s)</span>
                                     <span class="text-[11px] font-mono-code font-bold text-emerald-700" id="modalCaseLinkContainer"></span>
                                 </div>
                             </div>
 
-                            <div id="modalSuspectsList" class="space-y-3">
-                                <!-- Populated by JavaScript -->
+                            <div class="p-5">
+                                <div id="modalSuspectsList" class="space-y-3"></div>
                             </div>
                         </div>
 
@@ -834,18 +962,18 @@
 
             </div>
 
-            <!-- Modal Footer (Sticky) -->
-            <div class="px-6 py-4 bg-white border-t border-slate-200 flex items-center justify-between shrink-0 shadow-xs">
-                <div class="flex items-center space-x-2 text-[11px] text-slate-500 font-mono-code hidden sm:flex">
+            <!-- Modal Sticky Footer -->
+            <div class="px-6 py-3.5 bg-white border-t border-slate-200 flex items-center justify-between shrink-0">
+                <div class="hidden sm:flex items-center gap-2 text-[11px] text-slate-500 font-mono-code">
                     <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
-                    <span>National Evidence Vault Directorate • NACOC Central Custody</span>
+                    <span>Evidence Management Unit &bull; Central Custodial Vault</span>
                 </div>
-                <div class="flex items-center space-x-3 ml-auto">
-                    <button type="button" onclick="closeExhibitModal()" class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer">
+                <div class="flex items-center gap-2.5 ml-auto">
+                    <button type="button" onclick="closeExhibitModal()" class="rep-btn-green-soft px-4 py-2 font-bold text-xs rounded-xl cursor-pointer">
                         Close
                     </button>
-                    <a href="#" id="modalOpenCaseBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors flex items-center space-x-2 cursor-pointer no-underline">
-                        <i data-lucide="folder-open" class="w-4 h-4 text-white"></i>
+                    <a href="#" id="modalOpenCaseBtn" class="rep-btn-green px-4 py-2 font-extrabold text-xs rounded-xl flex items-center gap-2 cursor-pointer no-underline">
+                        <i data-lucide="folder-open" class="w-4 h-4"></i>
                         <span>Open Case File</span>
                     </a>
                 </div>
@@ -855,55 +983,55 @@
     </div>
 
     <!-- ========================================================== -->
-    <!-- 8. HIGH-RESOLUTION IMAGE LIGHTBOX ZOOM MODAL               -->
+    <!-- 7. HIGH-RESOLUTION IMAGE LIGHTBOX ZOOM MODAL               -->
     <!-- ========================================================== -->
-    <div id="imageLightboxModal" class="fixed inset-0 z-60 hidden bg-slate-950/90 backdrop-blur-md flex items-center justify-center p-4">
+    <div id="imageLightboxModal" class="fixed inset-0 z-60 hidden bg-slate-900/80 backdrop-blur-sm flex items-center justify-center p-4">
         <div class="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
-            <button type="button" onclick="closeImageLightbox()" class="absolute -top-12 right-0 w-10 h-10 rounded-full bg-white/20 hover:bg-white/30 text-white flex items-center justify-center transition-colors">
-                <i data-lucide="x" class="w-6 h-6"></i>
+            <button type="button" onclick="closeImageLightbox()" class="rep-btn-green-soft absolute -top-12 right-0 w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer">
+                <i data-lucide="x" class="w-5 h-5"></i>
             </button>
-            <img id="lightboxImage" src="" alt="Enlarged Preview" class="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl border border-white/20">
-            <div id="lightboxCaption" class="mt-3 text-xs text-slate-300 font-mono-code text-center"></div>
+            <img id="lightboxImage" src="" alt="Enlarged Preview" class="max-w-full max-h-[80vh] rounded-2xl object-contain shadow-2xl border border-slate-200 bg-white">
+            <div id="lightboxCaption" class="mt-3 text-xs text-white font-mono-code font-semibold text-center"></div>
         </div>
     </div>
 
     <!-- ========================================================== -->
-    <!-- 9. INTERACTIVE SEIZED PROPERTY QR CODE TAG MODAL           -->
+    <!-- 8. INTERACTIVE SEIZED PROPERTY QR CODE TAG MODAL           -->
     <!-- ========================================================== -->
-    <div id="vaultQrModal" class="fixed inset-0 z-55 hidden bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-        <div class="bg-white rounded-3xl max-w-4xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
-            <!-- Modal Header -->
-            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center justify-center shrink-0">
+    <div id="vaultQrModal" class="fixed inset-0 z-55 hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-4xl w-full border border-slate-300 shadow-2xl overflow-hidden flex flex-col">
+
+            <!-- Modal Grey Executive Header -->
+            <div class="vault-modal-header px-6 py-4 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white text-emerald-700 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs">
                         <i data-lucide="qr-code" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <div class="flex items-center space-x-2">
-                            <h2 class="text-base font-extrabold tracking-tight text-white">Official Seized Property Tag</h2>
-                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono-code font-bold uppercase border border-emerald-500/30">
-                                NACOC Specification
+                        <div class="flex items-center gap-2 flex-wrap">
+                            <h2 class="text-base font-extrabold tracking-tight text-slate-900">Official Seized Property Tag</h2>
+                            <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 font-mono-code font-bold uppercase border border-emerald-200">
+                                QR Specification
                             </span>
                         </div>
-                        <p class="text-xs text-slate-400 mt-0.5" id="vaultQrModalSubtitle">Generate, preview, download, and assign QR tag to exhibit</p>
+                        <p class="text-xs text-slate-600 mt-0.5" id="vaultQrModalSubtitle">Generate, preview, download, and assign QR tag to exhibit</p>
                     </div>
                 </div>
-                <button type="button" onclick="closeVaultQrModal()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
+                <button type="button" onclick="closeVaultQrModal()" class="rep-btn-green-soft w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
 
             <!-- Modal Body -->
-            <div class="p-5 sm:p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar bg-slate-50/50">
-                <!-- Sealed / Locked Alert Banner when QR Tag is already generated -->
-                <div id="vaultQrLockedAlert" class="hidden p-3.5 bg-emerald-50/90 border border-emerald-200 rounded-2xl flex items-center justify-between text-xs text-emerald-900 shadow-2xs">
-                    <div class="flex items-center space-x-2.5 min-w-0">
-                        <div class="w-8 h-8 rounded-xl bg-white text-emerald-600 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-sm shadow-slate-200/50">
+            <div class="p-5 sm:p-6 space-y-4 overflow-y-auto max-h-[78vh] custom-scrollbar bg-[#f3f5f8]">
+                <div id="vaultQrLockedAlert" class="hidden p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs text-emerald-900">
+                    <div class="flex items-center gap-2.5 min-w-0">
+                        <div class="w-8 h-8 rounded-lg bg-white text-emerald-700 border border-emerald-200 flex items-center justify-center shrink-0">
                             <i data-lucide="lock" class="w-4 h-4"></i>
                         </div>
                         <div class="min-w-0">
-                            <span class="font-extrabold uppercase tracking-wider text-[10px] text-emerald-700 block">Officially Tagged &amp; Sealed</span>
-                            <span class="text-slate-700 text-xs">This exhibit has already been officially assigned Seized Property Badge with Property ID <strong id="vaultQrLockedPropId" class="font-mono-code text-slate-900 font-bold">--</strong>. Specifications are locked and tamper-evident.</span>
+                            <span class="font-extrabold uppercase tracking-wider text-[10px] text-emerald-800 font-mono-code block">Officially Tagged &amp; Sealed</span>
+                            <span class="text-slate-700 text-xs">Assigned Seized Property Badge with Property ID <strong id="vaultQrLockedPropId" class="font-mono-code text-slate-900 font-bold">--</strong>. Specifications are locked and tamper-evident.</span>
                         </div>
                     </div>
                     <span class="px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-mono-code font-bold uppercase border border-emerald-300 shrink-0 ml-2">
@@ -911,76 +1039,69 @@
                     </span>
                 </div>
 
-                <!-- Hidden Custodial Status Input (Locked to Seized) -->
                 <input type="hidden" id="vaultQrStatus" value="Seized">
 
-                <!-- Controls Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <!-- Property ID input with generate button -->
-                    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs space-y-1.5">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div class="rep-surface-card p-4 space-y-1.5">
                         <div class="flex items-center justify-between">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Property ID</label>
+                            <label for="vaultQrPropertyId" class="text-[10px] font-extrabold text-slate-500 font-mono-code uppercase tracking-wider block">Property ID</label>
                             <span id="vaultQrLockedBadgePill" class="hidden text-[9px] font-mono-code font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">Locked</span>
                         </div>
-                        <div class="flex items-center space-x-1.5">
-                            <input type="text" id="vaultQrPropertyId" class="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono-code text-slate-900 focus:outline-none focus:border-emerald-500" placeholder="NACOC/EMU/#####" oninput="regenerateVaultBadgePreview()">
-                            <button type="button" id="vaultQrRandomizeBtn" onclick="randomizeVaultPropertyId()" class="px-2.5 py-1.5 bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-800 rounded-xl border border-slate-200 transition-colors shrink-0 text-xs font-bold flex items-center space-x-1" title="Generate Fresh 5-Digit Unique ID">
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="vaultQrPropertyId" class="rep-input w-full px-3 py-1.5 text-xs font-bold font-mono-code" placeholder="NACOC/EMU/#####" oninput="regenerateVaultBadgePreview()">
+                            <button type="button" id="vaultQrRandomizeBtn" onclick="randomizeVaultPropertyId()" class="rep-btn-green-soft px-3 py-1.5 rounded-xl shrink-0 text-xs font-bold flex items-center gap-1 cursor-pointer" title="Generate Fresh 5-Digit Unique ID">
                                 <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                                 <span class="hidden sm:inline">New ID</span>
                             </button>
                         </div>
-                        <p class="text-[9.5px] text-slate-400">Format: NACOC/EMU/##### (random unique 5-digit)</p>
+                        <p class="text-[10px] text-slate-400 font-mono-code">Format: NACOC/EMU/##### (unique 5-digit)</p>
                     </div>
 
-                    <!-- Exhibit Quick Reference -->
-                    <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs space-y-0.5">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Target Exhibit</label>
+                    <div class="rep-surface-card p-4 space-y-0.5">
+                        <span class="text-[10px] font-extrabold text-slate-500 font-mono-code uppercase tracking-wider block">Target Exhibit</span>
                         <div class="font-extrabold text-xs text-slate-900 truncate" id="vaultQrExhibitName">--</div>
-                        <div class="text-[10px] font-mono-code text-slate-500 truncate" id="vaultQrCaseRef">Case: --</div>
-                        <div class="text-[10px] text-emerald-700 font-semibold truncate" id="vaultQrSuspectName">Suspect: --</div>
+                        <div class="text-[10.5px] font-mono-code text-slate-500 truncate" id="vaultQrCaseRef">Case: --</div>
+                        <div class="text-[10.5px] text-emerald-700 font-semibold truncate" id="vaultQrSuspectName">Suspect: --</div>
                     </div>
                 </div>
 
-                <!-- Live Specification Badge Preview Container -->
-                <div class="space-y-2">
-                    <div class="flex items-center justify-between">
-                        <span class="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+                <div class="rep-surface-card p-4 space-y-2.5">
+                    <div class="flex items-center justify-between flex-wrap gap-2">
+                        <span class="text-xs font-extrabold text-slate-800 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
                             <i data-lucide="eye" class="w-3.5 h-3.5 text-emerald-600"></i>
-                            <span>Live Seized Property Badge Specification Preview</span>
+                            <span>Live Seized Property Badge Preview</span>
                         </span>
-                        <span class="text-[10px] text-slate-500 font-mono-code">Badge Dimensions: 780 × 330 px • High-Res PNG</span>
+                        <span class="text-[10px] text-slate-500 font-mono-code">780 &times; 330 px &bull; High-Res PNG</span>
                     </div>
 
-                    <div class="bg-slate-200/80 p-4 rounded-3xl border border-slate-300 flex items-center justify-center overflow-hidden">
-                        <!-- Wrapper for scale -->
-                        <div class="w-full max-w-[720px] aspect-[780/330] bg-white rounded-xl shadow-md border border-slate-300 relative flex items-center justify-center overflow-hidden">
+                    <div class="bg-slate-100 p-4 rounded-xl border border-slate-200/90 flex items-center justify-center overflow-hidden">
+                        <div class="w-full max-w-[720px] aspect-[780/330] bg-white rounded-lg shadow-sm border border-slate-300 relative flex items-center justify-center overflow-hidden">
                             <canvas id="vaultBadgeCanvas" width="780" height="330" class="w-full h-full object-contain"></canvas>
                         </div>
                     </div>
-                    <!-- Hidden container used for QR code generation -->
                     <div id="vaultHiddenQrContainer" class="hidden"></div>
                 </div>
             </div>
 
             <!-- Modal Footer -->
-            <div class="px-6 py-4 bg-slate-50 border-t border-slate-200 flex items-center justify-between shrink-0">
-                <button type="button" onclick="closeVaultQrModal()" class="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors">
+            <div class="px-6 py-3.5 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+                <button type="button" onclick="closeVaultQrModal()" class="rep-btn-green-soft px-4 py-2 text-xs font-bold rounded-xl cursor-pointer">
                     Cancel
                 </button>
 
-                <div class="flex items-center space-x-3">
-                    <button type="button" onclick="downloadVaultQrCodePNG()" class="px-3.5 py-2 bg-white hover:bg-emerald-50 border border-emerald-300 text-emerald-800 text-xs font-bold rounded-xl shadow-2xs transition-colors flex items-center space-x-1.5 cursor-pointer" title="Download Standalone QR Code (PNG)">
-                        <i data-lucide="qr-code" class="w-4 h-4 text-emerald-600"></i>
+                <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" onclick="downloadVaultQrCodePNG()" class="rep-btn-green-soft px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer">
+                        <i data-lucide="qr-code" class="w-4 h-4"></i>
                         <span>Save QR (PNG)</span>
                     </button>
 
-                    <button type="button" onclick="downloadVaultBadgePNG()" class="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-800 text-xs font-bold rounded-xl shadow-2xs transition-colors flex items-center space-x-2 cursor-pointer">
-                        <i data-lucide="download" class="w-4 h-4 text-slate-600"></i>
-                        <span>Download PNG Badge</span>
+                    <button type="button" onclick="downloadVaultBadgePNG()" class="rep-btn-green-soft px-3.5 py-2 text-xs font-bold rounded-xl flex items-center gap-1.5 cursor-pointer">
+                        <i data-lucide="download" class="w-4 h-4"></i>
+                        <span>Download Badge</span>
                     </button>
 
-                    <button type="button" id="saveVaultQrBtn" onclick="saveVaultQrToExhibit()" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center space-x-2 cursor-pointer">
-                        <i data-lucide="check" class="w-4 h-4 text-white"></i>
+                    <button type="button" id="saveVaultQrBtn" onclick="saveVaultQrToExhibit()" class="rep-btn-green px-5 py-2 text-xs font-extrabold rounded-xl flex items-center gap-2 cursor-pointer">
+                        <i data-lucide="check" class="w-4 h-4"></i>
                         <span>Assign &amp; Save to Exhibit</span>
                     </button>
                 </div>
@@ -989,86 +1110,80 @@
     </div>
 
     <!-- ========================================================== -->
-    <!-- 10. DRUG CLASSIFICATION & EXHIBIT TYPE MODAL               -->
+    <!-- 9. DRUG CLASSIFICATION & EXHIBIT TYPE MODAL                -->
     <!-- ========================================================== -->
-    <div id="vaultClassifyModal" class="fixed inset-0 z-55 hidden bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-        <div class="bg-white rounded-3xl max-w-2xl w-full border border-slate-200 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
-            <!-- Modal Header -->
-            <div class="px-6 py-4 bg-slate-900 text-white flex items-center justify-between shrink-0 border-b border-slate-800">
-                <div class="flex items-center space-x-3">
-                    <div class="w-10 h-10 rounded-2xl bg-teal-500/20 text-teal-400 border border-teal-500/30 flex items-center justify-center shrink-0">
+    <div id="vaultClassifyModal" class="fixed inset-0 z-55 hidden bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl max-w-2xl w-full border border-slate-300 shadow-2xl overflow-hidden flex flex-col">
+
+            <!-- Modal Grey Executive Header -->
+            <div class="vault-modal-header px-6 py-4 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-white text-emerald-700 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs">
                         <i data-lucide="sliders" class="w-5 h-5"></i>
                     </div>
                     <div>
-                        <h2 class="text-base font-extrabold tracking-tight text-white">Classify Exhibit &amp; Set Type</h2>
-                        <p class="text-xs text-slate-400 mt-0.5" id="vaultClassifyModalSubtitle">Central Vault Custody &amp; Substance Categorization</p>
+                        <h2 class="text-base font-extrabold tracking-tight text-slate-900">Classify Exhibit &amp; Set Type</h2>
+                        <p class="text-xs text-slate-600 mt-0.5" id="vaultClassifyModalSubtitle">Central Vault Custody &amp; Substance Categorization</p>
                     </div>
                 </div>
-                <button type="button" onclick="closeVaultClassifyModal()" class="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
+                <button type="button" onclick="closeVaultClassifyModal()" class="rep-btn-green-soft w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer">
+                    <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
 
             <!-- Modal Form Body -->
-            <form id="vaultClassifyForm" onsubmit="saveVaultClassification(event)" class="p-5 sm:p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar bg-slate-50/50">
+            <form id="vaultClassifyForm" onsubmit="saveVaultClassification(event)" class="p-5 sm:p-6 space-y-4 overflow-y-auto max-h-[80vh] custom-scrollbar bg-[#f3f5f8]">
                 <input type="hidden" id="classifyExhibitId">
 
-                <!-- Target Exhibit Header -->
-                <div class="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-2xs flex items-center justify-between">
-                    <div>
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Target Exhibit</span>
-                        <div class="text-xs font-extrabold text-slate-900" id="classifyTargetTitle">--</div>
+                <div class="rep-surface-card p-4 flex items-center justify-between gap-4">
+                    <div class="min-w-0">
+                        <span class="text-[10px] font-extrabold text-slate-500 font-mono-code uppercase tracking-wider block">Target Exhibit</span>
+                        <div class="text-xs font-extrabold text-slate-900 truncate" id="classifyTargetTitle">--</div>
                     </div>
-                    <div class="text-right">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Case Number</span>
-                        <span class="text-xs font-bold font-mono-code text-indigo-700" id="classifyTargetCase">--</span>
+                    <div class="text-right shrink-0">
+                        <span class="text-[10px] font-extrabold text-slate-500 font-mono-code uppercase tracking-wider block">Case Number</span>
+                        <span class="text-xs font-bold font-mono-code text-emerald-700" id="classifyTargetCase">--</span>
                     </div>
                 </div>
 
-                <!-- Exhibit Category -->
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1.5">
-                    <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Exhibit Category</label>
-                    <select id="classifyCategory" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-800 focus:outline-none focus:border-emerald-500" onchange="toggleCategoryClassificationFields()">
-                        <option value="Drugs">Drugs &amp; Narcotics</option>
-                        <option value="Weapons">Weapons &amp; Firearms</option>
-                        <option value="Vehicles">Vehicles &amp; Transport</option>
-                        <option value="Electronics">Digital Devices &amp; Media</option>
-                        <option value="Currency">Currency / Cash</option>
-                        <option value="General">General Exhibit</option>
-                    </select>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div class="rep-surface-card p-4 space-y-1.5">
+                        <label for="classifyCategory" class="text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider block">Exhibit Category</label>
+                        <select id="classifyCategory" class="rep-select w-full px-3 py-2 text-xs font-semibold" onchange="toggleCategoryClassificationFields()">
+                            <option value="Drugs">Drugs &amp; Narcotics</option>
+                            <option value="Weapons">Weapons &amp; Firearms</option>
+                            <option value="Vehicles">Vehicles &amp; Transport</option>
+                            <option value="Electronics">Digital Devices &amp; Media</option>
+                            <option value="Currency">Currency / Cash</option>
+                            <option value="General">General Exhibit</option>
+                        </select>
+                    </div>
+
+                    <div class="rep-surface-card p-4 space-y-1.5">
+                        <label for="classifyCommodityName" class="text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider block">Commodity / Exhibit Name</label>
+                        <input type="text" id="classifyCommodityName" class="rep-input w-full px-3 py-2 text-xs font-bold" placeholder="e.g. Cocaine, Heroin, AK-47, Toyota Hilux...">
+                    </div>
                 </div>
 
-                <!-- Commodity Name -->
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1.5">
-                    <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Commodity / Exhibit Name</label>
-                    <input type="text" id="classifyCommodityName" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:border-emerald-500" placeholder="e.g. Cocaine, Heroin, AK-47, Toyota Hilux...">
-                </div>
-
-                <!-- Exhibit Type Section -->
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1.5">
-                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center space-x-1.5">
-                        <i data-lucide="layers" class="w-3.5 h-3.5 text-slate-500"></i>
-                        <span>Exhibit Type</span>
-                    </label>
-                    <div class="relative">
-                        <select id="classifyExhibitType" onchange="handleExhibitTypeChange()"
-                            class="exhibit-type-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div class="rep-surface-card p-4 space-y-1.5">
+                        <label for="classifyExhibitType" class="text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
+                            <i data-lucide="layers" class="w-3.5 h-3.5 text-emerald-600"></i>
+                            <span>Exhibit Type</span>
+                        </label>
+                        <select id="classifyExhibitType" onchange="handleExhibitTypeChange()" class="rep-select w-full px-3 py-2 text-xs font-bold">
                             <option value="">-- Select Type --</option>
                             <option value="Drug Exhibit">Drug Exhibit</option>
                             <option value="Non-Drug Exhibit">Non-Drug Exhibit</option>
                         </select>
                     </div>
-                </div>
 
-                <!-- DRUG CLASSIFICATION DROPDOWN -->
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1.5" id="drugClassificationSection">
-                    <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1 flex items-center space-x-1.5">
-                        <i data-lucide="pill" class="w-3.5 h-3.5 text-emerald-600"></i>
-                        <span>Classify Drugs</span>
-                    </label>
-                    <div class="relative">
-                        <select id="classifyDrugSchedule" onchange="handleScheduleChange()"
-                            class="drug-classification-select w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 text-xs outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs cursor-pointer">
+                    <div class="rep-surface-card p-4 space-y-1.5" id="drugClassificationSection">
+                        <label for="classifyDrugSchedule" class="text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
+                            <i data-lucide="pill" class="w-3.5 h-3.5 text-emerald-600"></i>
+                            <span>Drug Classification</span>
+                        </label>
+                        <select id="classifyDrugSchedule" onchange="handleScheduleChange()" class="rep-select w-full px-3 py-2 text-xs font-bold">
                             <option value="N/A">N/A</option>
                             <option value="Class A">Class A</option>
                             <option value="Class B">Class B</option>
@@ -1077,19 +1192,17 @@
                     </div>
                 </div>
 
-                <!-- Remarks -->
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-2xs space-y-1.5">
-                    <label class="text-[11px] font-bold text-slate-600 uppercase tracking-wider block">Custodial Remarks / Notes</label>
-                    <textarea id="classifyRemark" rows="2" class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 focus:outline-none focus:border-emerald-500" placeholder="Enter any specific vault lodgement or chemical notes..."></textarea>
+                <div class="rep-surface-card p-4 space-y-1.5">
+                    <label for="classifyRemark" class="text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider block">Custodial Remarks / Notes</label>
+                    <textarea id="classifyRemark" rows="2" class="rep-input w-full px-3 py-2 text-xs font-medium" placeholder="Enter any specific vault lodgement or forensic notes..."></textarea>
                 </div>
 
-                <!-- Form Footer Actions -->
-                <div class="pt-2 flex items-center justify-between">
-                    <button type="button" onclick="closeVaultClassifyModal()" class="px-4 py-2 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors">
+                <div class="pt-1 flex items-center justify-between gap-3">
+                    <button type="button" onclick="closeVaultClassifyModal()" class="rep-btn-green-soft px-4 py-2 text-xs font-bold rounded-xl cursor-pointer">
                         Cancel
                     </button>
-                    <button type="submit" id="saveVaultClassifyBtn" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center space-x-2">
-                        <i data-lucide="check" class="w-4 h-4 text-white"></i>
+                    <button type="submit" id="saveVaultClassifyBtn" class="rep-btn-green px-5 py-2 text-xs font-extrabold rounded-xl flex items-center gap-2 cursor-pointer">
+                        <i data-lucide="check" class="w-4 h-4"></i>
                         <span>Save Classification &amp; Type</span>
                     </button>
                 </div>
@@ -1098,7 +1211,7 @@
     </div>
 
     <!-- Toast Notification Container -->
-    <div id="vaultToastContainer" class="fixed bottom-5 right-5 z-70 flex flex-col space-y-2 pointer-events-none"></div>
+    <div id="vaultToastContainer" class="fixed bottom-5 right-5 z-70 flex flex-col gap-2 pointer-events-none"></div>
 
     <!-- Scripts -->
     <script>
@@ -1109,9 +1222,6 @@
             bindPaginationLinks();
         });
 
-        // ==========================================
-        // ASYNC VAULT FILTER & SKELETON LOADING ENGINE
-        // ==========================================
         let searchDebounceTimer = null;
         let currentVaultAbortController = null;
 
@@ -1192,7 +1302,6 @@
                         window.history.pushState(null, '', targetUrl.pathname + targetUrl.search);
                     }
 
-                    // Update UI Filter Controls & Badges
                     syncFilterControlStates(targetUrl, data.metrics);
                     bindPaginationLinks();
 
@@ -1219,7 +1328,6 @@
             const categoryVal = params.get('category') || 'all';
             const viewModeVal = params.get('view') || 'grid';
 
-            // Sync inputs if not already matching
             const searchInput = document.getElementById('vaultSearchInput');
             if (searchInput && searchInput.value !== searchVal) searchInput.value = searchVal;
 
@@ -1228,6 +1336,9 @@
 
             const actionStatusSelect = document.getElementById('actionStatusSelect');
             if (actionStatusSelect && actionStatusSelect.value !== actionStatusVal) actionStatusSelect.value = actionStatusVal;
+
+            const suspectSelect = document.getElementById('suspectFilterSelect');
+            if (suspectSelect && suspectSelect.value !== suspectFilterVal) suspectSelect.value = suspectFilterVal;
 
             const sortSelect = document.getElementById('sortSelect');
             if (sortSelect && sortSelect.value !== sortVal) sortSelect.value = sortVal;
@@ -1238,20 +1349,18 @@
             const viewModeInput = document.getElementById('viewModeInput');
             if (viewModeInput) viewModeInput.value = viewModeVal;
 
-            // Update View Switcher Buttons
             const gridBtn = document.getElementById('gridModeBtn');
             const tableBtn = document.getElementById('tableModeBtn');
             if (gridBtn && tableBtn) {
                 if (viewModeVal === 'table') {
-                    tableBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 bg-white text-slate-900 shadow-xs';
-                    gridBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 text-slate-500 hover:text-slate-800';
+                    tableBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all rep-btn-green';
+                    gridBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all rep-btn-green-soft';
                 } else {
-                    gridBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 bg-white text-slate-900 shadow-xs';
-                    tableBtn.className = 'px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center space-x-1 text-slate-500 hover:text-slate-800';
+                    gridBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all rep-btn-green';
+                    tableBtn.className = 'px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all rep-btn-green-soft';
                 }
             }
 
-            // Update Category Pill Active Styles
             const categoryPills = document.querySelectorAll('.category-pill-btn');
             categoryPills.forEach(pill => {
                 const cat = pill.getAttribute('data-cat');
@@ -1259,15 +1368,24 @@
                 const isSelected = (cat === 'all' && (categoryVal === 'all' || !categoryVal)) || (cat !== 'all' && categoryVal.toLowerCase().includes(cat));
 
                 if (isSelected) {
-                    pill.className = 'category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center space-x-1.5 bg-emerald-600 text-white font-bold shadow-xs';
-                    if (badge) badge.className = 'category-count-badge text-[10px] px-1.5 py-0.2 rounded-full bg-white/20 text-white font-mono-code font-bold';
+                    pill.className = 'category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer vault-pill-active';
+                    if (badge) badge.className = 'category-count-badge text-[10px] px-1.5 py-0.5 rounded-full bg-white/20 text-white font-mono-code font-extrabold tnum';
                 } else {
-                    pill.className = 'category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center space-x-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200';
-                    if (badge) badge.className = 'category-count-badge text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700 font-mono-code font-bold';
+                    pill.className = 'category-pill-btn px-3 py-1.5 rounded-xl transition-all shrink-0 flex items-center gap-1.5 cursor-pointer vault-pill-inactive';
+                    if (badge) badge.className = 'category-count-badge text-[10px] px-1.5 py-0.5 rounded-full bg-slate-300 text-slate-800 font-mono-code font-extrabold tnum';
                 }
             });
 
-            // Update metric count numbers if returned
+            document.querySelectorAll('[data-kpi-tile]').forEach(tile => {
+                const key = tile.getAttribute('data-kpi-tile');
+                let active = false;
+                if (key === 'all') active = (categoryVal === 'all' || !categoryVal) && (actionStatusVal === 'all' || !actionStatusVal);
+                else if (key === 'pending') active = actionStatusVal === 'pending';
+                else if (key === 'completed') active = actionStatusVal === 'completed';
+                else active = categoryVal.toLowerCase().includes(key);
+                tile.classList.toggle('vault-kpi-active', active);
+            });
+
             if (metrics) {
                 document.querySelectorAll('[data-metric]').forEach(el => {
                     const metricKey = el.getAttribute('data-metric');
@@ -1277,8 +1395,7 @@
                 });
             }
 
-            // Toggle Reset Filter Button
-            const hasActiveFilters = searchVal || categoryVal !== 'all' || actionStatusVal !== 'all' || sortVal !== 'newest';
+            const hasActiveFilters = searchVal || categoryVal !== 'all' || actionStatusVal !== 'all' || suspectFilterVal !== 'all' || sortVal !== 'newest';
             const resetBtn = document.getElementById('resetFiltersBtn');
             if (resetBtn) resetBtn.classList.toggle('hidden', !hasActiveFilters);
         }
@@ -1290,7 +1407,7 @@
             clearTimeout(searchDebounceTimer);
             searchDebounceTimer = setTimeout(() => {
                 fetchVaultContent();
-            }, 350);
+            }, 320);
         }
 
         function clearSearch() {
@@ -1302,12 +1419,14 @@
         }
 
         function switchView(mode) {
-            document.getElementById('viewModeInput').value = mode;
+            const viewInput = document.getElementById('viewModeInput');
+            if (viewInput) viewInput.value = mode;
             fetchVaultContent();
         }
 
         function selectCategory(cat) {
-            document.getElementById('categoryInput').value = cat;
+            const catInput = document.getElementById('categoryInput');
+            if (catInput) catInput.value = cat;
             fetchVaultContent();
         }
 
@@ -1318,13 +1437,20 @@
         }
 
         function resetVaultFilters() {
-            const form = document.getElementById('vaultFilterForm');
-            if (form) {
-                document.getElementById('vaultSearchInput').value = '';
-                document.getElementById('actionStatusSelect').value = 'all';
-                document.getElementById('sortSelect').value = 'newest';
-                document.getElementById('categoryInput').value = 'all';
-            }
+            const searchEl = document.getElementById('vaultSearchInput');
+            const statusEl = document.getElementById('actionStatusSelect');
+            const suspectEl = document.getElementById('suspectFilterSelect');
+            const sortEl = document.getElementById('sortSelect');
+            const catEl = document.getElementById('categoryInput');
+            const clearBtn = document.getElementById('vaultClearSearchBtn');
+
+            if (searchEl) searchEl.value = '';
+            if (statusEl) statusEl.value = 'all';
+            if (suspectEl) suspectEl.value = 'all';
+            if (sortEl) sortEl.value = 'newest';
+            if (catEl) catEl.value = 'all';
+            if (clearBtn) clearBtn.classList.add('hidden');
+
             fetchVaultContent();
         }
 
@@ -1332,13 +1458,13 @@
             const container = document.getElementById('vaultExhibitsContent');
             if (!container) return;
 
-            const links = container.querySelectorAll('a[href*="/Evidence_Management/vault"]');
+            const links = container.querySelectorAll('a[href*="/Evidence_Management/vault"], a[href*="/evidence-management/vault"], a[href*="/exhibit-vault"]');
             links.forEach(link => {
                 link.addEventListener('click', (e) => {
                     if (link.getAttribute('href') && !link.getAttribute('onclick')) {
                         e.preventDefault();
                         fetchVaultContent(link.getAttribute('href'));
-                        window.scrollTo({ top: container.offsetTop - 100, behavior: 'smooth' });
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
                     }
                 });
             });
@@ -1348,7 +1474,6 @@
             fetchVaultContent(window.location.href, false);
         });
 
-        // Image URL Resolver Helper
         function resolveImageUrl(path) {
             if (!path) return '';
             if (path.startsWith('data:') || path.startsWith('http://') || path.startsWith('https://')) {
@@ -1360,7 +1485,6 @@
             return '/storage/' + path.replace(/^\//, '');
         }
 
-        // Global Vault Context
         window.currentModalExhibit = null;
         window.currentModalSuspects = [];
         let activeVaultQrExhibit = null;
@@ -1411,20 +1535,17 @@
             window.currentModalExhibit = exhibit;
             window.currentModalSuspects = suspects || [];
             const modal = document.getElementById('exhibitModal');
-            
-            // Header
+
             document.getElementById('modalExhibitTitle').textContent = exhibit.commodity_name || exhibit.exhibit_category || 'Exhibit Dossier';
             document.getElementById('modalExhibitNumber').textContent = exhibit.exhibit_number || ('EXH-#' + String(exhibit.id).padStart(4, '0'));
             document.getElementById('modalCategoryBadge').textContent = exhibit.exhibit_category || 'General';
-            
+
             const caseNo = exhibit.case_number || 'N/A';
             const caseUrl = exhibit.case_review_url || '#';
             document.getElementById('modalCaseSubtitle').textContent = 'Case Docket: ' + caseNo;
 
-            // Render Seized Property Badge Specification Preview in Inspect Container
             renderInspectBadgePreview(exhibit);
 
-            // Metrics
             let qty = 'N/A';
             if (exhibit.seizure_weight) {
                 qty = exhibit.seizure_weight + ' ' + (exhibit.seizure_unit || 'kg');
@@ -1450,7 +1571,6 @@
             document.getElementById('modalOfficer').textContent = exhibit.seizure_officer || 'N/A';
             document.getElementById('modalSource').textContent = 'Source: ' + (exhibit.source_of_exhibit || exhibit.source_of_exhibits || 'N/A');
 
-            // Left Column Core Details
             document.getElementById('modalCaseNumberDetail').textContent = caseNo;
             document.getElementById('modalCommodityName').textContent = exhibit.commodity_name || 'N/A';
             document.getElementById('modalExhibitType').textContent = exhibit.exhibit_type || 'N/A';
@@ -1463,13 +1583,9 @@
             const srcUnitEl = document.getElementById('modalSourceRequestingUnit');
             if (srcUnitEl) srcUnitEl.textContent = exhibit.source_requesting_unit || exhibit.source_of_exhibits || 'N/A';
 
-            // Custodial Status Management
-            const statusSelect = document.getElementById('inspectQuickStatusSelect');
-            if (statusSelect) statusSelect.value = exhibit.custodial_status || 'In Vault Custody';
             const statusLabel = document.getElementById('inspectCustodialStatusLabel');
             if (statusLabel) statusLabel.textContent = exhibit.custodial_status || 'In Vault Custody';
 
-            // Chain of Custody Input in Vault Custodial State
             const cocVal = exhibit.chain_of_custody ? String(exhibit.chain_of_custody).trim() : '';
             const fromInput = document.getElementById('inspectCustodyFrom');
             const toInput = document.getElementById('inspectCustodyTo');
@@ -1492,9 +1608,7 @@
                 cocInput.value = cocVal || (fromInput ? fromInput.value : 'Evidence Vault');
             }
 
-            // ==========================================
-            // EVIDENCE PHOTOS GALLERY POPULATION
-            // ==========================================
+            // Evidence Photos Gallery
             const gallery = document.getElementById('modalPhotosGallery');
             gallery.innerHTML = '';
 
@@ -1505,8 +1619,7 @@
                 } else if (typeof exhibit.evidence_photos === 'string') {
                     try {
                         const parsed = JSON.parse(exhibit.evidence_photos);
-                        if (Array.isArray(parsed)) photos = parsed;
-                        else photos = [exhibit.evidence_photos];
+                        photos = Array.isArray(parsed) ? parsed : [exhibit.evidence_photos];
                     } catch(e) {
                         photos = [exhibit.evidence_photos];
                     }
@@ -1519,18 +1632,15 @@
                 photos.forEach((photoPath, idx) => {
                     const resolvedUrl = resolveImageUrl(photoPath);
                     const photoCard = document.createElement('div');
-                    photoCard.className = 'group relative rounded-2xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video shadow-2xs hover:shadow-md transition-all cursor-zoom-in';
+                    photoCard.className = 'group relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video shadow-2xs hover:border-emerald-400 transition-all cursor-zoom-in';
                     photoCard.onclick = () => openImageLightbox(resolvedUrl, `Exhibit ${exhibit.exhibit_number || ''} — Photo ${idx + 1}`);
 
                     photoCard.innerHTML = `
                         <img src="${resolvedUrl}" alt="Evidence Photo ${idx + 1}" class="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105">
-                        <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
-                            <span class="text-[10px] text-white font-mono-code font-bold flex items-center space-x-1">
-                                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v3m0 0v3m0-3h3m-3 0H7"/></svg>
-                                <span>Click to Enlarge</span>
-                            </span>
+                        <div class="absolute inset-0 bg-gradient-to-t from-slate-900/65 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-2">
+                            <span class="text-[10px] text-white font-mono-code font-bold">Click to Enlarge</span>
                         </div>
-                        <span class="absolute top-1.5 left-1.5 bg-black/60 backdrop-blur-xs text-white text-[9px] font-mono-code px-1.5 py-0.5 rounded-md font-bold">
+                        <span class="absolute top-1.5 left-1.5 bg-white/90 text-slate-900 border border-slate-200 text-[9px] font-mono-code px-1.5 py-0.5 rounded font-bold">
                             #${idx + 1}
                         </span>
                     `;
@@ -1538,17 +1648,14 @@
                 });
             } else {
                 gallery.innerHTML = `
-                    <div class="col-span-full py-6 text-center text-slate-400 bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center space-y-1">
-                        <svg class="w-8 h-8 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-                        <span class="text-xs font-semibold text-slate-500">No digital evidence photographs logged</span>
-                        <span class="text-[10px] text-slate-400">Photos taken during scene seizure will appear in this gallery</span>
+                    <div class="col-span-full py-6 text-center text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center space-y-1">
+                        <span class="text-xs font-semibold text-slate-600">No digital evidence photographs logged</span>
+                        <span class="text-[10px] text-slate-400">Scene seizure photographs appear here when attached</span>
                     </div>
                 `;
             }
 
-            // ==========================================
-            // DYNAMIC CATEGORY TECHNICAL SPECS
-            // ==========================================
+            // Dynamic Category Technical Specs
             const specsBody = document.getElementById('modalCategorySpecsBody');
             const specsTitle = document.getElementById('modalCategorySpecsTitle');
             specsBody.innerHTML = '';
@@ -1559,62 +1666,60 @@
                 specsTitle.textContent = 'Vehicle & Transportation Dossier';
                 const makeModelStr = [exhibit.veh_make, exhibit.veh_model].filter(Boolean).join(' ') || 'N/A';
                 specsBody.innerHTML = `
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                        <div><strong class="text-slate-400 block text-[10px]">Make &amp; Model</strong><span class="font-bold text-slate-900">${makeModelStr}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Registration No</strong><span class="font-mono-code font-bold text-blue-700">${exhibit.veh_reg_no || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">VIN / Chassis</strong><span class="font-mono-code font-bold text-slate-800">${exhibit.veh_vin || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Engine Number</strong><span class="font-mono-code text-slate-800">${exhibit.veh_engine_no || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Year / Colour</strong><span class="text-slate-800">${exhibit.veh_year || 'N/A'} • ${exhibit.veh_colour || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Keys &amp; Fuel</strong><span class="text-slate-800">${exhibit.veh_keys_recv ? ('Keys Recv' + (exhibit.veh_key_count ? ' (' + exhibit.veh_key_count + ')' : '')) : 'No Keys'} • Fuel: ${exhibit.veh_fuel || 'N/A'}</span></div>
-                        <div class="col-span-full"><strong class="text-slate-400 block text-[10px]">Registered Owner / Driver</strong><span class="text-slate-800">Owner: ${exhibit.veh_owner || 'N/A'} (Contact: ${exhibit.veh_owner_contact || 'N/A'}) • Driver: ${exhibit.veh_driver || 'N/A'}</span></div>
-                        ${exhibit.veh_damage ? `<div class="col-span-full"><strong class="text-slate-400 block text-[10px]">Damage Notes</strong><span class="text-amber-800 italic">${exhibit.veh_damage}</span></div>` : ''}
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Make &amp; Model</strong><span class="font-bold text-slate-900">${makeModelStr}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Registration No</strong><span class="font-mono-code font-bold text-blue-700">${exhibit.veh_reg_no || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">VIN / Chassis</strong><span class="font-mono-code font-bold text-slate-800">${exhibit.veh_vin || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Engine Number</strong><span class="font-mono-code text-slate-800">${exhibit.veh_engine_no || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Year / Colour</strong><span class="text-slate-800">${exhibit.veh_year || 'N/A'} &bull; ${exhibit.veh_colour || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Keys &amp; Fuel</strong><span class="text-slate-800">${exhibit.veh_keys_recv ? ('Keys Recv' + (exhibit.veh_key_count ? ' (' + exhibit.veh_key_count + ')' : '')) : 'No Keys'} &bull; Fuel: ${exhibit.veh_fuel || 'N/A'}</span></div>
+                        <div class="col-span-full"><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Registered Owner / Driver</strong><span class="text-slate-800">Owner: ${exhibit.veh_owner || 'N/A'} (${exhibit.veh_owner_contact || 'N/A'}) &bull; Driver: ${exhibit.veh_driver || 'N/A'}</span></div>
+                        ${exhibit.veh_damage ? `<div class="col-span-full"><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Damage Notes</strong><span class="text-amber-800 italic">${exhibit.veh_damage}</span></div>` : ''}
                     </div>
                 `;
             } else if (cat.includes('weapon') || cat.includes('firearm') || exhibit.wpn_model || exhibit.wpn_serial_no) {
                 specsTitle.textContent = 'Firearms & Ballistics Specifications';
                 specsBody.innerHTML = `
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                        <div><strong class="text-slate-400 block text-[10px]">Weapon Model</strong><span class="font-bold text-slate-900">${exhibit.wpn_model || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Serial Number</strong><span class="font-mono-code font-bold text-amber-700">${exhibit.wpn_serial_no || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Calibre / Gauge</strong><span class="font-mono-code text-slate-800">${exhibit.wpn_calibre || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Loaded Status</strong><span class="font-bold ${exhibit.wpn_loaded_status === 'Loaded' ? 'text-red-600' : 'text-slate-700'}">${exhibit.wpn_loaded_status || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Condition</strong><span class="text-slate-800">${exhibit.wpn_condition || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Location Found</strong><span class="text-slate-800">${exhibit.wpn_location_found || 'N/A'}</span></div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Weapon Model</strong><span class="font-bold text-slate-900">${exhibit.wpn_model || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Serial Number</strong><span class="font-mono-code font-bold text-amber-700">${exhibit.wpn_serial_no || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Calibre / Gauge</strong><span class="font-mono-code text-slate-800">${exhibit.wpn_calibre || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Loaded Status</strong><span class="font-bold ${exhibit.wpn_loaded_status === 'Loaded' ? 'text-rose-600' : 'text-slate-700'}">${exhibit.wpn_loaded_status || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Condition</strong><span class="text-slate-800">${exhibit.wpn_condition || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Location Found</strong><span class="text-slate-800">${exhibit.wpn_location_found || 'N/A'}</span></div>
                     </div>
                 `;
             } else if (cat.includes('devic') || cat.includes('electron') || cat.includes('digital') || exhibit.dev_model || exhibit.dev_imei1) {
                 specsTitle.textContent = 'Digital & Mobile Forensic Device Profile';
                 specsBody.innerHTML = `
-                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                        <div><strong class="text-slate-400 block text-[10px]">Device Model</strong><span class="font-bold text-slate-900">${exhibit.dev_model || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Serial Number</strong><span class="font-mono-code text-slate-800">${exhibit.dev_serial_no || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Primary IMEI</strong><span class="font-mono-code font-bold text-purple-700">${exhibit.dev_imei1 || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Secondary IMEI</strong><span class="font-mono-code text-purple-700">${exhibit.dev_imei2 || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Storage Capacity</strong><span class="font-mono-code text-slate-800">${exhibit.dev_storage || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">MAC / Network</strong><span class="font-mono-code text-slate-800">${exhibit.dev_mac_address || 'N/A'}</span></div>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Device Model</strong><span class="font-bold text-slate-900">${exhibit.dev_model || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Serial Number</strong><span class="font-mono-code text-slate-800">${exhibit.dev_serial_no || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Primary IMEI</strong><span class="font-mono-code font-bold text-purple-700">${exhibit.dev_imei1 || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Secondary IMEI</strong><span class="font-mono-code text-purple-700">${exhibit.dev_imei2 || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Storage Capacity</strong><span class="font-mono-code text-slate-800">${exhibit.dev_storage || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">MAC / Network</strong><span class="font-mono-code text-slate-800">${exhibit.dev_mac_address || 'N/A'}</span></div>
                     </div>
                 `;
             } else if (cat.includes('drug') || cat.includes('narcotic') || exhibit.drug_classification) {
                 specsTitle.textContent = 'Narcotics Classification & Profile';
                 specsBody.innerHTML = `
-                    <div class="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                        <div><strong class="text-slate-400 block text-[10px]">Drug Classification</strong><span class="font-bold text-emerald-800 font-mono-code">${exhibit.drug_classification || 'N/A'}</span></div>
-                        <div><strong class="text-slate-400 block text-[10px]">Physical State</strong><span class="font-bold text-slate-800">${exhibit.commodity_name || 'N/A'}</span></div>
+                    <div class="grid grid-cols-2 gap-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200/80">
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Drug Classification</strong><span class="font-bold text-emerald-800 font-mono-code">${exhibit.drug_classification || 'N/A'}</span></div>
+                        <div><strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Commodity Profile</strong><span class="font-bold text-slate-800">${exhibit.commodity_name || 'N/A'}</span></div>
                     </div>
                 `;
             } else {
                 specsTitle.textContent = 'General Exhibit Particulars';
                 specsBody.innerHTML = `
-                    <div class="bg-slate-50 p-3 rounded-2xl border border-slate-200 text-slate-700">
-                        <strong class="text-slate-400 block text-[10px]">Extended Description</strong>
+                    <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200/80 text-slate-700">
+                        <strong class="text-slate-400 font-mono-code uppercase block text-[9.5px]">Extended Description</strong>
                         <span>${exhibit.other_exhibit_description || exhibit.commodity_name || 'N/A'}</span>
                     </div>
                 `;
             }
 
-            // ==========================================
-            // ASSOCIATED SUSPECTS LIST POPULATION
-            // ==========================================
+            // Associated Suspects List
             const suspectsList = document.getElementById('modalSuspectsList');
             suspectsList.innerHTML = '';
 
@@ -1635,14 +1740,14 @@
             if (suspects && suspects.length > 0) {
                 suspects.forEach(s => {
                     const card = document.createElement('div');
-                    card.className = 'bg-slate-50/90 rounded-2xl p-4 border border-slate-200/90 shadow-2xs space-y-3 hover:border-emerald-300 transition-colors';
+                    card.className = 'bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-3 hover:border-emerald-300 transition-colors';
                     const mugSrc = resolveImageUrl(s.mugshot);
 
                     const roleLower = (s.role || '').toLowerCase();
                     const isPrimary = roleLower.includes('primary') || roleLower.includes('sole');
-                    const roleBadgeClass = isPrimary 
-                        ? 'bg-amber-100 text-amber-900 border-amber-200' 
-                        : 'bg-blue-100 text-blue-900 border-blue-200';
+                    const roleBadgeClass = isPrimary
+                        ? 'bg-amber-50 text-amber-800 border-amber-200'
+                        : 'bg-emerald-50 text-emerald-800 border-emerald-200';
 
                     const dispLower = (s.suspect_disposition || '').toLowerCase();
                     let dispBadgeClass = 'bg-emerald-50 text-emerald-800 border-emerald-200';
@@ -1650,23 +1755,16 @@
                         dispBadgeClass = 'bg-rose-50 text-rose-800 border-rose-200';
                     } else if (dispLower.includes('bail') || dispLower.includes('released')) {
                         dispBadgeClass = 'bg-amber-50 text-amber-800 border-amber-200';
-                    } else if (dispLower.includes('court') || dispLower.includes('convict')) {
-                        dispBadgeClass = 'bg-purple-50 text-purple-800 border-purple-200';
                     }
 
                     card.innerHTML = `
-                        <!-- Suspect Header: Mugshot, Full Name, Alias, Role & Custody Status -->
                         <div class="flex items-start justify-between gap-3">
-                            <div class="flex items-center space-x-3.5 min-w-0">
-                                <!-- Mugshot with zoom lightbox -->
-                                <div class="w-13 h-13 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-800 font-extrabold text-sm shrink-0 overflow-hidden shadow-2xs relative group/mug cursor-zoom-in">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <div class="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-800 font-extrabold text-sm shrink-0 overflow-hidden shadow-2xs cursor-zoom-in">
                                     ${mugSrc ? `
-                                        <img src="${mugSrc}" alt="${s.name}" class="w-full h-full object-cover transition-transform duration-200 group-hover/mug:scale-110" onclick="openImageLightbox('${mugSrc}', '${s.name} Mugshot')">
-                                        <div class="absolute inset-0 bg-slate-900/20 opacity-0 group-hover/mug:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                                            <svg class="w-4 h-4 text-white drop-shadow" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7"/></svg>
-                                        </div>
+                                        <img src="${mugSrc}" alt="${s.name}" class="w-full h-full object-cover" onclick="openImageLightbox('${mugSrc}', '${s.name} Mugshot')">
                                     ` : `
-                                        <span class="text-emerald-800 font-extrabold text-base">${(s.name || '--').substring(0, 2).toUpperCase()}</span>
+                                        <span class="text-emerald-800 font-mono-code font-extrabold text-sm">${(s.name || '--').substring(0, 2).toUpperCase()}</span>
                                     `}
                                 </div>
                                 <div class="min-w-0 space-y-0.5">
@@ -1679,49 +1777,34 @@
                                     <div class="font-extrabold text-slate-900 text-sm leading-tight truncate" title="${s.name}">
                                         ${s.name}
                                     </div>
-                                    ${s.alias ? `
-                                        <div class="text-[11px] text-slate-500 font-mono-code">
-                                            <span class="text-slate-400 font-bold uppercase text-[9px]">Alias:</span> 
-                                            <span class="font-bold text-slate-700">"${s.alias}"</span>
-                                        </div>
-                                    ` : ''}
+                                    ${s.alias ? `<div class="text-[11px] text-slate-500 font-mono-code">Alias: <span class="font-bold text-slate-700">"${s.alias}"</span></div>` : ''}
                                 </div>
                             </div>
 
-                            <!-- Custodial Disposition Status -->
                             <div class="shrink-0 text-right">
-                                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Custodial Status</span>
-                                <span class="text-[10px] px-2.5 py-1 rounded-full font-mono-code font-bold uppercase inline-block border ${dispBadgeClass}">
+                                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 font-mono-code block mb-1">Disposition</span>
+                                <span class="text-[10px] px-2.5 py-0.5 rounded-full font-mono-code font-bold uppercase inline-block border ${dispBadgeClass}">
                                     ${s.suspect_disposition || 'N/A'}
                                 </span>
                             </div>
                         </div>
 
-                        <!-- Arranged Particulars Grid: Explicit, Clean Labeled Metadata Tiles -->
                         <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
-                            <div class="bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-3xs">
-                                <span class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Ghana Card (NIA)</span>
-                                <span class="font-bold text-slate-900 font-mono-code text-[11px] block truncate" title="${s.ghana_card || 'N/A'}">
-                                    ${s.ghana_card || 'N/A'}
-                                </span>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 font-mono-code block">Ghana Card</span>
+                                <span class="font-bold text-slate-900 font-mono-code text-[11px] block truncate">${s.ghana_card || 'N/A'}</span>
                             </div>
-                            <div class="bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-3xs">
-                                <span class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Gender</span>
-                                <span class="font-bold text-slate-900 text-[11px] block">
-                                    ${s.gender || 'N/A'}
-                                </span>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 font-mono-code block">Gender</span>
+                                <span class="font-bold text-slate-900 text-[11px] block">${s.gender || 'N/A'}</span>
                             </div>
-                            <div class="bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-3xs">
-                                <span class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Age</span>
-                                <span class="font-bold text-slate-900 text-[11px] block">
-                                    ${s.age ? `${s.age} Years` : 'N/A'}
-                                </span>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 font-mono-code block">Age</span>
+                                <span class="font-bold text-slate-900 text-[11px] block">${s.age ? `${s.age} Yrs` : 'N/A'}</span>
                             </div>
-                            <div class="bg-white p-2.5 rounded-xl border border-slate-200/90 shadow-3xs">
-                                <span class="text-[9.5px] font-bold uppercase tracking-wider text-slate-400 block mb-0.5">Nationality</span>
-                                <span class="font-bold text-slate-900 text-[11px] block truncate">
-                                    ${s.nationality || 'N/A'}
-                                </span>
+                            <div class="bg-white p-2.5 rounded-lg border border-slate-200/80">
+                                <span class="text-[9px] font-bold uppercase tracking-wider text-slate-400 font-mono-code block">Nationality</span>
+                                <span class="font-bold text-slate-900 text-[11px] block truncate">${s.nationality || 'N/A'}</span>
                             </div>
                         </div>
                     `;
@@ -1729,9 +1812,9 @@
                 });
             } else {
                 suspectsList.innerHTML = `
-                    <div class="text-xs text-slate-600 bg-slate-50 p-4 rounded-2xl border border-slate-200 flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-200">
-                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                    <div class="text-xs text-slate-600 bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center gap-3">
+                        <div class="w-8 h-8 rounded-lg bg-amber-50 text-amber-700 flex items-center justify-center shrink-0 border border-amber-200">
+                            <i data-lucide="alert-triangle" class="w-4 h-4"></i>
                         </div>
                         <div>
                             <div class="font-bold text-slate-800 text-xs">No Associated Suspects Logged</div>
@@ -1741,7 +1824,6 @@
                 `;
             }
 
-            // Remarks
             document.getElementById('modalRemark').textContent = exhibit.exhibit_remark ? `"${exhibit.exhibit_remark}"` : 'No lodgement remarks recorded.';
 
             const labRemarkContainer = document.getElementById('modalLabRemarkContainer');
@@ -1752,23 +1834,14 @@
                 labRemarkContainer.classList.add('hidden');
             }
 
-            // Toggle Classify button: don't display if exhibit already has both drug classification and exhibit type
             const isAlreadyClassified = Boolean(exhibit.drug_classification && exhibit.drug_classification !== '' && exhibit.exhibit_type && exhibit.exhibit_type !== '');
             const inspectClassifyBtn = document.getElementById('inspectClassifyBtn');
             if (inspectClassifyBtn) {
-                if (isAlreadyClassified) {
-                    inspectClassifyBtn.classList.add('hidden');
-                } else {
-                    inspectClassifyBtn.classList.remove('hidden');
-                }
+                inspectClassifyBtn.classList.toggle('hidden', isAlreadyClassified);
             }
             const inspectUnassignedClassifyBtn = document.getElementById('inspectUnassignedClassifyBtn');
             if (inspectUnassignedClassifyBtn) {
-                if (isAlreadyClassified) {
-                    inspectUnassignedClassifyBtn.classList.add('hidden');
-                } else {
-                    inspectUnassignedClassifyBtn.classList.remove('hidden');
-                }
+                inspectUnassignedClassifyBtn.classList.toggle('hidden', isAlreadyClassified);
             }
 
             modal.classList.remove('hidden');
@@ -1779,9 +1852,6 @@
             document.getElementById('exhibitModal').classList.add('hidden');
         }
 
-        // ==========================================
-        // OFFICIAL SEIZED PROPERTY QR CODE BADGE
-        // ==========================================
         function buildVaultSeizureQrPayload(exhibit, propertyId, status) {
             if (!exhibit) return 'NACOC SEIZED PROPERTY\nPROPERTY ID: ' + (propertyId || 'N/A');
 
@@ -1791,24 +1861,18 @@
                 .trim()
                 .slice(0, max || 120);
 
-            // Resolve Property ID & Status (Always Seized)
             const propId = clean(propertyId || exhibit.property_id || '', 40);
             const liveStatus = 'Seized';
-
-            // Case Reference
             const caseRef = clean(exhibit.case_number || (exhibit.single_suspect_case && exhibit.single_suspect_case.case_number) || (exhibit.multiple_suspect_case && exhibit.multiple_suspect_case.case_number) || '', 60);
 
-            // Exhibit Number & Commodity Name
             let exhName = clean(exhibit.exhibit_number || '', 40);
             if (exhibit.commodity_name) {
                 exhName = exhName ? `${exhName} (${clean(exhibit.commodity_name, 60)})` : clean(exhibit.commodity_name, 80);
             }
 
-            // Category & Classification
             const category = clean(exhibit.exhibit_category || '', 60);
             const classification = clean(exhibit.drug_classification || exhibit.exhibit_type || '', 60);
 
-            // Suspect(s)
             let suspectStr = '';
             if (window.currentModalSuspects && window.currentModalSuspects.length > 0) {
                 suspectStr = window.currentModalSuspects.map(s => s.name).filter(Boolean).join(', ');
@@ -1823,7 +1887,6 @@
             }
             suspectStr = clean(suspectStr, 120);
 
-            // Quantity / Weight
             let qtyStr = '';
             if (exhibit.seizure_weight) {
                 qtyStr = clean(exhibit.seizure_weight + ' ' + (exhibit.seizure_unit || 'kg'), 40);
@@ -1833,7 +1896,6 @@
                 qtyStr = clean(exhibit.seizure_quantity + ' ' + (exhibit.seizure_unit || 'pcs'), 40);
             }
 
-            // Value
             let valStr = '';
             const rawValForTag = (exhibit.seizure_value && exhibit.seizure_value !== 'N/A') ? exhibit.seizure_value : exhibit.amount;
             if (rawValForTag) {
@@ -1843,7 +1905,6 @@
                     : 'GHS ' + rawValForTag;
             }
 
-            // Packaging, Concealment, Location, Officer, Date
             const packaging = clean(exhibit.seizure_packaging || '', 60);
             const concealment = clean(exhibit.seizure_concealment || '', 100);
             const location = clean(exhibit.source_of_exhibit || exhibit.source_of_exhibits || exhibit.seizure_location || '', 100);
@@ -1852,7 +1913,6 @@
             const sTime = exhibit.seizure_time || '';
             const dateTime = clean((sDate + (sTime ? ' @ ' + sTime : '')).trim(), 40);
 
-            // Category specific specs if applicable
             let specStr = '';
             const catLower = category.toLowerCase();
             if (catLower.includes('vehic') || exhibit.veh_reg_no || exhibit.veh_vin) {
@@ -1900,7 +1960,6 @@
             return lines.filter(Boolean).join('\n');
         }
 
-
         function renderNacocBrandedQRCode(qrContainer, qrPayload, size, onReady) {
             if (!qrContainer) {
                 if (typeof onReady === 'function') onReady(null);
@@ -1908,7 +1967,6 @@
             }
             qrContainer.innerHTML = '';
             if (typeof QRCode === 'undefined') {
-                console.warn('QRCode library is not loaded');
                 if (typeof onReady === 'function') onReady(null);
                 return;
             }
@@ -1920,7 +1978,7 @@
                     text: qrPayload,
                     width: size,
                     height: size,
-                    colorDark: "#0B6B3A", // Rich NACOC Emerald Green matching specification
+                    colorDark: "#0B6B3A",
                     colorLight: "#FFFFFF",
                     correctLevel: QRCode.CorrectLevel.M
                 });
@@ -1962,9 +2020,7 @@
                             let drawW = drawH * logoAspect;
                             ctx.drawImage(logoImg, cx - (drawW / 2), cy - (drawH / 2), drawW, drawH);
                             ctx.restore();
-                        } catch (e) {
-                            console.warn('Logo overlay skipped:', e);
-                        }
+                        } catch (e) {}
                     }
 
                     const img = qrContainer.querySelector('img');
@@ -1983,19 +2039,17 @@
 
                 preloadNacocLogo(overlayLogo);
             } catch (e) {
-                console.warn('QRCode generation primary attempt notice:', e);
-                // Robust fallback attempt with concise essential payload and Level L
                 try {
                     qrContainer.innerHTML = '';
                     const lines = (qrPayload || '').split('\n');
-                    const conciseLines = lines.filter(l => 
-                        l.startsWith('SEIZED') || 
-                        l.startsWith('NACOC') || 
-                        l.startsWith('PROPERTY ID') || 
-                        l.startsWith('STATUS') || 
-                        l.startsWith('CASE') || 
-                        l.startsWith('EXHIBIT') || 
-                        l.startsWith('QUANTITY') || 
+                    const conciseLines = lines.filter(l =>
+                        l.startsWith('SEIZED') ||
+                        l.startsWith('NACOC') ||
+                        l.startsWith('PROPERTY ID') ||
+                        l.startsWith('STATUS') ||
+                        l.startsWith('CASE') ||
+                        l.startsWith('EXHIBIT') ||
+                        l.startsWith('QUANTITY') ||
                         l.startsWith('DATE')
                     );
                     const conciseText = (conciseLines.length > 0 ? conciseLines.join('\n') : (qrPayload || '')).slice(0, 320);
@@ -2011,7 +2065,6 @@
                     const c = qrContainer.querySelector('canvas') || qrContainer.querySelector('img');
                     if (typeof onReady === 'function') onReady(c);
                 } catch (err) {
-                    console.error('QRCode generation fallback error:', err);
                     if (typeof onReady === 'function') onReady(null);
                 }
             }
@@ -2025,23 +2078,19 @@
             const sans = 'system-ui, -apple-system, "Inter", sans-serif';
             const ls = (v) => { if ('letterSpacing' in ctx) ctx.letterSpacing = v; };
 
-            // Plain white background
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, w, h);
 
-            // Thin outer border
             ctx.strokeStyle = '#CBD5E1';
             ctx.lineWidth = 2;
             ctx.strokeRect(1, 1, w - 2, h - 2);
 
-            // Header: Bookman Old Style red bold uppercase SEIZED PROPERTY
             ctx.textAlign = 'center';
             ctx.fillStyle = '#EF4444';
             ctx.font = `900 26px 'Bookman Old Style', Bookman, 'URW Bookman', Georgia, serif`;
             ls('4px');
             ctx.fillText('SEIZED PROPERTY', w / 2, 52);
 
-            // Subtitle: NACOC – EVIDENCE MANAGEMENT
             ctx.fillStyle = '#475569';
             ctx.font = `600 13px ${sans}`;
             ls('3px');
@@ -2059,7 +2108,6 @@
             divider(98);
             divider(h - 52);
 
-            // Left details
             ctx.textAlign = 'left';
             ctx.fillStyle = '#64748B';
             ctx.font = `700 12px ${sans}`;
@@ -2084,15 +2132,12 @@
                 ctx.fillText(`Case: ${data.caseRef}`, 36, 252);
             }
 
-            // QR code on white badge without background container
             if (data.qrSource) {
                 const drawQr = (src) => {
                     try {
                         const q = 140;
                         ctx.drawImage(src, w - q - 40, 116, q, q);
-                    } catch (e) {
-                        console.error('Error drawing QR onto canvas:', e);
-                    }
+                    } catch (e) {}
                 };
 
                 if (typeof HTMLImageElement !== 'undefined' && data.qrSource instanceof HTMLImageElement && !data.qrSource.complete) {
@@ -2102,7 +2147,6 @@
                 }
             }
 
-            // Footer
             ctx.fillStyle = '#475569';
             ctx.font = `700 12px ${sans}`;
             ctx.textAlign = 'center';
@@ -2113,27 +2157,21 @@
             return targetCanvas;
         }
 
-        // ==========================================
-        // INSPECT CONTAINER BADGE PREVIEW LOGIC
-        // ==========================================
         function renderInspectBadgePreview(exhibit) {
             if (!exhibit) return;
             const previewCard = document.getElementById('inspectBadgePreviewCard');
             const unassignedCard = document.getElementById('inspectBadgeUnassignedCard');
-            const canvas = document.getElementById('inspectBadgeCanvas');
-            const img = document.getElementById('inspectBadgeImg');
             const statusPill = document.getElementById('inspectBadgeStatusPill');
             const noticeText = document.getElementById('inspectBadgeNoticeText');
             const modalBtnText = document.getElementById('inspectOpenQrModalBtnText');
 
             const isAlreadyGenerated = Boolean(
-                exhibit.tag_image || 
-                exhibit.tag_url || 
+                exhibit.tag_image ||
+                exhibit.tag_url ||
                 (exhibit.property_id && exhibit.property_id !== 'NACOC/EMU/00241' && exhibit.property_id.trim() !== '')
             );
 
             if (isAlreadyGenerated) {
-                // Exhibit has an assigned QR code tag -> show preview card, hide unassigned placeholder
                 if (previewCard) previewCard.classList.remove('hidden');
                 if (unassignedCard) unassignedCard.classList.add('hidden');
 
@@ -2141,19 +2179,17 @@
 
                 if (statusPill) {
                     statusPill.textContent = "Officially Sealed • Seized";
-                    statusPill.className = "text-[10px] font-mono-code font-bold uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300";
+                    statusPill.className = "text-[10px] font-mono-code font-bold uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 inline-block mt-0.5";
                 }
                 if (noticeText) {
-                    noticeText.textContent = `Permanent official QR tag • Seized Property • Property ID: ${propId}`;
+                    noticeText.textContent = `Permanent official QR tag • Property ID: ${propId}`;
                 }
                 if (modalBtnText) {
                     modalBtnText.textContent = "View Sealed Tag";
                 }
 
-                // Render dynamic badge canvas with official QR code
                 drawDynamicInspectBadge(exhibit, propId);
             } else {
-                // If the exhibit has not been assigned QR yet, hide preview card and show unassigned card
                 if (previewCard) previewCard.classList.add('hidden');
                 if (unassignedCard) unassignedCard.classList.remove('hidden');
             }
@@ -2262,42 +2298,6 @@
             }
         }
 
-        async function updateInspectCustodialStatus() {
-            if (!window.currentModalExhibit) return;
-            const ex = window.currentModalExhibit;
-            const select = document.getElementById('inspectQuickStatusSelect');
-            if (!select) return;
-            const newStatus = select.value;
-            const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-
-            try {
-                const res = await fetch(`/Evidence_Management/exhibits/${ex.id}/custodial-status`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Accept': 'application/json',
-                        'X-CSRF-TOKEN': token
-                    },
-                    body: JSON.stringify({ custodial_status: newStatus })
-                });
-                const data = await res.json();
-                if (res.ok && data.success) {
-                    ex.custodial_status = newStatus;
-                    const statusLabel = document.getElementById('inspectCustodialStatusLabel');
-                    if (statusLabel) statusLabel.textContent = newStatus;
-                    showVaultToast(`Custodial status updated to '${newStatus}'! Live QR scan page is automatically synchronized.`, 'success');
-                    renderInspectBadgePreview(ex);
-                    updateExhibitDomBadges(ex);
-                } else {
-                    showVaultToast(data.message || 'Failed to update custodial status', 'error');
-                }
-            } catch(e) {
-                console.error(e);
-                showVaultToast('Error communicating with server', 'error');
-            }
-        }
-
-        // Chain of Custody Dynamic Synchronization in Vault Custodial State
         function updateInspectChainOfCustodyValue() {
             const fromInput = document.getElementById('inspectCustodyFrom');
             const toInput = document.getElementById('inspectCustodyTo');
@@ -2332,7 +2332,7 @@
             const origHtml = btn ? btn.innerHTML : '';
             if (btn) {
                 btn.disabled = true;
-                btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin mr-1" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg><span>Saving...</span>`;
+                btn.innerHTML = `<span>Saving...</span>`;
             }
 
             const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -2359,7 +2359,6 @@
                     showVaultToast(data.message || 'Failed to update chain of custody', 'error');
                 }
             } catch(e) {
-                console.error(e);
                 showVaultToast('Error communicating with server', 'error');
             } finally {
                 if (btn) {
@@ -2398,10 +2397,9 @@
             }
             suspectName.textContent = suspectSummary;
 
-            // Check if Seized Property QR Code badge has already been generated
             const isAlreadyGenerated = Boolean(
-                exhibit.tag_image || 
-                exhibit.tag_url || 
+                exhibit.tag_image ||
+                exhibit.tag_url ||
                 (exhibit.property_id && exhibit.property_id !== 'NACOC/EMU/00241' && /^NACOC\/EMU\/\d{5}$/.test(exhibit.property_id))
             );
 
@@ -2414,59 +2412,42 @@
                 statusSelect.value = 'Seized';
             }
 
-            // Lock or unlock inputs according to badge generation state
             if (isAlreadyGenerated) {
-                // Disable and lock Property ID input
                 propIdInput.disabled = true;
                 propIdInput.readOnly = true;
                 propIdInput.className = "w-full px-3 py-1.5 bg-slate-100 border border-slate-300 rounded-xl text-xs font-bold font-mono-code text-slate-500 cursor-not-allowed select-none";
 
-                // Hide/disable randomize button
                 if (randomizeBtn) {
                     randomizeBtn.disabled = true;
                     randomizeBtn.classList.add('hidden');
                 }
 
-                // Disable Assign & Save button
                 if (saveBtn) {
                     saveBtn.disabled = true;
-                    saveBtn.className = "px-5 py-2 bg-slate-200 text-slate-400 border border-slate-300 text-xs font-bold rounded-xl shadow-none cursor-not-allowed flex items-center space-x-2";
-                    saveBtn.innerHTML = `
-                        <i data-lucide="lock" class="w-4 h-4 text-slate-400"></i>
-                        <span>Badge Already Assigned &amp; Locked</span>
-                    `;
-                    saveBtn.title = "The official Seized Property QR Code badge has already been generated and assigned. Tag specifications are sealed and tamper-evident.";
+                    saveBtn.className = "px-5 py-2 bg-slate-200 text-slate-500 border border-slate-300 text-xs font-bold rounded-xl cursor-not-allowed flex items-center gap-2";
+                    saveBtn.innerHTML = `<i data-lucide="lock" class="w-4 h-4"></i><span>Badge Assigned &amp; Locked</span>`;
                 }
 
-                // Show locked alert banner and pill
                 if (lockedAlert) lockedAlert.classList.remove('hidden');
                 if (lockedPropId) lockedPropId.textContent = propId;
                 if (lockedPill) lockedPill.classList.remove('hidden');
                 if (modalSubtitle) modalSubtitle.textContent = 'Official Seized Property tag has already been generated and locked';
             } else {
-                // Enable Property ID input for new assignment
                 propIdInput.disabled = false;
                 propIdInput.readOnly = false;
-                propIdInput.className = "w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold font-mono-code text-slate-900 focus:outline-none focus:border-emerald-500";
+                propIdInput.className = "rep-input w-full px-3 py-1.5 text-xs font-bold font-mono-code";
 
-                // Enable randomize button
                 if (randomizeBtn) {
                     randomizeBtn.disabled = false;
                     randomizeBtn.classList.remove('hidden');
                 }
 
-                // Enable Assign & Save button
                 if (saveBtn) {
                     saveBtn.disabled = false;
-                    saveBtn.className = "px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-sm transition-colors flex items-center space-x-2";
-                    saveBtn.innerHTML = `
-                        <i data-lucide="check" class="w-4 h-4 text-white"></i>
-                        <span>Assign &amp; Save to Exhibit</span>
-                    `;
-                    saveBtn.title = "Assign and save official Seized Property badge to this exhibit";
+                    saveBtn.className = "rep-btn-green px-5 py-2 text-xs font-extrabold rounded-xl flex items-center gap-2 cursor-pointer";
+                    saveBtn.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>Assign &amp; Save to Exhibit</span>`;
                 }
 
-                // Hide locked alert banner and pill
                 if (lockedAlert) lockedAlert.classList.add('hidden');
                 if (lockedPill) lockedPill.classList.add('hidden');
                 if (modalSubtitle) modalSubtitle.textContent = 'Generate, preview, download, and assign QR tag to exhibit';
@@ -2485,8 +2466,8 @@
         function randomizeVaultPropertyId() {
             if (!activeVaultQrExhibit) return;
             const isAlreadyGenerated = Boolean(
-                activeVaultQrExhibit.tag_image || 
-                activeVaultQrExhibit.tag_url || 
+                activeVaultQrExhibit.tag_image ||
+                activeVaultQrExhibit.tag_url ||
                 (activeVaultQrExhibit.property_id && activeVaultQrExhibit.property_id !== 'NACOC/EMU/00241' && /^NACOC\/EMU\/\d{5}$/.test(activeVaultQrExhibit.property_id))
             );
             if (isAlreadyGenerated) return;
@@ -2544,10 +2525,9 @@
         async function saveVaultQrToExhibit() {
             if (!activeVaultQrExhibit) return;
 
-            // Guard against saving again if already generated
             const isAlreadyGenerated = Boolean(
-                activeVaultQrExhibit.tag_image || 
-                activeVaultQrExhibit.tag_url || 
+                activeVaultQrExhibit.tag_image ||
+                activeVaultQrExhibit.tag_url ||
                 (activeVaultQrExhibit.property_id && activeVaultQrExhibit.property_id !== 'NACOC/EMU/00241' && /^NACOC\/EMU\/\d{5}$/.test(activeVaultQrExhibit.property_id))
             );
             if (isAlreadyGenerated) {
@@ -2572,7 +2552,7 @@
 
             btn.disabled = true;
             const originalText = btn.innerHTML;
-            btn.innerHTML = `<span class="inline-block animate-spin mr-1">⏳</span> Assigning...`;
+            btn.innerHTML = `<span>Assigning...</span>`;
 
             try {
                 const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -2595,7 +2575,7 @@
                     showVaultToast(data.message || 'QR Tag assigned successfully to exhibit!', 'success');
 
                     activeVaultQrExhibit.property_id = propId;
-                    activeVaultQrExhibit.custodial_status = data.exhibit?.custodial_status || document.getElementById('vaultQrStatus')?.value || 'Seized';
+                    activeVaultQrExhibit.custodial_status = data.exhibit?.custodial_status || 'Seized';
                     if (data.exhibit && (data.exhibit.tag_image || data.exhibit.tag_url)) {
                         activeVaultQrExhibit.tag_image = data.exhibit.tag_image || data.exhibit.tag_url;
                         activeVaultQrExhibit.tag_url = data.exhibit.tag_url;
@@ -2613,24 +2593,19 @@
                     }
 
                     updateExhibitDomBadges(activeVaultQrExhibit);
-
-                    // Re-render modal in locked state so officer cannot edit again
                     openVaultQrModal(activeVaultQrExhibit);
                 } else {
                     showVaultToast(data.message || 'Failed to update exhibit QR tag', 'error');
                 }
             } catch (e) {
-                console.error('Error saving QR to exhibit:', e);
                 showVaultToast('Network error while saving QR tag', 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
+                if (window.lucide) window.lucide.createIcons();
             }
         }
 
-        // ==========================================
-        // DRUG CLASSIFICATION & EXHIBIT TYPE LOGIC
-        // ==========================================
         function openVaultClassifyModal(exhibit, isDrugAssign = false) {
             if (!exhibit) return;
             activeClassifyExhibit = exhibit;
@@ -2658,7 +2633,6 @@
 
             document.getElementById('classifyCommodityName').value = exhibit.commodity_name || '';
 
-            // Setup Exhibit Type
             const typeSelect = document.getElementById('classifyExhibitType');
             typeSelect.innerHTML = `
                 <option value="">-- Select Type --</option>
@@ -2688,7 +2662,6 @@
                 }
             }
 
-            // Setup Drug Classification
             const drugSelect = document.getElementById('classifyDrugSchedule');
             drugSelect.innerHTML = `
                 <option value="N/A">N/A</option>
@@ -2724,8 +2697,7 @@
 
             if (isDrugAssign) {
                 setTimeout(() => {
-                    const drugSel = document.getElementById('classifyDrugSchedule');
-                    if (drugSel) drugSel.focus();
+                    document.getElementById('classifyDrugSchedule')?.focus();
                 }, 100);
             }
         }
@@ -2773,12 +2745,11 @@
 
             let drugCls = document.getElementById('classifyDrugSchedule').value || 'N/A';
             let exhType = document.getElementById('classifyExhibitType').value || (category.toLowerCase().includes('drug') ? 'Drug Exhibit' : 'Non-Drug Exhibit');
-
             const remark = document.getElementById('classifyRemark').value.trim();
 
             btn.disabled = true;
             const originalText = btn.innerHTML;
-            btn.innerHTML = `<span class="inline-block animate-spin mr-1">⏳</span> Saving...`;
+            btn.innerHTML = `<span>Saving...</span>`;
 
             try {
                 const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
@@ -2827,44 +2798,31 @@
                     showVaultToast(data.message || 'Failed to save classification', 'error');
                 }
             } catch (e) {
-                console.error('Error saving classification:', e);
                 showVaultToast('Network error while saving classification', 'error');
             } finally {
                 btn.disabled = false;
                 btn.innerHTML = originalText;
+                if (window.lucide) window.lucide.createIcons();
             }
         }
 
-        // ==========================================
-        // REAL-TIME IN-PLACE DOM BADGE UPDATER
-        // ==========================================
         function updateExhibitDomBadges(exhibit) {
             const containers = document.querySelectorAll(`[data-exhibit-id="${exhibit.id}"]`);
             containers.forEach(el => {
-                // Update QR Property ID badges if property_id was set
                 if (exhibit.property_id) {
                     const propBadges = el.querySelectorAll('[data-vault-prop-badge]');
                     propBadges.forEach(btn => {
-                        btn.className = btn.className.replace(/bg-amber-\d+|text-amber-\d+|border-amber-\d+|bg-slate-\d+|text-slate-\d+/g, '');
-                        btn.classList.add('bg-emerald-50', 'text-emerald-800', 'border-emerald-300');
+                        btn.className = 'px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[10px] font-mono-code font-bold transition-colors inline-flex items-center gap-1 shadow-2xs cursor-pointer';
                         btn.title = 'Seized Property Tag Assigned - Click to view/reprint';
-                        btn.innerHTML = `
-                            <i data-lucide="qr-code" class="w-3 h-3 text-emerald-600"></i>
-                            <span>${exhibit.property_id}</span>
-                        `;
+                        btn.innerHTML = `<i data-lucide="qr-code" class="w-3 h-3 text-emerald-600"></i><span>${exhibit.property_id}</span>`;
                     });
 
-                    // Ensure card footer QR button stays labeled "QR Tag"
                     const footerQrBtns = el.querySelectorAll('[data-vault-footer-qr-btn]');
                     footerQrBtns.forEach(btn => {
-                        btn.innerHTML = `
-                            <i data-lucide="qr-code" class="w-3 h-3 text-emerald-600"></i>
-                            <span>QR Tag</span>
-                        `;
+                        btn.innerHTML = `<i data-lucide="qr-code" class="w-3 h-3"></i><span>QR Tag</span>`;
                     });
                 }
 
-                // Update classification & type if changed
                 if (exhibit.drug_classification && exhibit.drug_classification !== 'N/A') {
                     const classifyBadges = el.querySelectorAll('.vault-drug-badge, [title*="Drug Classification"]');
                     classifyBadges.forEach(badge => {
@@ -2873,19 +2831,17 @@
                         badge.title = `Drug Classification: ${exhibit.drug_classification} - Click to reclassify`;
                     });
 
-                    // Morph unclassified "Assign Drug Classification" button into the drug badge
                     const unclassifiedBtns = el.querySelectorAll('.vault-classify-btn');
                     unclassifiedBtns.forEach(btn => {
-                        if (btn.textContent.includes('Assign Drug Classification') || btn.textContent.includes('Assign Drug Class') || btn.title.includes('Assign Drug Classification')) {
-                            btn.className = "vault-drug-badge inline-flex items-center space-x-1 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[10px] font-bold transition-colors cursor-pointer";
+                        if (btn.textContent.includes('Assign Drug') || btn.title.includes('Assign Drug Classification')) {
+                            btn.className = "vault-drug-badge inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 text-[10px] font-mono-code font-bold transition-colors cursor-pointer";
                             btn.title = `Drug Classification: ${exhibit.drug_classification} - Click to reclassify`;
                             btn.onclick = () => openVaultClassifyModal(exhibit, true);
-                            btn.innerHTML = `<i data-lucide="pill" class="w-3 h-3 text-emerald-600"></i><span class="truncate max-w-[160px]">${exhibit.drug_classification}</span>`;
+                            btn.innerHTML = `<i data-lucide="pill" class="w-3 h-3 text-emerald-600"></i><span class="truncate max-w-[150px]">${exhibit.drug_classification}</span>`;
                         }
                     });
                 }
 
-                // If exhibit already has both drug classification and exhibit type, remove Classify footer/action buttons
                 const hasBothClsAndType = Boolean(exhibit.drug_classification && exhibit.drug_classification !== 'N/A' && exhibit.exhibit_type && exhibit.exhibit_type !== '');
                 if (hasBothClsAndType) {
                     const footerClassifyBtns = el.querySelectorAll('.vault-classify-btn');
@@ -2905,40 +2861,28 @@
                     }
                 }
 
-                // Update commodity title if changed
                 if (exhibit.commodity_name) {
-                    const h3 = el.querySelector('h3');
-                    if (h3) h3.textContent = exhibit.commodity_name;
-                }
-
-                // Update dynamic custodial status badge if present
-                if (exhibit.custodial_status) {
-                    const custodialBadges = el.querySelectorAll(`[data-custodial-badge="${exhibit.id}"]`);
-                    custodialBadges.forEach(badge => {
-                        const textSpan = badge.querySelector('.custodial-status-text') || badge;
-                        textSpan.textContent = exhibit.custodial_status;
-                    });
+                    const titleEl = el.querySelector('[data-commodity-title]') || el.querySelector('h3');
+                    if (titleEl) titleEl.textContent = exhibit.commodity_name;
                 }
             });
 
             if (window.lucide) window.lucide.createIcons();
         }
 
-        // ==========================================
-        // FLOATING TOAST NOTIFICATIONS
-        // ==========================================
         function showVaultToast(message, type = 'success') {
             const container = document.getElementById('vaultToastContainer');
             if (!container) return;
 
             const toast = document.createElement('div');
             const isSuccess = type === 'success';
-            const bgClass = isSuccess ? 'bg-emerald-950 text-white border-emerald-500/50' : 'bg-rose-950 text-white border-rose-500/50';
-            const icon = isSuccess ? '✓' : '⚠️';
+            const cardClass = isSuccess
+                ? 'bg-emerald-700 text-white border-emerald-600'
+                : 'bg-rose-700 text-white border-rose-600';
 
-            toast.className = `pointer-events-auto flex items-center space-x-2.5 px-4 py-3 rounded-2xl shadow-xl border text-xs font-semibold backdrop-blur-md transition-all duration-300 transform translate-y-2 opacity-0 ${bgClass}`;
+            toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl shadow-lg border text-xs font-semibold transition-all duration-300 transform translate-y-2 opacity-0 ${cardClass}`;
             toast.innerHTML = `
-                <span class="w-5 h-5 rounded-full flex items-center justify-center font-bold text-xs ${isSuccess ? 'bg-emerald-500 text-white' : 'bg-rose-500 text-white'}">${icon}</span>
+                <span class="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center font-bold text-xs">${isSuccess ? '✓' : '!'}</span>
                 <span>${message}</span>
             `;
 
@@ -2950,12 +2894,9 @@
             setTimeout(() => {
                 toast.classList.add('opacity-0', 'translate-y-2');
                 setTimeout(() => toast.remove(), 300);
-            }, 4000);
+            }, 3800);
         }
 
-        // ==========================================
-        // IMAGE LIGHTBOX PREVIEW LOGIC
-        // ==========================================
         function openImageLightbox(src, caption) {
             document.getElementById('lightboxImage').src = src;
             document.getElementById('lightboxCaption').textContent = caption || '';
@@ -2968,7 +2909,6 @@
             document.getElementById('lightboxImage').src = '';
         }
 
-        // Close on ESC or backdrop click
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 closeImageLightbox();

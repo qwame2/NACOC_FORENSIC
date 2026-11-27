@@ -1,60 +1,66 @@
-<div id="fieldCasesTableMeta" 
-     data-total="{{ $cases->total() }}" 
-     data-first-item="{{ $cases->firstItem() ?? 0 }}" 
-     data-last-item="{{ $cases->lastItem() ?? 0 }}" 
-     data-filtered-count="{{ $totalFilteredCount ?? $cases->total() }}" 
+<div id="fieldCasesTableMeta"
+     data-total="{{ $cases->total() }}"
+     data-first-item="{{ $cases->firstItem() ?? 0 }}"
+     data-last-item="{{ $cases->lastItem() ?? 0 }}"
+     data-filtered-count="{{ $totalFilteredCount ?? $cases->total() }}"
      data-cumulative-count="{{ $totalCasesCount ?? 0 }}"
      class="hidden"></div>
 
+@php
+    $resolvedCreateUrl = $createCaseUrl ?? (request()->is('*/staff*') ? url('/Crime_Scene_Support/staff/create') : url('/Crime_Scene_Support/create'));
+@endphp
+
 @if($cases->isEmpty())
-    <!-- EMPTY STATE -->
-    <div class="p-12 text-center">
-        <div class="w-14 h-14 rounded-2xl bg-blue-50 border border-blue-200/70 text-blue-600 flex items-center justify-center mx-auto mb-4 shadow-xs">
-            <i data-lucide="folder-search" class="w-7 h-7"></i>
+    <div class="p-14 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-slate-100 border border-slate-200/80 text-slate-500 flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="folder-search" class="w-6 h-6"></i>
         </div>
-        <h4 class="text-sm font-black text-slate-800 font-mono-code uppercase tracking-wider mb-1">
-            No Crime Scene Support Cases Found
+        <h4 class="text-sm font-extrabold text-slate-900 font-mono-code uppercase tracking-wider mb-1">
+            No Matching Case Dockets Found
         </h4>
-        <p class="text-xs text-slate-500 max-w-md mx-auto mb-5">
-            No case dockets match your search parameters. Try clearing your filters or creating a new Crime Scene Support case docket.
+        <p class="text-xs text-slate-500 max-w-md mx-auto mb-5 leading-relaxed">
+            No field case dockets matched your active audit parameters. Clear your filter console or register a new field case docket.
         </p>
-        <div class="flex items-center justify-center gap-3">
-            <button type="button" onclick="resetReportFilters(event)" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold font-mono-code transition-colors flex items-center gap-1.5 cursor-pointer">
+        <div class="flex items-center justify-center gap-2.5">
+            <button type="button" onclick="resetReportFilters(event)" class="rep-btn-green-soft px-4 py-2 rounded-xl text-xs font-bold font-mono-code inline-flex items-center gap-1.5 cursor-pointer">
                 <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
                 <span>Reset Filters</span>
             </button>
-            <a href="{{ url('/Crime_Scene_Support/create') }}" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs">
+            <a href="{{ $resolvedCreateUrl }}" class="rep-btn-green px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5">
                 <i data-lucide="plus" class="w-3.5 h-3.5"></i>
                 <span>Create New Case</span>
             </a>
         </div>
     </div>
 @else
-    <!-- CASES TABLE -->
-    <div class="overflow-x-auto">
-        <table class="w-full table-fixed min-w-[960px] text-left text-xs text-slate-700" id="fieldCasesTable">
-            <thead class="bg-slate-50/80 border-b border-slate-200/90 text-[10px] font-black text-slate-500 font-mono-code uppercase tracking-wider">
+    <div class="overflow-x-auto custom-scrollbar">
+        <table class="rep-table w-full table-fixed min-w-[1000px] text-left text-xs text-slate-700 border-collapse" id="fieldCasesTable">
+            <thead>
                 <tr>
-                    <th scope="col" class="w-1/6 py-3.5 px-4">Case Reference &amp; Date</th>
-                    <th scope="col" class="w-1/6 py-3.5 px-4">Case Title &amp; Scene Location</th>
-                    <th scope="col" class="w-1/6 py-3.5 px-4">Operation Type</th>
-                    <th scope="col" class="w-1/6 py-3.5 px-4">Suspects Apprehended</th>
-                    <th scope="col" class="w-1/6 py-3.5 px-4">Seized Exhibits</th>
-                    <th scope="col" class="w-1/6 py-3.5 px-4 text-right">Actions</th>
+                    <th scope="col" class="w-[18%] py-3.5 px-5">Case Reference &amp; Priority</th>
+                    <th scope="col" class="w-[22%] py-3.5 px-4">Docket Title &amp; Scene</th>
+                    <th scope="col" class="w-[16%] py-3.5 px-4">Operation &amp; Status</th>
+                    <th scope="col" class="w-[18%] py-3.5 px-4">Suspects Apprehended</th>
+                    <th scope="col" class="w-[16%] py-3.5 px-4">Seized Exhibits</th>
+                    <th scope="col" class="w-[10%] py-3.5 px-5 text-right no-print">Dossier</th>
                 </tr>
             </thead>
-            <tbody class="divide-y divide-slate-100">
+            <tbody class="divide-y divide-slate-100 bg-white">
                 @foreach($cases as $case)
                     @php
-                        $isMulti = !empty($case->is_multiple) || (!empty($case->total_suspects_count) && (int)$case->total_suspects_count > 1) || (count($case->docket_data['suspects'] ?? []) > 1);
-                        
-                        // Suspects details
+                        $isMulti = !empty($case->is_multiple) || (!empty($case->total_suspects_count) && (int) $case->total_suspects_count > 1) || (count($case->docket_data['suspects'] ?? []) > 1);
+                        $normPriority = \App\Models\ForensicCase::normalizePriority($case->priority ?? 'HIGH');
+                        $isHighPriority = ($normPriority === 'HIGH');
+
                         $suspectsList = collect($case->docket_data['suspects'] ?? []);
                         $suspectCount = $suspectsList->isNotEmpty() ? $suspectsList->count() : (!empty($case->suspect_name) ? 1 : 0);
-                        $primarySuspectName = $case->suspect_name ?: ($suspectsList->first()['suspect_name'] ?? '—');
+                        $primarySuspectName = $case->suspect_name ?: ($suspectsList->first()['suspect_name'] ?? 'Unassigned / No Suspect');
                         $coSuspectsCount = max(0, $suspectCount - 1);
+                        $sParts = preg_split('/\s+/', trim((string) $primarySuspectName)) ?: [];
+                        $sInit = count($sParts) >= 2
+                            ? strtoupper(substr($sParts[0], 0, 1) . substr(end($sParts), 0, 1))
+                            : strtoupper(substr((string) $primarySuspectName, 0, 2));
 
-                        // Exhibits details
                         $exhibitsList = $case->relationLoaded('exhibits') && $case->exhibits->isNotEmpty() ? $case->exhibits : collect($case->docket_data['seizures'] ?? []);
                         $exhibitCount = $exhibitsList->count();
                         $exhibitPreviews = $exhibitsList->map(function ($e) {
@@ -64,11 +70,10 @@
                             return $e['seizure_name'] ?? ($e['category'] ?? '');
                         })->filter()->take(2)->implode(', ');
 
-                        // Operation type badge
                         $opName = $case->operation_code_name ?: ($case->operation_code ?: ($case->docket_data['operation_code_name'] ?? ($case->docket_data['operation_code'] ?? null)));
                         if (empty($opName)) {
                             $tLower = strtolower($case->title ?? '');
-                            $opName = match(true) {
+                            $opName = match (true) {
                                 str_contains($tLower, 'raid') => 'Raid Operation',
                                 str_contains($tLower, 'warrant') => 'Search Warrant',
                                 str_contains($tLower, 'cargo') || str_contains($tLower, 'parcel') => 'Cargo Interception',
@@ -77,76 +82,92 @@
                             };
                         }
 
-                        // Location
-                        $sceneLoc = $case->raid_location ?: ($case->incident_scene ?: ($case->seizure_location ?: '—'));
+                        $caseStatusLabel = trim((string) ($case->status ?? $case->case_status ?? 'Active Investigation'));
+                        $statusLower = strtolower($caseStatusLabel);
+                        $statusChipClass = match (true) {
+                            str_contains($statusLower, 'approv') || str_contains($statusLower, 'court') || str_contains($statusLower, 'complet') => 'bg-emerald-50 text-emerald-800 border-emerald-200',
+                            str_contains($statusLower, 'draft') => 'bg-slate-100 text-slate-600 border-slate-200',
+                            default => 'bg-amber-50 text-amber-800 border-amber-200',
+                        };
 
-                        // Case Date
+                        $sceneLoc = $case->raid_location ?: ($case->incident_scene ?: ($case->seizure_location ?: '—'));
                         $rawDate = $case->incident_date ?: ($case->arrest_date ?: $case->created_at);
                         $formattedDate = $rawDate ? date('d M Y, H:i', strtotime($rawDate)) : '—';
                     @endphp
-                    <tr class="hover:bg-slate-50/70 transition-colors">
-                        
-                        <!-- Case Reference & Date -->
-                        <td class="w-1/6 py-3.5 px-4 align-top">
-                            <div class="font-mono-code font-bold text-slate-900 flex items-center gap-1.5">
-                                <span class="text-blue-600 font-extrabold truncate">{{ $case->case_number ?: ('ID #' . $case->id) }}</span>
+                    <tr>
+                        <!-- Case Reference, Priority & Date -->
+                        <td class="py-3.5 px-5 align-top">
+                            <div class="font-mono-code font-extrabold text-slate-900 text-xs truncate">
+                                {{ $case->case_number ?: ('ID #' . $case->id) }}
                             </div>
-                            <div class="mt-1 flex items-center gap-1">
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-bold font-mono-code {{ $isMulti ? 'bg-purple-50 text-purple-700 border border-purple-200' : 'bg-slate-100 text-slate-700 border border-slate-200' }}">
-                                    {{ $isMulti ? 'MULTI-SUSPECT' : 'SINGLE' }}
+                            <div class="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold font-mono-code border {{ $isHighPriority ? 'bg-rose-50 text-rose-700 border-rose-200' : 'bg-teal-50 text-teal-800 border-teal-200' }}">
+                                    {{ $normPriority }}
+                                </span>
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold font-mono-code border {{ $isMulti ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-100 text-slate-600 border-slate-200' }}">
+                                    {{ $isMulti ? 'MULTI' : 'SINGLE' }}
                                 </span>
                             </div>
-                            <div class="mt-1 text-[10px] text-slate-400 font-mono-code truncate">
+                            <div class="mt-1 text-[10px] text-slate-400 font-mono-code tnum truncate">
                                 {{ $formattedDate }}
                             </div>
                         </td>
 
-                        <!-- Case Title & Incident Scene -->
-                        <td class="w-1/6 py-3.5 px-4 align-top">
+                        <!-- Case Title & Scene -->
+                        <td class="py-3.5 px-4 align-top">
                             <div class="font-bold text-slate-900 leading-snug line-clamp-2" title="{{ $case->title }}">
                                 {{ $case->title ?: ($case->case_number ?: 'Case Docket') }}
                             </div>
-                            <div class="mt-1 flex items-center gap-1.5 text-[11px] text-slate-600">
-                                <i data-lucide="map-pin" class="w-3 h-3 text-red-500 shrink-0"></i>
+                            <div class="mt-1.5 flex items-center gap-1.5 text-[11px] text-slate-500">
+                                <i data-lucide="map-pin" class="w-3 h-3 text-emerald-600 shrink-0"></i>
                                 <span class="truncate" title="{{ $sceneLoc }}">{{ $sceneLoc }}</span>
                             </div>
                         </td>
 
-                        <!-- Operation Type -->
-                        <td class="w-1/6 py-3.5 px-4 align-top">
-                            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-bold font-mono-code bg-slate-100 text-slate-800 border border-slate-200 max-w-full">
-                                <i data-lucide="target" class="w-3 h-3 text-blue-600 shrink-0"></i>
+                        <!-- Operation Type & Status -->
+                        <td class="py-3.5 px-4 align-top">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold font-mono-code bg-slate-100 text-slate-800 border border-slate-200 max-w-full">
+                                <i data-lucide="crosshair" class="w-3 h-3 text-slate-600 shrink-0"></i>
                                 <span class="truncate" title="{{ $opName }}">{{ $opName }}</span>
                             </span>
+                            <div class="mt-1.5">
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-md text-[9.5px] font-bold font-mono-code border {{ $statusChipClass }} truncate max-w-full" title="{{ $caseStatusLabel }}">
+                                    {{ $caseStatusLabel }}
+                                </span>
+                            </div>
                         </td>
 
                         <!-- Suspects Apprehended -->
-                        <td class="w-1/6 py-3.5 px-4 align-top">
-                            <div class="flex items-center gap-1.5 min-w-0">
-                                <span class="font-bold text-slate-900 truncate" title="{{ $primarySuspectName }}">
-                                    {{ $primarySuspectName }}
-                                </span>
-                                @if($coSuspectsCount > 0)
-                                    <span class="inline-flex items-center px-1.5 py-0.5 rounded-full text-[9px] font-bold font-mono-code bg-blue-100 text-blue-800 shrink-0" title="{{ $coSuspectsCount }} co-suspect(s)">
-                                        +{{ $coSuspectsCount }}
-                                    </span>
-                                @endif
-                            </div>
-                            <div class="mt-1 flex items-center gap-1.5 text-[10px] text-slate-500 font-mono-code truncate">
-                                <span>{{ $suspectCount }} Suspect{{ $suspectCount == 1 ? '' : 's' }}</span>
-                                @if(!empty($case->nationality))
-                                    <span class="truncate">@if(request()->is('*/staff*') || request()->is('staff*') || request()->is('*field-officers*'))|@else&bull;@endif {{ $case->nationality }}</span>
-                                @endif
+                        <td class="py-3.5 px-4 align-top">
+                            <div class="flex items-center gap-2 min-w-0">
+                                <div class="w-7 h-7 rounded-lg bg-slate-100 border border-slate-200/90 text-slate-700 font-mono-code font-extrabold text-[10px] flex items-center justify-center shrink-0">
+                                    {{ $sInit ?: 'NA' }}
+                                </div>
+                                <div class="min-w-0 flex-1">
+                                    <div class="flex items-center gap-1.5 min-w-0">
+                                        <span class="font-bold text-slate-900 truncate" title="{{ $primarySuspectName }}">
+                                            {{ $primarySuspectName }}
+                                        </span>
+                                        @if($coSuspectsCount > 0)
+                                            <span class="inline-flex items-center px-1.5 py-0.2 rounded-full text-[9px] font-extrabold font-mono-code bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0" title="{{ $coSuspectsCount }} co-suspect(s)">
+                                                +{{ $coSuspectsCount }}
+                                            </span>
+                                        @endif
+                                    </div>
+                                    <div class="text-[10px] text-slate-500 font-mono-code truncate mt-0.5">
+                                        {{ $suspectCount }} Subject{{ $suspectCount == 1 ? '' : 's' }}@if(!empty($case->nationality)) &bull; {{ $case->nationality }}@endif
+                                    </div>
+                                </div>
                             </div>
                         </td>
 
                         <!-- Seized Exhibits -->
-                        <td class="w-1/6 py-3.5 px-4 align-top">
+                        <td class="py-3.5 px-4 align-top">
                             <div class="flex items-center gap-1.5 min-w-0">
-                                <span class="inline-flex items-center px-1.5 py-0.5 rounded-md text-[9px] font-extrabold font-mono-code bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
-                                    {{ $exhibitCount }} Item{{ $exhibitCount == 1 ? '' : 's' }}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-[9.5px] font-extrabold font-mono-code bg-emerald-50 text-emerald-800 border border-emerald-200/80 shrink-0 tnum">
+                                    {{ $exhibitCount }} {{ $exhibitCount == 1 ? 'Item' : 'Items' }}
                                 </span>
-                                <span class="text-[11px] text-slate-700 truncate" title="{{ $exhibitPreviews ?: 'No items recorded' }}">
+                                <span class="text-[11px] font-medium text-slate-700 truncate" title="{{ $exhibitPreviews ?: 'No items recorded' }}">
                                     {{ $exhibitPreviews ?: 'None logged' }}
                                 </span>
                             </div>
@@ -158,25 +179,23 @@
                         </td>
 
                         <!-- Actions -->
-                        <td class="w-1/6 py-3.5 px-4 align-top text-right">
-                            <div class="flex items-center justify-end">
-                                <a href="{{ route('crime_scene.cases.review', $case->case_number ?: $case->id) }}" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-colors text-[11px] font-bold font-mono-code shadow-2xs" title="View Case Dossier &amp; Review File">
-                                    <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-                                    <span>Review</span>
-                                </a>
-                            </div>
+                        <td class="py-3.5 px-5 align-top text-right no-print">
+                            <a href="{{ route('crime_scene.cases.review', $case->case_number ?: $case->id) }}"
+                               class="rep-btn-green inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold font-mono-code"
+                               title="Open Official Case Review Dossier">
+                                <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+                                <span>Review</span>
+                            </a>
                         </td>
-
                     </tr>
                 @endforeach
             </tbody>
         </table>
     </div>
 
-    <!-- PAGINATION FOOTER -->
-    <div class="px-6 py-4 border-t border-slate-200/80 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs" id="paginationFooter">
-        <div class="text-slate-500 font-mono-code text-[11px]">
-            Showing <span class="font-bold text-slate-700">{{ $cases->firstItem() ?? 0 }}</span> to <span class="font-bold text-slate-700">{{ $cases->lastItem() ?? 0 }}</span> of <span class="font-bold text-slate-700">{{ number_format($cases->total()) }}</span> filtered dockets
+    <div class="rep-pagination px-6 py-4 border-t border-slate-200/80 bg-slate-50/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs" id="paginationFooter">
+        <div class="text-slate-500 font-mono-code text-[11px] tnum">
+            Showing <span class="font-extrabold text-slate-900">{{ $cases->firstItem() ?? 0 }}</span>–<span class="font-extrabold text-slate-900">{{ $cases->lastItem() ?? 0 }}</span> of <span class="font-extrabold text-slate-900">{{ number_format($cases->total()) }}</span> filtered dockets
         </div>
 
         <div class="flex items-center gap-1">
@@ -184,4 +203,3 @@
         </div>
     </div>
 @endif
-

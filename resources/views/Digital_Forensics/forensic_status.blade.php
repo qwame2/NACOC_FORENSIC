@@ -816,10 +816,14 @@
     $defaultReportWitnessStatus = !empty($lookupKey) ? ($caseMapData[$lookupKey]['report_witness_status'] ?? 'NO') : ($firstSaved ? $firstSaved->report_witness_statement_sent : 'NO');
     $defaultReportWitnessFiles = !empty($lookupKey) ? ($caseMapData[$lookupKey]['report_witness_files'] ?? []) : [];
 
-    $headParts = preg_split('/\s+/', trim((string) $headName)) ?: [];
+    $isStaffStatusView = $isStaffStatusView ?? false;
+    $staffOfficerName = $authUser->fullname ?? session('user_name') ?? 'Cyber Forensic Specialist';
+    $activeOfficerName = $isStaffStatusView ? $staffOfficerName : $headName;
+
+    $headParts = preg_split('/\s+/', trim((string) $activeOfficerName)) ?: [];
     $headInitials = count($headParts) >= 2
         ? strtoupper(substr($headParts[0], 0, 1) . substr(end($headParts), 0, 1))
-        : strtoupper(substr((string) $headName, 0, 2));
+        : strtoupper(substr((string) $activeOfficerName, 0, 2));
 
     $unloggedDirectoryCases = $directoryCases->filter(fn($c) => !$directorySavedReports->contains('case_number', $c->case_number ?? ($c['case_number'] ?? '')));
     $kpiTotalRecords = count($directorySavedReports) + count($unloggedDirectoryCases);
@@ -842,34 +846,26 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>Forensic &amp; Investigation Status | Digital &amp; Physical Forensics Unit</title>
+    <title>{{ $isStaffStatusView ? 'Staff ' : '' }}Forensic &amp; Investigation Status | Digital &amp; Physical Forensics Unit</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     @if (file_exists(public_path('build/manifest.json')) || file_exists(public_path('hot')))
         @vite(['resources/css/app.css', 'resources/js/app.js'])
-    @else
-        <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
     @endif
+    <script>
+        const _origWarn = console.warn;
+        console.warn = function(...args) {
+            if (args[0] && typeof args[0] === 'string' && args[0].includes('tailwindcss')) return;
+            _origWarn.apply(console, args);
+        };
+    </script>
+    <script src="{{ asset('vendor/tailwindcss/tailwind.min.js') }}"></script>
+    <script src="{{ asset('vendor/lucide.min.js') }}"></script>
+
+    @include('partials.report_design_system')
+
     <style>
-        body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background-color: #F4F6F8;
-            color: #0F172A;
-            -webkit-font-smoothing: antialiased;
-        }
-        .font-mono-code { font-family: 'JetBrains Mono', ui-monospace, monospace; }
-        .tnum { font-variant-numeric: tabular-nums; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #eef2f6; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-        a[href], button:not(:disabled), select:not(:disabled) { cursor: pointer; }
-        button:disabled, select:disabled { cursor: not-allowed; }
-        a:focus-visible, button:not(:disabled):focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
-            outline: 2px solid #059669;
-            outline-offset: 2px;
-        }
         input[type="date"][readonly]::-webkit-calendar-picker-indicator {
             opacity: 0.3;
             pointer-events: none;
@@ -877,66 +873,70 @@
         }
     </style>
 </head>
-<body class="min-h-screen flex antialiased bg-[#F4F6F8] text-slate-900 selection:bg-emerald-700 selection:text-white">
+<body class="min-h-screen flex antialiased bg-[#f3f5f8] text-slate-900 selection:bg-emerald-600 selection:text-white">
     @include('partials.flash')
 
     <div class="flex min-h-screen lg:h-screen w-full overflow-hidden">
-        <!-- SIDEBAR PARTIAL -->
-        @include('Crime_Scene_Support.partials.sidebar')
+        @if($isStaffStatusView)
+            @include('staff.partials.sidebar', ['sidebarUnit' => 'Digital Forensics'])
+        @else
+            @include('Crime_Scene_Support.partials.sidebar')
+        @endif
 
-        <!-- MAIN WORKSPACE -->
-        <div class="flex-1 flex flex-col min-w-0 bg-[#F4F6F8] overflow-hidden">
+        <div class="flex-1 flex flex-col min-w-0 bg-[#f3f5f8] overflow-hidden">
 
-            <!-- COMMAND TOPBAR -->
-            <header class="h-16 bg-white border-b border-slate-200/80 px-4 sm:px-6 flex items-center justify-between gap-4 shrink-0 z-20">
-                <div class="flex items-center gap-3 min-w-0">
-                    <div class="w-9 h-9 rounded-xl bg-slate-100 border border-slate-200/90 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs" aria-hidden="true">
-                        <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <!-- STICKY COMMAND TOPBAR -->
+            <header class="h-16 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-5 sm:px-6 flex items-center justify-between gap-4 shrink-0 z-20">
+                <div class="flex items-center gap-3.5 min-w-0">
+                    <div class="w-9 h-9 rounded-xl bg-slate-100 text-emerald-700 border border-slate-200/90 flex items-center justify-center shrink-0 shadow-2xs" aria-hidden="true">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
                         </svg>
                     </div>
                     <div class="min-w-0">
-                        <nav class="flex items-center gap-1.5 text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-emerald-700">
-                            <a href="{{ url('/Digital_Forensics') }}" class="hover:underline">Digital &amp; Physical Forensic Unit</a>
+                        <nav class="flex items-center gap-1.5 text-[10px] font-mono-code font-extrabold uppercase tracking-widest text-emerald-700">
+                            <a href="{{ $isStaffStatusView ? url('/Digital_Forensics/staff/dashboard') : url('/Digital_Forensics') }}" class="hover:underline">
+                                Digital &amp; Physical Forensics
+                            </a>
                             <span class="text-slate-300">/</span>
-                            <span class="text-slate-500">Status &amp; Reports</span>
+                            <span class="text-slate-500">{{ $isStaffStatusView ? 'Staff Status & Reports' : 'Status & SITREP' }}</span>
                         </nav>
-                        <h1 class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight truncate">
-                            Forensic &amp; Investigation Status
+                        <h1 class="text-sm font-extrabold text-slate-900 tracking-tight truncate">
+                            Forensic Extraction &amp; Investigation Status Report
                         </h1>
                     </div>
                 </div>
 
                 <div class="flex items-center gap-2.5 shrink-0">
-                    <a href="#investigationDirectorySection"
-                       class="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-700 border border-slate-200/90 text-xs font-bold transition-colors">
-                        <svg class="w-3.5 h-3.5 text-slate-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-                        </svg>
-                        <span>Directory ({{ $kpiTotalRecords }})</span>
-                    </a>
+                    @if($isStaffStatusView)
+                        @php
+                            $canHeaderCreateCases = !$authUser || $authUser->is_head || (method_exists($authUser, 'hasPermission') ? $authUser->hasPermission('create_cases', 'Digital & Physical Forensics') : true);
+                            $headerLockedTooltip = 'Locked: Create New Cases permission is disabled by your Head of Unit';
+                        @endphp
+                        <a @if($canHeaderCreateCases) href="{{ url('/Digital_Forensics/staff/create') }}" @endif
+                           data-staff-create-btn="header"
+                           data-create-url="{{ url('/Digital_Forensics/staff/create') }}"
+                           aria-disabled="{{ $canHeaderCreateCases ? 'false' : 'true' }}"
+                           @if(!$canHeaderCreateCases)
+                               tabindex="0"
+                               title="{{ $headerLockedTooltip }}"
+                               data-locked-tooltip="{{ $headerLockedTooltip }}"
+                               onclick="event.preventDefault(); event.stopPropagation(); return false;"
+                               style="opacity: 0.55; cursor: not-allowed; filter: grayscale(100%);"
+                           @endif
+                           class="inline-flex items-center gap-1.5 px-3.5 py-2 {{ $canHeaderCreateCases ? 'rep-btn-green' : 'bg-slate-200 text-slate-400 border border-slate-300 select-none' }} font-extrabold text-xs rounded-xl transition-all">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+                            <span>New Case</span>
+                            <svg data-lock-badge class="w-3.5 h-3.5 text-slate-400 shrink-0 {{ $canHeaderCreateCases ? 'hidden' : '' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+                        </a>
+                    @endif
 
-                    <button type="button"
-                            onclick="generateDirectoryFilter()"
-                            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 text-xs font-bold shadow-2xs transition-colors"
-                            title="Export filtered investigation directory as a multi-case PDF report">
-                        <svg class="w-3.5 h-3.5 text-slate-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-                        </svg>
-                        <span class="hidden md:inline">Export Report</span>
-                    </button>
-
-                    <a href="{{ url('/Digital_Forensics/cases') }}"
-                       class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-extrabold shadow-xs shadow-emerald-700/20 transition-colors">
-                        <span>Case Register</span>
-                    </a>
-
-                    <div class="hidden xl:flex items-center gap-2.5 pl-2.5 ml-1 border-l border-slate-200">
+                    <div class="hidden xl:flex items-center gap-2.5 {{ $isStaffStatusView ? 'pl-3 ml-0.5 border-l border-slate-200' : '' }}">
                         <div class="text-right">
-                            <div class="text-xs font-extrabold text-slate-900 leading-tight truncate max-w-[140px]">{{ $headName }}</div>
-                            <div class="text-[10.5px] font-mono-code font-semibold text-emerald-700">DPFU Command</div>
+                            <div class="text-xs font-bold text-slate-900 leading-tight truncate max-w-[140px]">{{ $activeOfficerName }}</div>
+                            <div class="text-[10px] font-mono-code font-semibold text-emerald-700">{{ $isStaffStatusView ? 'Cyber Specialist' : 'DPFU Command' }}</div>
                         </div>
-                        <div class="w-8 h-8 rounded-xl bg-slate-200 border border-slate-300/80 text-slate-800 flex items-center justify-center font-mono-code font-extrabold text-[11px]">
+                        <div class="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200/90 text-slate-800 flex items-center justify-center font-mono-code font-extrabold text-[11px]">
                             {{ $headInitials ?: 'DF' }}
                         </div>
                     </div>
@@ -944,87 +944,97 @@
             </header>
 
             <!-- MAIN CONTENT AREA -->
-            <main class="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-5 custom-scrollbar">
+            <main class="flex-1 overflow-y-auto p-5 sm:p-6 space-y-5 custom-scrollbar">
 
-                <!-- 4-COLUMN OPERATIONAL OVERVIEW STRIP -->
-                <section aria-label="Forensic Investigation Summary" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden">
-                    <div class="px-5 py-4 sm:px-6 bg-slate-100/90 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div class="space-y-0.5">
-                            <div class="text-[10.5px] font-mono-code font-bold uppercase tracking-widest text-emerald-700">
-                                Digital Forensics Investigation Overview
+                <!-- 1. EXECUTIVE GREY COMMAND MASTHEAD + 4-COLUMN TELEMETRY STRIP -->
+                <section aria-label="Forensic Investigation Summary" class="rep-masthead">
+                    <div class="rep-masthead-hero px-6 py-5 sm:px-7 sm:py-6">
+                        <div class="rep-masthead-inner flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                            <div class="space-y-1.5 max-w-3xl">
+                                <h2 class="text-lg sm:text-xl font-extrabold tracking-tight text-slate-900">
+                                    Extraction Warrants, Report &amp; Intelligence Status
+                                </h2>
+                                <p class="text-xs text-slate-600 leading-relaxed">
+                                    Track court extraction orders, mobile/media forensic acquisition, witness statement dispatches, and intelligence referrals across electronic device dockets.
+                                </p>
                             </div>
-                            <p class="text-xs text-slate-600">
-                                Track court extraction warrants, write-blocked forensic imaging, witness statement dispatches, and intelligence sharing for electronic device dockets.
-                            </p>
+
+                            <div class="flex flex-wrap items-center gap-2.5 shrink-0">
+                                <div class="px-3.5 py-2 rounded-xl bg-white border border-slate-200/90 shadow-2xs">
+                                    <div class="text-[9.5px] font-mono-code uppercase tracking-wider text-slate-500">Form Reference</div>
+                                    <div class="text-xs font-mono-code font-extrabold text-slate-900 mt-0.5">DF-STATUS-{{ date('Y-md') }}</div>
+                                </div>
+                                <div class="px-3.5 py-2 rounded-xl bg-emerald-50 border border-emerald-200/90 shadow-2xs">
+                                    <div class="text-[9.5px] font-mono-code uppercase tracking-wider text-emerald-700">Extraction Rate</div>
+                                    <div class="text-xs font-mono-code font-extrabold text-emerald-800 mt-0.5 tnum">{{ $kpiExtractionRate }}% Completed</div>
+                                </div>
+                            </div>
                         </div>
-                        <span class="px-2.5 py-1 rounded-lg bg-white border border-slate-200/90 text-[10.5px] font-mono-code font-bold text-slate-600 shrink-0 self-start sm:self-auto">
-                            FORM REF # DF-STATUS-{{ date('Y-md') }}
-                        </span>
                     </div>
 
-                    <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-slate-200/70">
-                        <button type="button" onclick="quickFilterDirectory('', '')" class="p-4 sm:px-6 text-left hover:bg-slate-50/90 transition-colors group">
+                    <div class="rep-kpi-grid grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-slate-200/80">
+                        <button type="button" onclick="quickFilterDirectory('', '')" class="rep-kpi-tile p-4 sm:px-6 text-left group">
                             <div class="flex items-center justify-between gap-2">
-                                <span class="text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-slate-500 group-hover:text-slate-800">Tracked Dockets</span>
-                                <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-600 border border-slate-200/80 flex items-center justify-center shrink-0" aria-hidden="true">
+                                <span class="text-[10.5px] font-mono-code font-extrabold uppercase tracking-wider text-slate-500 group-hover:text-slate-900">Tracked Dockets</span>
+                                <span class="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200/80 flex items-center justify-center shrink-0" aria-hidden="true">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                                 </span>
                             </div>
-                            <div id="kpiStatTotal" class="text-2xl font-extrabold text-slate-900 tnum mt-1.5">{{ $kpiTotalRecords }}</div>
-                            <div class="text-[11px] text-slate-500 mt-0.5">Active electronic exhibit files</div>
+                            <div id="kpiStatTotal" class="text-2xl font-black text-slate-900 font-mono-code tnum mt-2">{{ $kpiTotalRecords }}</div>
+                            <div class="text-[10.5px] text-emerald-700 font-semibold mt-1 group-hover:underline">Electronic device dockets &rarr;</div>
                         </button>
 
-                        <button type="button" onclick="quickFilterDirectory('YES', '')" class="p-4 sm:px-6 text-left hover:bg-emerald-50/40 transition-colors group">
+                        <button type="button" onclick="quickFilterDirectory('YES', '')" class="rep-kpi-tile p-4 sm:px-6 text-left group">
                             <div class="flex items-center justify-between gap-2">
-                                <span class="text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-teal-800">Warrants Granted</span>
+                                <span class="text-[10.5px] font-mono-code font-extrabold uppercase tracking-wider text-teal-700">Warrants Granted</span>
                                 <span class="w-7 h-7 rounded-lg bg-teal-50 text-teal-700 border border-teal-200/80 flex items-center justify-center shrink-0" aria-hidden="true">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
                                 </span>
                             </div>
-                            <div id="kpiStatWarrants" class="text-2xl font-extrabold text-slate-900 tnum mt-1.5">{{ $kpiWarrantsGranted }}</div>
-                            <div class="text-[11px] text-slate-500 mt-0.5">Judicial extraction orders</div>
+                            <div id="kpiStatWarrants" class="text-2xl font-black text-slate-900 font-mono-code tnum mt-2">{{ $kpiWarrantsGranted }}</div>
+                            <div class="text-[10.5px] text-emerald-700 font-semibold mt-1 group-hover:underline">Judicial extraction orders &rarr;</div>
                         </button>
 
-                        <button type="button" onclick="quickFilterDirectory('', 'YES')" class="p-4 sm:px-6 text-left hover:bg-emerald-50/40 transition-colors group">
+                        <button type="button" onclick="quickFilterDirectory('', 'YES')" class="rep-kpi-tile p-4 sm:px-6 text-left group">
                             <div class="flex items-center justify-between gap-2">
-                                <span class="text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-emerald-700">Extraction Complete</span>
+                                <span class="text-[10.5px] font-mono-code font-extrabold uppercase tracking-wider text-emerald-700">Extraction Complete</span>
                                 <span id="kpiStatRateBadge" class="px-2 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-mono-code text-[10px] font-extrabold tnum">{{ $kpiExtractionRate }}%</span>
                             </div>
-                            <div id="kpiStatExtracted" class="text-2xl font-extrabold text-slate-900 tnum mt-1.5">{{ $kpiExtractionDone }}</div>
-                            <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2">
+                            <div id="kpiStatExtracted" class="text-2xl font-black text-slate-900 font-mono-code tnum mt-2">{{ $kpiExtractionDone }}</div>
+                            <div class="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mt-2.5">
                                 <div id="kpiStatRateBar" class="h-full bg-emerald-600 rounded-full transition-all duration-300" style="width: {{ $kpiExtractionRate }}%;"></div>
                             </div>
                         </button>
 
-                        <button type="button" onclick="quickFilterDirectory('', 'NO')" class="p-4 sm:px-6 text-left hover:bg-amber-50/40 transition-colors group">
+                        <button type="button" onclick="quickFilterDirectory('', 'NO')" class="rep-kpi-tile p-4 sm:px-6 text-left group">
                             <div class="flex items-center justify-between gap-2">
-                                <span class="text-[10.5px] font-mono-code font-bold uppercase tracking-wider text-amber-800">Pending Extraction</span>
+                                <span class="text-[10.5px] font-mono-code font-extrabold uppercase tracking-wider text-amber-700">Pending Extraction</span>
                                 <span class="w-7 h-7 rounded-lg bg-amber-50 text-amber-700 border border-amber-200/80 flex items-center justify-center shrink-0" aria-hidden="true">
                                     <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                                 </span>
                             </div>
-                            <div id="kpiStatPending" class="text-2xl font-extrabold text-slate-900 tnum mt-1.5">{{ $kpiPendingExtraction }}</div>
-                            <div class="text-[11px] text-slate-500 mt-0.5">
-                                <span id="kpiStatIntelSub" class="font-mono-code font-bold text-emerald-700 tnum">{{ $kpiIntelSharedCount }}</span> shared with Intel Dept
+                            <div id="kpiStatPending" class="text-2xl font-black text-slate-900 font-mono-code tnum mt-2">{{ $kpiPendingExtraction }}</div>
+                            <div class="text-[10.5px] text-slate-500 mt-1">
+                                <span id="kpiStatIntelSub" class="font-mono-code font-extrabold text-emerald-700 tnum">{{ $kpiIntelSharedCount }}</span> shared with Intel Dept
                             </div>
                         </button>
                     </div>
                 </section>
 
-                <!-- INTERACTIVE STATUS ENTRY & UPDATE WORKBENCH -->
-                <section id="statusWorkbenchSection" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden scroll-mt-5">
+                <!-- 2. INTERACTIVE STATUS ENTRY & UPDATE WORKBENCH -->
+                <section id="statusWorkbenchSection" class="rep-surface-card overflow-hidden scroll-mt-5">
                     <div class="px-5 py-4 sm:px-6 bg-slate-100/80 border-b border-slate-200/80 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
-                            <div class="w-9 h-9 rounded-xl bg-white text-emerald-700 border border-slate-200/90 flex items-center justify-center shadow-2xs shrink-0" aria-hidden="true">
-                                <svg class="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div class="w-9 h-9 rounded-xl bg-white border border-slate-200/90 text-emerald-700 flex items-center justify-center shadow-2xs shrink-0" aria-hidden="true">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 012.828 0L20 5.828a2 2 0 010 2.828l-8.414 8.414-3.536 1.414 1.414-3.536L16.586 3.586z"/>
                                 </svg>
                             </div>
                             <div>
                                 <h2 class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
-                                    Update Forensic Investigation Status
+                                    Forensic Extraction &amp; Warrant Workbench
                                 </h2>
-                                <p class="text-xs text-slate-500">Select a digital docket below to update court warrant status, extraction findings, statement attachments, and intelligence sharing.</p>
+                                <p class="text-xs text-slate-600">Select an electronic exhibit docket to log court warrant status, forensic extraction findings, witness statements, and intel sharing.</p>
                             </div>
                         </div>
 
@@ -1038,7 +1048,7 @@
                                 @endif
                             </div>
                             <div class="min-w-0">
-                                <div class="text-[10px] font-mono-code font-bold uppercase tracking-wider text-slate-400">Active Subject</div>
+                                <div class="text-[9.5px] font-mono-code font-bold uppercase tracking-wider text-slate-400">Active Subject</div>
                                 <div class="flex items-center gap-1.5">
                                     <span id="selectedSuspectNameLabel" class="text-xs font-mono-code font-extrabold text-slate-900 uppercase truncate max-w-[180px]">{{ $defaultSuspectName }}</span>
                                     @if(!empty($defaultSuspectAlias))
@@ -1054,31 +1064,31 @@
                         </div>
                     </div>
 
-                    <form id="forensicStatusForm" action="{{ url('/Digital_Forensics/forensic-status') }}" method="POST" enctype="multipart/form-data" onsubmit="handleStatusSubmit(event)" class="p-5 sm:p-6 space-y-5">
+                    <form id="forensicStatusForm" action="{{ url('/Digital_Forensics/forensic-status') }}" method="POST" enctype="multipart/form-data" onsubmit="handleStatusSubmit(event)" class="p-5 sm:p-6 space-y-5 bg-slate-50/40">
                         @csrf
 
-                        <!-- CURRENT/NEW CASES SECTION CONTAINER -->
-                        <div id="currentCasesSectionContainer" class="p-5 bg-slate-50/70 border border-slate-200/90 rounded-2xl space-y-5 transition-all">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-200/80">
+                        <!-- STAGE 01: CURRENT / NEW CASES -->
+                        <div id="currentCasesSectionContainer" class="p-5 bg-white border border-slate-200/90 rounded-2xl shadow-2xs space-y-5 transition-all">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100">
                                 <div class="flex items-center gap-2.5">
-                                    <span class="px-2 py-0.5 rounded-md bg-slate-200/90 border border-slate-300/80 text-slate-800 font-mono-code text-[10px] font-extrabold">STAGE 01</span>
+                                    <span class="px-2 py-0.5 rounded bg-slate-200 text-slate-800 border border-slate-300 font-mono-code text-[10px] font-extrabold">STAGE 01</span>
                                     <h3 class="text-xs sm:text-sm font-extrabold text-slate-900 font-mono-code uppercase tracking-wider">
-                                        CURRENT/NEW CASES
+                                        Current / New Electronic Dockets
                                     </h3>
                                 </div>
                                 <span class="text-[10.5px] font-mono-code text-slate-500">
-                                    Case &amp; exhibit fields are synced read-only from the Case Register
+                                    Docket &amp; device metadata synced read-only from Case Register
                                 </span>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                                
-                                <!-- Case Reference Select / Input -->
-                                <div class="space-y-2">
-                                    <label for="statusCaseRef" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                        Case Reference <span class="text-red-500">*</span>
+
+                                <!-- Case Reference Select -->
+                                <div class="space-y-1.5">
+                                    <label for="statusCaseRef" class="block text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider">
+                                        Case Reference <span class="text-rose-500">*</span>
                                     </label>
-                                    <select id="statusCaseRef" name="case_number" onchange="onDigitalCaseRefChanged(this.value)" required class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                    <select id="statusCaseRef" name="case_number" onchange="onDigitalCaseRefChanged(this.value)" required class="rep-select w-full px-3.5 py-2.5 text-xs font-mono-code font-semibold">
                                         <option value="">— Select Digital Case Reference —</option>
                                         @forelse($dropdownOptions as $idx => $opt)
                                             <option value="{{ $opt['value'] }}" {{ $idx === 0 ? 'selected' : '' }}>{{ $opt['label'] }}</option>
@@ -1089,33 +1099,33 @@
                                 </div>
 
                                 <!-- Location / Post -->
-                                <div class="space-y-2">
-                                    <label for="statusLocation" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                        Location / Post <span class="text-red-500">*</span>
+                                <div class="space-y-1.5">
+                                    <label for="statusLocation" class="block text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider">
+                                        Location / Post <span class="text-rose-500">*</span>
                                     </label>
-                                    <input type="text" id="statusLocation" name="location_post" value="{{ $defaultLoc }}" readonly required placeholder="e.g. Kotoka International Airport / Aflao Border" class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-700 cursor-not-allowed focus:outline-none">
+                                    <input type="text" id="statusLocation" name="location_post" value="{{ $defaultLoc }}" readonly required placeholder="e.g. Kotoka International Airport" class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-700 cursor-not-allowed focus:outline-none">
                                 </div>
 
                                 <!-- Date -->
-                                <div class="space-y-2">
-                                    <label for="statusDate" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                        Date <span class="text-red-500">*</span>
+                                <div class="space-y-1.5">
+                                    <label for="statusDate" class="block text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider">
+                                        Investigation Date <span class="text-rose-500">*</span>
                                     </label>
                                     <input type="date" id="statusDate" name="investigation_date" value="{{ $defaultDate }}" readonly required tabindex="-1" onkeydown="return false;" onclick="if(this.readOnly){this.blur(); return false;}" class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-700 cursor-not-allowed focus:outline-none">
                                 </div>
 
                                 <!-- Devices / Exhibits Retrieved -->
-                                <div class="space-y-2 md:col-span-2 lg:col-span-2">
-                                    <label for="statusDevicesRetrieved" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                        Devices / Exhibits Retrieved <span class="text-red-500">*</span>
+                                <div class="space-y-1.5 md:col-span-2 lg:col-span-2">
+                                    <label for="statusDevicesRetrieved" class="block text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider">
+                                        Devices / Exhibits Retrieved <span class="text-rose-500">*</span>
                                     </label>
                                     <input type="text" id="statusDevicesRetrieved" name="devices_retrieved" value="{{ $defaultDev }}" readonly required placeholder="e.g. 2x Mobile Phones, 1x Hard Drive, 3x SIM Cards" class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-700 cursor-not-allowed focus:outline-none">
                                 </div>
 
                                 <!-- Qty -->
-                                <div class="space-y-2 md:col-span-1 lg:col-span-1">
-                                    <label for="statusQty" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                        Qty <span class="text-red-500">*</span>
+                                <div class="space-y-1.5 md:col-span-1 lg:col-span-1">
+                                    <label for="statusQty" class="block text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider">
+                                        Quantity <span class="text-rose-500">*</span>
                                     </label>
                                     <input type="text" id="statusQty" name="quantity" value="{{ $defaultQty }}" readonly required placeholder="e.g. 1" class="w-full px-3.5 py-2.5 bg-slate-100/90 border border-slate-200 rounded-xl text-xs font-mono-code text-slate-700 cursor-not-allowed focus:outline-none">
                                 </div>
@@ -1123,21 +1133,21 @@
                             </div>
 
                             <!-- Brief Case Description -->
-                            <div class="space-y-2">
-                                <label for="briefCaseDescription" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
+                            <div class="space-y-1.5">
+                                <label for="briefCaseDescription" class="block text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider">
                                     Brief Case Description
                                 </label>
-                                <textarea id="briefCaseDescription" name="brief_case_description" rows="3" placeholder="Enter a concise summary of the case facts, suspect operations, and intelligence context..." class="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs text-slate-900 font-sans leading-relaxed focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all custom-scrollbar">{{ $defaultDesc }}</textarea>
+                                <textarea id="briefCaseDescription" name="brief_case_description" rows="3" placeholder="Enter a concise summary of the case facts, suspect operations, and intelligence context..." class="rep-input w-full px-4 py-3 text-xs font-sans leading-relaxed custom-scrollbar">{{ $defaultDesc }}</textarea>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
 
                                 <!-- Court Order Requested? -->
-                                <div class="space-y-2">
-                                    <label for="courtOrderRequested" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                        Digital Court Order Requested? <span class="text-red-500">*</span>
+                                <div class="space-y-1.5">
+                                    <label for="courtOrderRequested" class="block text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider">
+                                        Digital Court Order Requested? <span class="text-rose-500">*</span>
                                     </label>
-                                    <select id="courtOrderRequested" name="court_order_requested" onchange="handleCourtOrderRequestedChange(this.value)" required class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                    <select id="courtOrderRequested" name="court_order_requested" onchange="handleCourtOrderRequestedChange(this.value)" required class="rep-select w-full px-3.5 py-2.5 text-xs font-mono-code font-semibold">
                                         <option value="YES">YES</option>
                                         <option value="NO" selected>NO</option>
                                         <option value="PENDING">PENDING</option>
@@ -1145,18 +1155,16 @@
                                 </div>
 
                                 <!-- Court Order Granted? -->
-                                <div class="space-y-2">
-                                    <label for="courtOrderGranted" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                        Digital Court Order Granted? <span class="text-red-500">*</span>
+                                <div class="space-y-1.5">
+                                    <label for="courtOrderGranted" class="block text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider">
+                                        Digital Court Order Granted? <span class="text-rose-500">*</span>
                                     </label>
-                                    <select id="courtOrderGranted" name="court_order_granted" onchange="toggleCourtOrderFile(this.value)" required disabled class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200">
+                                    <select id="courtOrderGranted" name="court_order_granted" onchange="toggleCourtOrderFile(this.value)" required disabled class="rep-select w-full px-3.5 py-2.5 text-xs font-mono-code font-semibold disabled:bg-slate-100 disabled:text-slate-400 disabled:cursor-not-allowed disabled:border-slate-200">
                                         <option value="YES">YES</option>
                                         <option value="NO" selected>NO</option>
                                         <option value="PENDING">PENDING</option>
                                     </select>
 
-                                    <!-- File Upload Section for Court Order Granted (maintains previous column width) -->
-                                    <!-- File Upload Section for Court Order Granted (maintains previous column width) -->
                                     <div id="courtOrderFileWrapper" class="{{ strtoupper(trim($defaultCourtGranted)) === 'YES' ? '' : 'hidden' }} pt-1.5">
                                         <div class="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-2.5 transition-all">
                                             <div class="flex items-center justify-between">
@@ -1167,7 +1175,6 @@
                                                 <span id="courtOrderBadge" class="hidden text-[9px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-full font-mono-code">ATTACHED</span>
                                             </div>
 
-                                            <!-- Saved Court Order Documents (Shown ONLY when documents have already been uploaded and saved) -->
                                             <div id="courtOrderSavedFilesWrapper" class="{{ !empty($defaultCourtOrderFiles) ? '' : 'hidden' }} space-y-1.5 p-2.5 bg-white/95 border border-emerald-300/80 rounded-xl shadow-2xs">
                                                 <div class="flex items-center justify-between">
                                                     <span class="text-[9.5px] font-black text-emerald-900 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
@@ -1214,23 +1221,22 @@
                                                         <p id="courtOrderFileNameDisplay" class="text-[11px] font-bold text-slate-700 group-hover:text-emerald-800 truncate max-w-[160px]">
                                                             Choose Court Order File(s)
                                                         </p>
-                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; Multiple or one-by-one</p>
+                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; Multiple supported</p>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <!-- Uploaded Files: 4 in a row horizontal grid -->
                                             <div id="courtOrderFileList" class="hidden grid grid-cols-4 gap-1.5 pt-1"></div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Extraction & Analysis Conducted? (CURRENT/NEW CASES) -->
-                                <div class="space-y-2">
-                                    <label for="extractionAnalysisConducted" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
+                                <!-- Extraction & Analysis Conducted? (STAGE 01) -->
+                                <div class="space-y-1.5">
+                                    <label for="extractionAnalysisConducted" class="block text-[10.5px] font-extrabold text-slate-600 font-mono-code uppercase tracking-wider">
                                         Extraction &amp; Analysis Conducted?
                                     </label>
-                                    <div class="bg-white border border-slate-200 rounded-xl focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/20 transition-all overflow-hidden shadow-2xs">
-                                        <div class="flex items-center justify-between px-3 py-1.5 bg-slate-100/75 border-b border-slate-200/80 gap-2">
+                                    <div class="bg-white border border-slate-200 rounded-xl focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/15 transition-all overflow-hidden shadow-2xs">
+                                        <div class="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200/80 gap-2">
                                             <div class="flex items-center gap-1.5 min-w-0">
                                                 <span class="text-[9.5px] font-black text-slate-500 font-mono-code uppercase tracking-wider shrink-0">Status:</span>
                                                 <select id="extractionAnalysisConducted" name="extraction_analysis_status" class="px-2 py-0.5 bg-white border border-slate-300 rounded-lg text-xs font-mono-code font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer shadow-2xs">
@@ -1240,7 +1246,7 @@
                                                     <option value="IN PROGRESS">IN PROGRESS</option>
                                                 </select>
                                             </div>
-                                            <span class="text-[9px] font-mono-code text-slate-400 hidden sm:inline">Select status and/or enter message</span>
+                                            <span class="text-[9px] font-mono-code text-slate-400 hidden sm:inline">Status + notes</span>
                                         </div>
                                         <textarea id="extractionAnalysisNotes" name="extraction_analysis_notes" rows="3" placeholder="Message / Details (e.g. Preliminary forensic analysis completed; full extraction pending grant of court order...)" class="w-full px-3 py-2 bg-transparent border-0 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 resize-y custom-scrollbar font-sans leading-relaxed"></textarea>
                                     </div>
@@ -1249,13 +1255,13 @@
                             </div>
                         </div>
 
-                        <!-- ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED) SECTION CONTAINER -->
-                        <div id="ongoingCasesSectionContainer" class="hidden p-5 bg-emerald-50/35 border border-emerald-200 rounded-2xl space-y-5 transition-all duration-300">
+                        <!-- STAGE 02: ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED) -->
+                        <div id="ongoingCasesSectionContainer" class="hidden p-5 bg-emerald-50/40 border border-emerald-200 rounded-2xl space-y-5 transition-all duration-300">
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-emerald-200/80">
                                 <div class="flex items-center gap-2.5">
-                                    <span class="px-2 py-0.5 rounded-md bg-emerald-100 border border-emerald-300/80 text-emerald-900 font-mono-code text-[10px] font-extrabold">STAGE 02</span>
+                                    <span class="px-2 py-0.5 rounded bg-emerald-700 text-white font-mono-code text-[10px] font-extrabold">STAGE 02</span>
                                     <h3 class="text-xs sm:text-sm font-extrabold text-emerald-950 font-mono-code uppercase tracking-wider">
-                                        ONGOING CASES (EXTRACTION COURT ORDERS RECEIVED)
+                                        Ongoing Cases (Extraction Court Orders Received)
                                     </h3>
                                 </div>
                                 <span class="text-[10.5px] font-mono-code font-semibold text-emerald-800">
@@ -1265,13 +1271,13 @@
 
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
 
-                                <!-- Extraction & Analysis Conducted? (ONGOING CASES) -->
-                                <div class="space-y-2">
-                                    <label for="ongoingExtractionAnalysisConducted" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
+                                <!-- Ongoing Extraction -->
+                                <div class="space-y-1.5">
+                                    <label for="ongoingExtractionAnalysisConducted" class="block text-[10.5px] font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
                                         Extraction &amp; Analysis Conducted?
                                     </label>
-                                    <div class="bg-white border border-slate-200 rounded-xl focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/20 transition-all overflow-hidden shadow-2xs">
-                                        <div class="flex items-center justify-between px-3 py-1.5 bg-slate-100/75 border-b border-slate-200/80 gap-2">
+                                    <div class="bg-white border border-slate-200 rounded-xl focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/15 transition-all overflow-hidden shadow-2xs">
+                                        <div class="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200/80 gap-2">
                                             <div class="flex items-center gap-1.5 min-w-0">
                                                 <span class="text-[9.5px] font-black text-slate-500 font-mono-code uppercase tracking-wider shrink-0">Status:</span>
                                                 <select id="ongoingExtractionAnalysisConducted" name="ongoing_extraction_analysis_status" class="px-2 py-0.5 bg-white border border-slate-300 rounded-lg text-xs font-mono-code font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer shadow-2xs">
@@ -1281,19 +1287,19 @@
                                                     <option value="IN PROGRESS">IN PROGRESS</option>
                                                 </select>
                                             </div>
-                                            <span class="text-[9px] font-mono-code text-slate-400 hidden sm:inline">Select status and/or enter message</span>
+                                            <span class="text-[9px] font-mono-code text-slate-400 hidden sm:inline">Status + notes</span>
                                         </div>
                                         <textarea id="ongoingExtractionAnalysisNotes" name="ongoing_extraction_analysis_notes" rows="3" placeholder="Message / Details (e.g. Full extraction and forensic analysis completed under granted court order...)" class="w-full px-3 py-2 bg-transparent border-0 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 resize-y custom-scrollbar font-sans leading-relaxed"></textarea>
                                     </div>
                                 </div>
 
-                                <!-- Report, Witness Statement & Digital Evidence Sent to Investigations -->
-                                <div class="space-y-2">
-                                    <label for="reportWitnessSent" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                        Report, Witness Statement &amp; Digital Evidence Sent to Investigations: <span class="text-red-500">*</span>
+                                <!-- Report & Witness Statement -->
+                                <div class="space-y-1.5">
+                                    <label for="reportWitnessSent" class="block text-[10.5px] font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
+                                        Report, Witness Statement &amp; Evidence Sent <span class="text-rose-500">*</span>
                                     </label>
-                                    <div class="bg-white border border-slate-200 rounded-xl focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/20 transition-all overflow-hidden shadow-2xs">
-                                        <div class="flex items-center justify-between px-3 py-1.5 bg-slate-100/75 border-b border-slate-200/80 gap-2">
+                                    <div class="bg-white border border-slate-200 rounded-xl focus-within:border-emerald-600 focus-within:ring-2 focus-within:ring-emerald-600/15 transition-all overflow-hidden shadow-2xs">
+                                        <div class="flex items-center justify-between px-3 py-1.5 bg-slate-50 border-b border-slate-200/80 gap-2">
                                             <div class="flex items-center gap-1.5 min-w-0">
                                                 <span class="text-[9.5px] font-black text-slate-500 font-mono-code uppercase tracking-wider shrink-0">Status:</span>
                                                 <select id="reportWitnessSent" name="report_witness_statement_status" onchange="toggleReportWitnessFile(this.value)" class="px-2 py-0.5 bg-white border border-slate-300 rounded-lg text-xs font-mono-code font-bold text-slate-800 focus:outline-none focus:border-emerald-600 cursor-pointer shadow-2xs">
@@ -1303,14 +1309,13 @@
                                                     <option value="PENDING">PENDING</option>
                                                 </select>
                                             </div>
-                                            <span class="text-[9px] font-mono-code text-slate-400 hidden sm:inline">Select status and/or enter message</span>
+                                            <span class="text-[9px] font-mono-code text-slate-400 hidden sm:inline">Status + notes</span>
                                         </div>
                                         <textarea id="reportWitnessNotes" name="report_witness_statement_notes" rows="3" placeholder="Message / Details (e.g. Full forensic analytical report and witness statements transmitted to Investigations Directorate...)" class="w-full px-3 py-2 bg-transparent border-0 text-xs text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-0 resize-y custom-scrollbar font-sans leading-relaxed"></textarea>
                                     </div>
 
-                                    <!-- File Upload Section for Report & Witness Statement Sent (maintains previous column width) -->
                                     <div id="reportWitnessFileWrapper" class="{{ strtoupper(trim($defaultReportWitnessStatus)) === 'YES' ? '' : 'hidden' }} pt-1.5">
-                                        <div class="p-3 bg-emerald-50/70 border border-emerald-200/90 rounded-2xl space-y-2.5 transition-all">
+                                        <div class="p-3 bg-white border border-emerald-200/90 rounded-2xl space-y-2.5 transition-all">
                                             <div class="flex items-center justify-between">
                                                 <span class="text-[10px] font-black text-emerald-800 font-mono-code uppercase tracking-wider flex items-center gap-1">
                                                     <svg class="w-3.5 h-3.5 text-emerald-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -1319,8 +1324,7 @@
                                                 <span id="reportWitnessBadge" class="hidden text-[9px] font-extrabold bg-emerald-600 text-white px-2 py-0.5 rounded-full font-mono-code">ATTACHED</span>
                                             </div>
 
-                                            <!-- Saved Report & Witness Statement Documents (Shown ONLY when documents have already been uploaded and saved) -->
-                                            <div id="reportWitnessSavedFilesWrapper" class="{{ !empty($defaultReportWitnessFiles) ? '' : 'hidden' }} space-y-1.5 p-2.5 bg-white/95 border border-emerald-300/80 rounded-xl shadow-2xs">
+                                            <div id="reportWitnessSavedFilesWrapper" class="{{ !empty($defaultReportWitnessFiles) ? '' : 'hidden' }} space-y-1.5 p-2.5 bg-slate-50 border border-emerald-300/80 rounded-xl shadow-2xs">
                                                 <div class="flex items-center justify-between">
                                                     <span class="text-[9.5px] font-black text-emerald-900 font-mono-code uppercase tracking-wider flex items-center gap-1.5">
                                                         <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
@@ -1338,7 +1342,7 @@
                                                             elseif (in_array($savedRwFile['ext'], ['JPG', 'JPEG', 'PNG', 'WEBP'])) $extBadgeBg = 'bg-sky-600';
                                                             elseif (in_array($savedRwFile['ext'], ['DOC', 'DOCX'])) $extBadgeBg = 'bg-indigo-600';
                                                         @endphp
-                                                        <div class="flex items-center justify-between p-1.5 bg-slate-50 border border-slate-200/90 rounded-lg hover:border-emerald-400 transition-all">
+                                                        <div class="flex items-center justify-between p-1.5 bg-white border border-slate-200/90 rounded-lg hover:border-emerald-400 transition-all">
                                                             <div class="flex items-center gap-2 min-w-0 pr-2">
                                                                 <span class="w-5 h-5 rounded {{ $extBadgeBg }} text-white flex items-center justify-center font-mono-code text-[8px] font-black shrink-0">
                                                                     {{ $savedRwFile['ext'] ?: 'DOC' }}
@@ -1356,7 +1360,7 @@
                                                 </div>
                                             </div>
 
-                                            <div class="relative flex items-center justify-center border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-white rounded-xl p-2.5 transition-all cursor-pointer group">
+                                            <div class="relative flex items-center justify-center border-2 border-dashed border-emerald-300 hover:border-emerald-500 bg-slate-50/70 rounded-xl p-2.5 transition-all cursor-pointer group">
                                                 <input type="file" id="reportWitnessFileInput" name="report_witness_statement_files[]" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" onclick="this.value = null;" oncancel="restoreFileInputFiles('witness')" onchange="handleFileSelected(this, 'witness')" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                                                 <div class="flex items-center gap-2 text-center">
                                                     <div class="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
@@ -1366,22 +1370,21 @@
                                                         <p id="reportWitnessFileNameDisplay" class="text-[11px] font-bold text-slate-700 group-hover:text-emerald-800 truncate max-w-[160px]">
                                                             Choose Statement / Report File(s)
                                                         </p>
-                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; Multiple or one-by-one</p>
+                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; Multiple supported</p>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <!-- Uploaded Files: 4 in a row horizontal grid -->
                                             <div id="reportWitnessFileList" class="hidden grid grid-cols-4 gap-1.5 pt-1"></div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Intelligence Shared to Intel Department for Action? -->
-                                <div class="space-y-2">
-                                    <label for="intelShared" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                        Intelligence Shared to Intel Department for Action? <span class="text-red-500">*</span>
+                                <!-- Intelligence Shared -->
+                                <div class="space-y-1.5">
+                                    <label for="intelShared" class="block text-[10.5px] font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
+                                        Intelligence Shared to Intel Dept? <span class="text-rose-500">*</span>
                                     </label>
-                                    <select id="intelShared" name="intel_shared" class="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all cursor-pointer">
+                                    <select id="intelShared" name="intel_shared" class="rep-select w-full px-3.5 py-2.5 text-xs font-mono-code font-semibold">
                                         <option value="YES">YES</option>
                                         <option value="NO" selected>NO</option>
                                         <option value="PENDING">PENDING</option>
@@ -1391,35 +1394,35 @@
                             </div>
 
                             <!-- Remark -->
-                            <div class="space-y-2">
-                                <label for="statusRemark" class="block text-xs font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
-                                    Remark
+                            <div class="space-y-1.5">
+                                <label for="statusRemark" class="block text-[10.5px] font-extrabold text-slate-700 font-mono-code uppercase tracking-wider">
+                                    Examiner Remarks
                                 </label>
-                                <textarea id="statusRemark" name="remark" rows="3" placeholder="Enter additional remarks or status details regarding ongoing case analysis..." class="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-xs text-slate-900 font-sans leading-relaxed focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all custom-scrollbar"></textarea>
+                                <textarea id="statusRemark" name="remark" rows="3" placeholder="Enter additional remarks or status details regarding ongoing case analysis..." class="rep-input w-full px-4 py-3 text-xs font-sans leading-relaxed custom-scrollbar"></textarea>
                             </div>
                         </div>
 
                         <!-- Submit Bar -->
-                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-200/80">
+                        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-200/80">
                             <div class="flex items-center gap-3 flex-wrap">
                                 <button type="button"
                                         onclick="openSelectedCasePdfPreview()"
-                                        class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200/90 text-slate-700 border border-slate-200 text-xs font-bold transition-colors">
+                                        class="rep-btn-green-soft inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold">
                                     <svg class="w-3.5 h-3.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                     </svg>
-                                    <span>Preview DPF Report PDF</span>
+                                    <span>Preview Single-Case DPF PDF</span>
                                 </button>
                                 <div id="statusAlertMsg" class="hidden items-center gap-2 text-xs font-mono-code font-bold text-emerald-700">
                                     <span>Forensic &amp; Investigation Status updated.</span>
                                 </div>
                             </div>
                             <div class="flex items-center gap-2.5 justify-end">
-                                <button type="reset" class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-bold text-xs rounded-xl transition-colors">
+                                <button type="reset" class="rep-btn-green-soft px-4 py-2 font-bold text-xs rounded-xl">
                                     Reset Form
                                 </button>
-                                <button type="submit" id="saveStatusBtn" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-xs shadow-emerald-700/20 transition-all flex items-center gap-2">
+                                <button type="submit" id="saveStatusBtn" class="rep-btn-green px-5 py-2.5 font-extrabold text-xs rounded-xl flex items-center gap-2">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
                                     <span>Save &amp; Log Investigation Status</span>
                                 </button>
@@ -1428,81 +1431,78 @@
                     </form>
                 </section>
 
-                <!-- LIVE FORENSIC INVESTIGATION DIRECTORY TABLE -->
-                <section id="investigationDirectorySection" class="bg-white rounded-2xl border border-slate-200/80 shadow-2xs overflow-hidden scroll-mt-5">
+                <!-- 3. LIVE FORENSIC INVESTIGATION DIRECTORY TABLE -->
+                <section id="investigationDirectorySection" class="rep-surface-card overflow-hidden scroll-mt-5">
                     <div class="px-5 py-4 sm:px-6 bg-slate-100/80 border-b border-slate-200/80 flex flex-col xl:flex-row xl:items-center justify-between gap-3.5">
-                        <div>
-                            <div class="flex items-center gap-2.5 flex-wrap">
-                                <h3 class="text-sm sm:text-base font-extrabold text-slate-900 tracking-tight">
-                                    Digital Forensic &amp; Investigation Directory
-                                </h3>
-                                <span id="directoryRowCountBadge" class="px-2.5 py-0.5 text-[10.5px] font-bold rounded-lg bg-emerald-50 border border-emerald-200/90 text-emerald-900 font-mono-code tnum">
-                                    Total: {{ $kpiTotalRecords }}
-                                </span>
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-xl bg-white border border-slate-200/90 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                             </div>
-                            <p class="text-xs text-slate-500 mt-0.5">Click <strong class="text-slate-700">Edit</strong> on any row to load its status into the workbench above, or <strong class="text-slate-700">Preview</strong> to open its single-case DPF Report PDF.</p>
+                            <div>
+                                <div class="flex items-center gap-2.5 flex-wrap">
+                                    <h3 class="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight">
+                                        Digital Forensic &amp; Investigation Directory
+                                    </h3>
+                                    <span id="directoryRowCountBadge" class="px-2.5 py-0.5 text-[10px] font-extrabold rounded-full bg-emerald-50 border border-emerald-200/80 text-emerald-800 font-mono-code tnum">
+                                        Total: {{ $kpiTotalRecords }}
+                                    </span>
+                                </div>
+                                <p class="text-[11px] text-slate-500 mt-0.5">Click <strong class="text-slate-700">Edit</strong> on any row to hydrate the workbench above, or <strong class="text-slate-700">Preview</strong> to open its official PDF report.</p>
+                            </div>
                         </div>
 
-                        <!-- SEARCH INPUT -->
                         <div class="relative w-full xl:max-w-sm">
-                            <input type="text" id="directorySearchInput" oninput="applyDirectoryFilters()" onkeyup="applyDirectoryFilters()" placeholder="Filter by Suspect, Case Ref, Location, or Status..." class="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono-code text-slate-900 focus:outline-none focus:border-emerald-600 transition-colors shadow-2xs">
+                            <input type="text" id="directorySearchInput" oninput="applyDirectoryFilters()" onkeyup="applyDirectoryFilters()" placeholder="Filter by Suspect, Case Ref, Location, or Status..." class="rep-input w-full pl-9 pr-3 py-2 text-xs font-mono-code font-semibold">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-slate-400 pointer-events-none">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                             </span>
                         </div>
                     </div>
 
-                    <!-- DATE & STATUS FILTER TOOLBAR -->
+                    <!-- PRECISION FILTER TOOLBAR -->
                     <div class="px-4 py-3 sm:px-6 bg-slate-50/70 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 text-xs">
-                        <!-- PRESET PILLS -->
-                        <div class="flex items-center gap-1.5 flex-wrap">
-                            <span class="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 font-mono-code mr-1">Period:</span>
-                            <button type="button" onclick="setDateFilterPreset('all')" id="btnPresetAll" class="px-2.5 py-1 rounded-lg text-[11px] font-mono-code font-bold transition-colors bg-emerald-600 text-white shadow-2xs">
+                        <div class="rep-segmented font-mono-code text-xs font-bold">
+                            <button type="button" onclick="setDateFilterPreset('all')" id="btnPresetAll" class="rep-btn-green px-3 py-1 rounded-lg text-xs font-mono-code font-bold cursor-pointer">
                                 All Time
                             </button>
-                            <button type="button" onclick="setDateFilterPreset('weekly')" id="btnPresetWeekly" class="px-2.5 py-1 rounded-lg text-[11px] font-mono-code font-bold transition-colors bg-white hover:bg-slate-100 text-slate-700 border border-slate-200">
+                            <button type="button" onclick="setDateFilterPreset('weekly')" id="btnPresetWeekly" class="rep-btn-green-soft px-3 py-1 rounded-lg text-xs font-mono-code font-bold cursor-pointer">
                                 Weekly
                             </button>
-                            <button type="button" onclick="setDateFilterPreset('monthly')" id="btnPresetMonthly" class="px-2.5 py-1 rounded-lg text-[11px] font-mono-code font-bold transition-colors bg-white hover:bg-slate-100 text-slate-700 border border-slate-200">
+                            <button type="button" onclick="setDateFilterPreset('monthly')" id="btnPresetMonthly" class="rep-btn-green-soft px-3 py-1 rounded-lg text-xs font-mono-code font-bold cursor-pointer">
                                 Monthly
                             </button>
-                            <button type="button" onclick="setDateFilterPreset('annually')" id="btnPresetAnnually" class="px-2.5 py-1 rounded-lg text-[11px] font-mono-code font-bold transition-colors bg-white hover:bg-slate-100 text-slate-700 border border-slate-200">
+                            <button type="button" onclick="setDateFilterPreset('annually')" id="btnPresetAnnually" class="rep-btn-green-soft px-3 py-1 rounded-lg text-xs font-mono-code font-bold cursor-pointer">
                                 Annually
                             </button>
                         </div>
 
-                        <!-- STATUS FILTERS & CUSTOM DATE RANGE INPUTS -->
                         <div class="flex items-center gap-2 flex-wrap">
-                            <div class="flex items-center gap-1">
-                                <select id="directoryCourtFilter" onchange="applyDirectoryFilters()" class="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-mono-code font-semibold text-slate-700 focus:outline-none focus:border-emerald-600">
-                                    <option value="">Court Order: All</option>
-                                    <option value="YES">Granted (YES)</option>
-                                    <option value="NO">Not Granted (NO)</option>
-                                </select>
-                            </div>
+                            <select id="directoryCourtFilter" onchange="applyDirectoryFilters()" class="rep-select px-2.5 py-1.5 text-[11px] font-mono-code font-semibold">
+                                <option value="">Court Order: All</option>
+                                <option value="YES">Granted (YES)</option>
+                                <option value="NO">Not Granted (NO)</option>
+                            </select>
 
-                            <div class="flex items-center gap-1">
-                                <select id="directoryExtractionFilter" onchange="applyDirectoryFilters()" class="px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-mono-code font-semibold text-slate-700 focus:outline-none focus:border-emerald-600">
-                                    <option value="">Extraction: All</option>
-                                    <option value="YES">Completed (YES)</option>
-                                    <option value="IN PROGRESS">In Progress</option>
-                                    <option value="NO">Pending / NO</option>
-                                </select>
-                            </div>
+                            <select id="directoryExtractionFilter" onchange="applyDirectoryFilters()" class="rep-select px-2.5 py-1.5 text-[11px] font-mono-code font-semibold">
+                                <option value="">Extraction: All</option>
+                                <option value="YES">Completed (YES)</option>
+                                <option value="IN PROGRESS">In Progress</option>
+                                <option value="NO">Pending / NO</option>
+                            </select>
 
                             <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] font-bold text-slate-500 font-mono-code uppercase">From</span>
-                                <input type="date" id="dateFilterFrom" oninput="onCustomDateChange()" onchange="onCustomDateChange()" class="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-mono-code text-slate-800 focus:outline-none focus:border-emerald-600">
+                                <span class="text-[10px] font-extrabold text-slate-500 font-mono-code uppercase">From</span>
+                                <input type="date" id="dateFilterFrom" oninput="onCustomDateChange()" onchange="onCustomDateChange()" class="rep-input px-2 py-1 text-[11px] font-mono-code font-semibold">
                             </div>
                             <div class="flex items-center gap-1.5">
-                                <span class="text-[10px] font-bold text-slate-500 font-mono-code uppercase">To</span>
-                                <input type="date" id="dateFilterTo" oninput="onCustomDateChange()" onchange="onCustomDateChange()" class="px-2 py-1 bg-white border border-slate-200 rounded-lg text-[11px] font-mono-code text-slate-800 focus:outline-none focus:border-emerald-600">
+                                <span class="text-[10px] font-extrabold text-slate-500 font-mono-code uppercase">To</span>
+                                <input type="date" id="dateFilterTo" oninput="onCustomDateChange()" onchange="onCustomDateChange()" class="rep-input px-2 py-1 text-[11px] font-mono-code font-semibold">
                             </div>
-                            <button type="button" onclick="generateDirectoryFilter()" id="btnGenerateFilter" title="Export Filtered Directory PDF" class="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-mono-code font-bold transition-colors flex items-center gap-1.5 shadow-2xs">
+                            <button type="button" onclick="generateDirectoryFilter()" id="btnGenerateFilter" title="Export Filtered Directory PDF" class="rep-btn-green px-3 py-1.5 rounded-lg text-[11px] font-mono-code font-bold flex items-center gap-1.5 cursor-pointer">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                                 <span>Generate PDF</span>
                             </button>
-                            <button type="button" onclick="resetDateFilters()" title="Reset All Filters" class="px-2.5 py-1 bg-white hover:bg-rose-50 text-slate-600 hover:text-rose-700 border border-slate-200 hover:border-rose-200 rounded-lg text-[11px] font-mono-code font-bold transition-colors flex items-center gap-1">
+                            <button type="button" onclick="resetDateFilters()" title="Reset All Filters" class="rep-btn-green-soft px-2.5 py-1.5 rounded-lg text-[11px] font-mono-code font-bold flex items-center gap-1 cursor-pointer">
                                 <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                                 <span>Reset</span>
                             </button>
@@ -1510,17 +1510,17 @@
                     </div>
 
                     <div class="overflow-x-auto custom-scrollbar">
-                        <table class="w-full text-xs text-left border-collapse" id="forensicDirectoryTable">
+                        <table class="rep-table w-full min-w-[1040px] text-xs text-left border-collapse" id="forensicDirectoryTable">
                             <thead>
-                                <tr class="bg-slate-50/95 text-slate-500 font-mono-code font-bold uppercase text-[10.5px] tracking-wider border-b border-slate-200/90">
-                                    <th class="p-3 pl-5">Case Ref</th>
-                                    <th class="p-3">Suspect</th>
-                                    <th class="p-3">Logged Date</th>
-                                    <th class="p-3">Court Order</th>
-                                    <th class="p-3">Extraction &amp; Analysis</th>
-                                    <th class="p-3">Statement &amp; Evidence Sent</th>
-                                    <th class="p-3">Intel Shared</th>
-                                    <th class="p-3 pr-5 text-right">Actions</th>
+                                <tr>
+                                    <th class="p-3.5 pl-5">Case Ref</th>
+                                    <th class="p-3.5">Suspect</th>
+                                    <th class="p-3.5">Logged Date</th>
+                                    <th class="p-3.5">Court Order</th>
+                                    <th class="p-3.5">Extraction &amp; Analysis</th>
+                                    <th class="p-3.5">Statement &amp; Evidence Sent</th>
+                                    <th class="p-3.5">Intel Shared</th>
+                                    <th class="p-3.5 pr-5 text-right">Actions</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-slate-100 bg-white font-mono-code" id="forensicTableBody">
@@ -1698,12 +1698,12 @@
                                             <div class="inline-flex items-center justify-end gap-1.5">
                                                 <button type="button"
                                                         onclick="selectCaseInStatusForm('{{ addslashes($rep->case_number) }}')"
-                                                        class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[10.5px] font-bold transition-colors"
+                                                        class="rep-btn-green-soft px-2.5 py-1 rounded-lg text-[10.5px] font-bold cursor-pointer"
                                                         title="Load {{ $rep->case_number }} into the status form above">
                                                     Edit
                                                 </button>
                                                 <a href="{{ url('/Digital_Forensics/dpf-report-pdf/' . rawurlencode($rep->dpf_code ?? $rep->case_number)) }}"
-                                                   class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10.5px] font-bold transition-colors no-underline inline-block">
+                                                   class="rep-btn-green px-2.5 py-1 rounded-lg text-[10.5px] font-bold no-underline inline-block">
                                                     Preview
                                                 </a>
                                             </div>
@@ -1812,12 +1812,12 @@
                                             <div class="inline-flex items-center justify-end gap-1.5">
                                                 <button type="button"
                                                         onclick="selectCaseInStatusForm('{{ addslashes($cRef) }}')"
-                                                        class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[10.5px] font-bold transition-colors"
+                                                        class="rep-btn-green-soft px-2.5 py-1 rounded-lg text-[10.5px] font-bold cursor-pointer"
                                                         title="Load {{ $cRef }} into the status form above">
                                                     Edit
                                                 </button>
                                                 <a href="{{ url('/Digital_Forensics/dpf-report-pdf/' . rawurlencode($cRef)) }}"
-                                                   class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10.5px] font-bold transition-colors no-underline inline-block">
+                                                   class="rep-btn-green px-2.5 py-1 rounded-lg text-[10.5px] font-bold no-underline inline-block">
                                                     Preview
                                                 </a>
                                             </div>
@@ -1860,14 +1860,14 @@
                         </div>
 
                         <div class="flex items-center space-x-1.5" id="dirPaginationControls">
-                            <button id="dirPrevPageBtn" onclick="goToDirectoryPage(currentDirPage - 1)" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1">
+                            <button id="dirPrevPageBtn" onclick="goToDirectoryPage(currentDirPage - 1)" class="rep-btn-green-soft px-3 py-1.5 font-bold rounded-lg text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1">
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
                                 <span>Prev</span>
                             </button>
 
                             <div id="dirPageNumbersContainer" class="flex items-center space-x-1"></div>
 
-                            <button id="dirNextPageBtn" onclick="goToDirectoryPage(currentDirPage + 1)" class="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold rounded-lg text-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1">
+                            <button id="dirNextPageBtn" onclick="goToDirectoryPage(currentDirPage + 1)" class="rep-btn-green-soft px-3 py-1.5 font-bold rounded-lg text-xs disabled:opacity-40 disabled:cursor-not-allowed flex items-center space-x-1">
                                 <span>Next</span>
                                 <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                             </button>
@@ -2887,10 +2887,10 @@
                 <td class="p-3.5 align-top">${getMultiBadgesHtml(r.intel_shared)}</td>
                 <td class="p-3.5 pr-5 align-top text-right whitespace-nowrap">
                     <div class="inline-flex items-center justify-end gap-1.5">
-                        <button type="button" onclick="selectCaseInStatusForm('${escapedCaseJs}')" class="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg text-[10.5px] font-bold transition-colors">
+                        <button type="button" onclick="selectCaseInStatusForm('${escapedCaseJs}')" class="rep-btn-green-soft px-2.5 py-1 rounded-lg text-[10.5px] font-bold cursor-pointer">
                             Edit
                         </button>
-                        <a href="${pdfUrl}" class="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10.5px] font-bold transition-colors no-underline inline-block">
+                        <a href="${pdfUrl}" class="rep-btn-green px-2.5 py-1 rounded-lg text-[10.5px] font-bold no-underline inline-block">
                             Preview
                         </a>
                     </div>
@@ -2972,9 +2972,9 @@
                 const btn = document.getElementById('btnPreset' + p.charAt(0).toUpperCase() + p.slice(1));
                 if (!btn) return;
                 if (p === activePreset) {
-                    btn.className = 'px-3 py-1 rounded-lg text-xs font-mono-code font-bold transition-all bg-emerald-600 text-white shadow-xs cursor-pointer';
-                    btn.style.backgroundColor = '#059669';
-                    btn.style.color = '#ffffff';
+                    btn.className = 'rep-btn-green px-3 py-1 rounded-lg text-xs font-mono-code font-bold cursor-pointer';
+                    btn.style.backgroundColor = '';
+                    btn.style.color = '';
                 } else {
                     btn.className = 'px-3 py-1 rounded-lg text-xs font-mono-code font-bold transition-all bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-2xs cursor-pointer';
                     btn.style.backgroundColor = '#ffffff';
@@ -3267,7 +3267,7 @@
                 }
                 for (let i = startPage; i <= endPage; i++) {
                     const isActive = (i === currentDirPage);
-                    pagesHtml += `<button onclick="goToDirectoryPage(${i})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'bg-emerald-600 text-white shadow-xs' : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'}">${i}</button>`;
+                    pagesHtml += `<button onclick="goToDirectoryPage(${i})" class="px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${isActive ? 'rep-btn-green' : 'rep-btn-green-soft'}">${i}</button>`;
                 }
                 pageContainer.innerHTML = pagesHtml;
             }
@@ -3362,7 +3362,7 @@
                 <div class="flex items-center gap-2">
                     <h4 id="mugshotModalTitle" class="font-mono-code font-bold text-xs uppercase tracking-wider text-slate-800">Custodial Front Portrait</h4>
                 </div>
-                <button type="button" onclick="closeMugshotModal()" class="text-slate-500 hover:text-slate-900 transition-colors p-1 rounded-lg hover:bg-slate-200/80" title="Close Preview">
+                <button type="button" onclick="closeMugshotModal()" class="rep-btn-green-soft p-1.5 rounded-lg cursor-pointer" title="Close Preview">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                 </button>
             </div>
@@ -3378,7 +3378,7 @@
             </div>
             <!-- MODAL FOOTER -->
             <div class="px-5 py-3 bg-white border-t border-slate-100 flex items-center justify-end">
-                <button type="button" onclick="closeMugshotModal()" class="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-mono-code font-bold rounded-xl transition-colors">
+                <button type="button" onclick="closeMugshotModal()" class="rep-btn-green px-4 py-1.5 text-xs font-mono-code font-bold rounded-xl cursor-pointer">
                     Close
                 </button>
             </div>
