@@ -43,7 +43,7 @@ class HeadPasswordRequestsController extends Controller
         }
 
         $search = trim((string) $request->input('search', ''));
-        $perPage = max(5, min(50, (int) $request->input('per_page', 15)));
+        $perPage = max(5, min(50, (int) $request->input('per_page', 10)));
 
         $stats = $this->computeStats($scopedUnitSlug, $viewer);
 
@@ -62,6 +62,7 @@ class HeadPasswordRequestsController extends Controller
                 'isUnitScoped' => $isUnitScoped,
                 'scopedUnitSlug' => $scopedUnitSlug,
                 'search' => $search,
+                'perPage' => $perPage,
                 'viewer' => $viewer,
                 'viewerUnit' => $viewerUnit,
                 'currentEndpoint' => '/' . ltrim($request->path(), '/'),
@@ -103,12 +104,20 @@ class HeadPasswordRequestsController extends Controller
         }
 
         // Show pending requests at the very top, ordered newest first
-        $requests = $query
+        $orderedQuery = $query
             ->orderByRaw("CASE WHEN status = 'pending' THEN 0 WHEN status = 'approved' THEN 1 ELSE 2 END ASC")
             ->orderByDesc('updated_at')
-            ->orderByDesc('id')
+            ->orderByDesc('id');
+
+        $requests = (clone $orderedQuery)
             ->paginate($perPage)
             ->appends($request->except('poll'));
+
+        if ($requests->isEmpty() && $requests->total() > 0 && $requests->currentPage() > 1) {
+            $requests = $orderedQuery
+                ->paginate($perPage, ['*'], 'page', $requests->lastPage())
+                ->appends($request->except('poll'));
+        }
 
         $signature = $this->buildPollSignature($requests, $stats, $statusFilter, $unitFilter, $search);
 
@@ -120,6 +129,7 @@ class HeadPasswordRequestsController extends Controller
             'isUnitScoped' => $isUnitScoped,
             'scopedUnitSlug' => $scopedUnitSlug,
             'search' => $search,
+            'perPage' => $perPage,
             'viewer' => $viewer,
             'viewerUnit' => $viewerUnit,
             'currentEndpoint' => '/' . ltrim($request->path(), '/'),
@@ -374,7 +384,7 @@ class HeadPasswordRequestsController extends Controller
 
         return md5((string) json_encode([
             'stats' => $stats,
-            'filter' => [$statusFilter, $unitFilter, $search, $paginator->currentPage(), $paginator->total()],
+            'filter' => [$statusFilter, $unitFilter, $search, $paginator->currentPage(), $paginator->perPage(), $paginator->total()],
             'rows' => $rowsState,
         ]));
     }

@@ -189,14 +189,69 @@
     </table>
 </div>
 
-@if ($requests->hasPages())
-    <div class="px-5 py-3.5 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between gap-4 flex-wrap text-xs">
-        <div class="text-slate-500 font-medium">
-            Showing <strong class="text-slate-800">{{ $requests->firstItem() }}</strong> to <strong class="text-slate-800">{{ $requests->lastItem() }}</strong> of <strong class="text-slate-800">{{ $requests->total() }}</strong> requests
+@if ($requests->total() > 0)
+    @php
+        $currentPage = $requests->currentPage();
+        $lastPage = max(1, $requests->lastPage());
+        $startPage = max(1, $currentPage - 2);
+        $endPage = min($lastPage, $currentPage + 2);
+    @endphp
+    <div class="px-5 py-3.5 border-t border-slate-200/80 bg-slate-50/70 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+        <div class="flex items-center gap-2 text-slate-600 font-mono-code tnum">
+            <span>
+                Showing <strong class="text-slate-900 font-extrabold">{{ $requests->firstItem() ?? 0 }}</strong>&ndash;<strong class="text-slate-900 font-extrabold">{{ $requests->lastItem() ?? 0 }}</strong> of <strong class="text-slate-900 font-extrabold">{{ number_format($requests->total()) }}</strong> {{ $requests->total() === 1 ? 'request' : 'requests' }}
+            </span>
+            <span class="text-slate-300">&bull;</span>
+            <span class="text-[11px] text-slate-500 font-bold">Page {{ $currentPage }} of {{ $lastPage }}</span>
         </div>
-        <div>
-            {{ $requests->links() }}
-        </div>
+
+        <nav class="flex items-center gap-1 font-mono-code" aria-label="Password reset requests pagination">
+            @if ($requests->onFirstPage())
+                <button type="button" disabled class="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed inline-flex items-center gap-1">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    <span>Prev</span>
+                </button>
+            @else
+                <button type="button" onclick="goToPasswordRequestsPage({{ $currentPage - 1 }}, event)" class="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+                    <span>Prev</span>
+                </button>
+            @endif
+
+            @if ($startPage > 1)
+                <button type="button" onclick="goToPasswordRequestsPage(1, event)" class="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition-colors cursor-pointer shadow-2xs tnum">1</button>
+                @if ($startPage > 2)
+                    <span class="px-1 text-slate-400">&hellip;</span>
+                @endif
+            @endif
+
+            @for ($p = $startPage; $p <= $endPage; $p++)
+                @if ($p === $currentPage)
+                    <span aria-current="page" class="px-3 py-1.5 text-xs font-extrabold rounded-lg bg-emerald-600 text-white border border-emerald-600 shadow-xs tnum">{{ $p }}</span>
+                @else
+                    <button type="button" onclick="goToPasswordRequestsPage({{ $p }}, event)" class="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition-colors cursor-pointer shadow-2xs tnum">{{ $p }}</button>
+                @endif
+            @endfor
+
+            @if ($endPage < $lastPage)
+                @if ($endPage < $lastPage - 1)
+                    <span class="px-1 text-slate-400">&hellip;</span>
+                @endif
+                <button type="button" onclick="goToPasswordRequestsPage({{ $lastPage }}, event)" class="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition-colors cursor-pointer shadow-2xs tnum">{{ $lastPage }}</button>
+            @endif
+
+            @if ($requests->hasMorePages())
+                <button type="button" onclick="goToPasswordRequestsPage({{ $currentPage + 1 }}, event)" class="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300 transition-colors inline-flex items-center gap-1 cursor-pointer shadow-2xs">
+                    <span>Next</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            @else
+                <button type="button" disabled class="px-2.5 py-1.5 text-xs font-bold rounded-lg border border-slate-200 bg-slate-100 text-slate-400 cursor-not-allowed inline-flex items-center gap-1">
+                    <span>Next</span>
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+                </button>
+            @endif
+        </nav>
     </div>
 @endif
 

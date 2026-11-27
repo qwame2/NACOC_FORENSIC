@@ -195,7 +195,7 @@
                                 </select>
                             @endif
 
-                            <div class="relative flex-1 sm:w-72">
+                            <div class="relative flex-1 sm:w-64">
                                 <svg class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
                                 </svg>
@@ -205,6 +205,15 @@
                                     placeholder="Search name, Service ID, Gmail..."
                                     class="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none">
                             </div>
+
+                            <select id="passwordPerPageSelect"
+                                onchange="onPasswordPerPageChange()"
+                                aria-label="Requests per page"
+                                class="px-2.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono-code font-bold text-slate-700 focus:bg-white focus:outline-none shrink-0">
+                                @foreach ([5, 10, 15, 25, 50] as $ppOpt)
+                                    <option value="{{ $ppOpt }}" {{ (int) ($perPage ?? $requests->perPage() ?? 10) === $ppOpt ? 'selected' : '' }}>{{ $ppOpt }} / page</option>
+                                @endforeach
+                            </select>
                         </div>
                     </div>
 
@@ -221,6 +230,7 @@
         const CURRENT_PASSWORD_ENDPOINT = @json($currentEndpoint);
         let activePasswordStatus = @json($statusFilter);
         let activePasswordPage = @json((int) $requests->currentPage());
+        let activePasswordPerPage = @json((int) ($perPage ?? $requests->perPage() ?? 10));
         let lastPasswordSignature = @json($initialSignature ?? null);
         let passwordSearchTimer = null;
         let isPollingPasswordTable = false;
@@ -303,6 +313,23 @@
             pollPasswordRequestsTable(true);
         }
 
+        function onPasswordPerPageChange() {
+            const sel = document.getElementById('passwordPerPageSelect');
+            activePasswordPerPage = Math.max(5, Math.min(50, parseInt(sel?.value || '10', 10) || 10));
+            activePasswordPage = 1;
+            pollPasswordRequestsTable(true);
+        }
+
+        function goToPasswordRequestsPage(page, event) {
+            if (event) event.preventDefault();
+            activePasswordPage = Math.max(1, parseInt(page, 10) || 1);
+            pollPasswordRequestsTable(true);
+            const container = document.getElementById('passwordRequestsTableContainer');
+            if (container) {
+                container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
         function debouncedPasswordSearch() {
             if (passwordSearchTimer) clearTimeout(passwordSearchTimer);
             passwordSearchTimer = setTimeout(() => {
@@ -334,6 +361,9 @@
                 const unitSel = document.getElementById('unitFilterSelect');
                 if (unitSel && unitSel.value) {
                     params.set('unit', unitSel.value);
+                }
+                if (activePasswordPerPage) {
+                    params.set('per_page', String(activePasswordPerPage));
                 }
                 if (activePasswordPage > 1) {
                     params.set('page', String(activePasswordPage));
