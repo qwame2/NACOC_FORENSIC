@@ -130,6 +130,19 @@ Route::get('/finnova-dashboard', function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth'])->group(function () {
+
+    // FALLBACK PUBLIC-DISK SUSPECT MUGSHOT SERVING (WHEN /storage/ PREFIX IS OMITTED)
+    Route::get('/suspects/{path}', function (string $path) {
+        $clean = ltrim(str_replace('\\', '/', $path), '/');
+        if ($clean === '' || str_contains($clean, '..')) {
+            abort(404);
+        }
+        $diskPath = 'suspects/' . $clean;
+        if (\Illuminate\Support\Facades\Storage::disk('public')->exists($diskPath)) {
+            return \Illuminate\Support\Facades\Storage::disk('public')->response($diskPath);
+        }
+        abort(404);
+    })->where('path', '.*');
     
     // AUTHENTICATION LOGOUT
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');

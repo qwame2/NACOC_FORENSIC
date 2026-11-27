@@ -118,16 +118,40 @@ class CasePhotoResolver
         ) {
             return null;
         }
-        if (str_starts_with($src, 'data:image/') || str_starts_with($src, 'data:') || str_starts_with($src, 'http://') || str_starts_with($src, 'https://')) {
+        if (str_starts_with($src, 'data:image/') || str_starts_with($src, 'data:')) {
             return $src;
         }
+        if (str_starts_with($src, 'http://') || str_starts_with($src, 'https://')) {
+            $parsedPath = parse_url($src, PHP_URL_PATH);
+            if (is_string($parsedPath) && preg_match('#^/(?:storage/)?((?:suspects|exhibits|cases|uploads|avatars|signatures)/.+)$#i', $parsedPath, $m)) {
+                $src = $m[1];
+            } else {
+                return $src;
+            }
+        }
         $clean = ltrim($src, '/');
+        if (str_starts_with($clean, 'app/public/')) {
+            $clean = substr($clean, 11);
+        } elseif (str_starts_with($clean, 'public/')) {
+            $clean = substr($clean, 7);
+        }
         try {
             if (str_starts_with($clean, 'storage/')) {
                 return asset($clean);
             }
             if (file_exists(public_path($clean))) {
                 return asset($clean);
+            }
+            if (!str_contains($clean, '/') && !file_exists(storage_path('app/public/' . $clean))) {
+                $matches = glob(storage_path('app/public/suspects/*/*/' . basename($clean)));
+                if (!empty($matches) && isset($matches[0])) {
+                    $normalized = str_replace('\\', '/', $matches[0]);
+                    $marker = '/storage/app/public/';
+                    $pos = strpos($normalized, $marker);
+                    if ($pos !== false) {
+                        return asset('storage/' . substr($normalized, $pos + strlen($marker)));
+                    }
+                }
             }
             return asset('storage/' . $clean);
         } catch (\Throwable) {

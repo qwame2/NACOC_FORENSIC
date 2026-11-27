@@ -624,9 +624,14 @@
                             <div class="suspect-details-row flex flex-row gap-4 items-start">
                                 <!-- MUGSHOT PHOTO FRAME -->
                                 <div class="shrink-0">
-                                    @if(!empty($item['mugshot_front']))
+                                    @php
+                                        $resolvedPreviewMugshot = !empty($item['mugshot_front'])
+                                            ? (\App\Services\CasePhotoResolver::resolveMugshotUrl($item['mugshot_front']) ?? $item['mugshot_front'])
+                                            : null;
+                                    @endphp
+                                    @if(!empty($resolvedPreviewMugshot))
                                         <div class="w-28 h-36 rounded border border-slate-300 overflow-hidden shadow-xs bg-white">
-                                            <img src="{{ $item['mugshot_front'] }}" alt="{{ $item['suspect_name'] }}" class="w-full h-full object-cover">
+                                            <img src="{{ $resolvedPreviewMugshot }}" alt="{{ $item['suspect_name'] }}" class="w-full h-full object-cover">
                                         </div>
                                     @else
                                         <div class="w-28 h-36 rounded border border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 p-2 text-center bg-white">
