@@ -470,4 +470,5 @@
         });
     })();
 </script>
+@include('partials.mobile_responsive_shell')
 @endif

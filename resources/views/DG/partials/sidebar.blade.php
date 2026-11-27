@@ -90,4 +90,5 @@
         </div>
     </div>
 
+    @include('partials.mobile_responsive_shell')
 </aside>

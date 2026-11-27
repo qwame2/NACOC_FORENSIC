@@ -196,53 +196,51 @@
     }
 
     html, body {
-      height: 100%;
-      height: 100vh;
-      height: 100dvh;
-      max-height: 100vh;
-      max-height: 100dvh;
+      min-height: 100%;
       margin: 0;
       padding: 0;
-      overflow: hidden !important;
+      overflow-x: hidden;
+      overflow-y: auto;
     }
     .app {
       display: flex;
       flex-direction: column;
-      height: 100%;
-      height: 100vh;
-      height: 100dvh;
-      max-height: 100vh;
-      max-height: 100dvh;
+      min-height: 100vh;
       min-height: 100dvh;
       width: 100%;
       max-width: 100%;
       background: var(--paper);
-      overflow: hidden !important;
+      overflow-x: hidden;
       margin: 0 !important;
       padding: 0 !important;
     }
 
-    /* Top Navigation Bars (Fixed Heights) */
+    /* Top Navigation Bars */
     .topbar {
       flex-shrink: 0;
-      height: 50px;
+      min-height: 50px;
       box-sizing: border-box;
     }
     .topbar-inner {
-      height: 100%;
+      min-height: 50px;
       box-sizing: border-box;
       padding: 6px 18px;
     }
     .unit-strip {
       flex-shrink: 0;
-      height: 34px;
+      min-height: 34px;
       box-sizing: border-box;
       padding: 4px 18px;
     }
 
     /* Desktop (>= 1024px): 100% Fit Screen Command View - Zero Page Scroll */
     @media (min-width: 1024px) {
-      body {
+      html, body {
+        height: 100%;
+        height: 100vh;
+        height: 100dvh;
+        max-height: 100vh;
+        max-height: 100dvh;
         overflow: hidden !important;
       }
       .app {
@@ -251,6 +249,12 @@
         max-height: 100vh;
         max-height: 100dvh;
         overflow: hidden !important;
+      }
+      .topbar {
+        height: 50px;
+      }
+      .topbar-inner {
+        height: 100%;
       }
       .map-hero {
         flex: 1 1 0;
@@ -319,33 +323,38 @@
 
     /* Tablet (768px - 1023px): Fluid Stacked Layout */
     @media (max-width: 1023px) {
-      body {
-        overflow-x: hidden;
-        overflow-y: auto;
+      html, body {
+        height: auto !important;
+        max-height: none !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch;
       }
       .app {
-        height: auto;
+        height: auto !important;
+        max-height: none !important;
         min-height: 100vh;
         min-height: 100dvh;
-        overflow: visible;
-        padding-bottom: 12px;
-        margin-bottom: 8px;
+        overflow-x: hidden !important;
+        overflow-y: visible !important;
+        padding-bottom: 18px;
       }
       .map-hero {
         height: auto;
         display: flex;
         flex-direction: column;
-        padding: 14px 18px 12px;
-        margin-bottom: 5px;
-        gap: 16px;
+        padding: 14px 16px 14px;
+        gap: 14px;
         overflow: visible;
       }
       .map-shell {
+        position: relative;
         width: 100%;
-        height: clamp(380px, 50vh, 520px);
-        min-height: 380px;
-        max-height: 540px;
+        height: clamp(340px, 48vh, 480px);
+        min-height: 340px;
+        max-height: 500px;
         border-radius: var(--r-xl);
+        overflow: hidden;
       }
       .map-side-rail {
         width: 100%;
@@ -353,7 +362,7 @@
         overflow: visible;
         display: flex;
         flex-direction: column;
-        gap: 16px;
+        gap: 14px;
         padding-bottom: 0;
         margin-bottom: 0;
       }
@@ -361,17 +370,20 @@
 
     /* Mobile Phones (480px - 767px) */
     @media (max-width: 768px) {
-      .topbar-inner { padding: 8px 14px; gap: 8px; }
-      .unit-strip { padding: 6px 14px; gap: 8px; }
+      .topbar-inner { padding: 8px 12px; gap: 8px; }
+      .unit-strip { padding: 6px 12px; gap: 8px; }
       .map-hero {
-        padding: 12px 14px 10px;
-        margin-bottom: 6px;
-        gap: 14px;
+        padding: 10px 12px 12px;
+        gap: 12px;
       }
       .map-shell {
-        height: clamp(320px, 44vh, 420px);
+        height: clamp(320px, 44vh, 400px);
         min-height: 320px;
         border-radius: var(--r-lg);
+      }
+      .map-zoom {
+        right: 10px;
+        bottom: 12px;
       }
       .card-head {
         padding: 12px 14px 8px !important;
@@ -379,11 +391,11 @@
         gap: 8px;
       }
       .bar-chart-wrap {
-        height: 165px;
+        height: 170px;
         padding: 8px 12px 12px;
       }
       .scoreboard-chart-wrap {
-        height: 175px;
+        height: 180px;
       }
       .scoreboard-card-content {
         padding: 10px 14px 14px;
@@ -393,28 +405,31 @@
     /* Small Phones (<= 480px) */
     @media (max-width: 480px) {
       .app {
-        padding-bottom: 8px;
-        margin-bottom: 6px;
+        padding-bottom: 14px;
       }
       .map-hero {
-        padding: 8px 8px 8px;
-        margin-bottom: 6px;
-        gap: 12px;
+        padding: 8px 10px 10px;
+        gap: 10px;
       }
       .map-shell {
-        height: 290px;
-        min-height: 280px;
+        height: 310px;
+        min-height: 300px;
         border-radius: var(--r-md);
       }
       .card {
         border-radius: var(--r-md);
       }
       .card-head h2 {
-        font-size: 14px;
+        font-size: 13.5px;
       }
       .count-chip {
         font-size: 10px;
         padding: 2px 7px;
+      }
+      .btn {
+        padding: 0 10px;
+        height: 34px;
+        font-size: 11.5px;
       }
       .radial-card-body {
         padding: 12px 14px 16px;
@@ -425,8 +440,8 @@
         gap: 14px;
       }
       .radial-svg-wrap {
-        width: 140px;
-        height: 140px;
+        width: 132px;
+        height: 132px;
       }
       .radial-legend {
         width: 100%;
@@ -889,38 +904,11 @@
       display: flex; align-items: flex-start; justify-content: space-between;
       gap: 12px; flex-wrap: wrap;
     }
-    @media (max-width: 640px) {
-      .map-top {
-        padding: 10px 12px;
-        gap: 8px;
-      }
-      .map-title-block {
-        max-width: 100%;
-        padding: 5px 10px 5px 8px;
-        gap: 8px;
-      }
-      .map-title-block .ttl { font-size: 12px; }
-      .map-title-block .ttl-sub { display: none; }
+    @media (max-width: 768px) {
+      .map-top,
+      .map-title-block,
       .map-filter-wrap {
-        width: 100%;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 6px;
-      }
-      .map-filter {
-        width: 100%;
-        height: 32px;
-        font-size: 11px;
-        padding: 0 20px 0 8px;
-      }
-      .map-reset {
-        height: 32px;
-        width: 32px;
-      }
-    }
-    @media (max-width: 380px) {
-      .map-filter-wrap {
-        grid-template-columns: 1fr;
+        display: none !important;
       }
     }
 
@@ -995,13 +983,6 @@
       .dock-sub { font-size: 10.5px; }
       .dock-meta .meta-val { font-size: 16px; }
       .dock-cta { min-height: 40px; justify-content: center; }
-    }
-      z-index: 10;
-      display: flex; align-items: stretch; gap: 12px;
-      max-width: 900px;
-    }
-    @media (max-width: 640px) {
-      .map-dock { left: 12px; right: 12px; bottom: 12px; flex-direction: column; }
     }
 
     .dock-card {
@@ -1474,6 +1455,14 @@
   <!-- ====================================================== -->
   <header class="topbar">
     <div class="topbar-inner">
+      <button type="button"
+              class="icon-btn mobile-menu-toggle"
+              onclick="toggleMobileNav()"
+              aria-label="Toggle navigation menu"
+              title="Menu">
+        <i data-lucide="menu" style="width:17px;height:17px;"></i>
+      </button>
+
       <a href="{{ $homeUrl }}" class="brand">
         <img src="{{ asset('NACOC_LOGO.PNG') }}" alt="NACOC Logo">
         <div class="brand-text">

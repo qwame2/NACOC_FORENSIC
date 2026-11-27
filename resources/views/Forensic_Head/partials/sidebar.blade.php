@@ -142,6 +142,7 @@
     </div>
 
     @include('partials.sidebar_badge_poller')
+    @include('partials.mobile_responsive_shell')
 </aside>
 
 <!-- SIDEBAR NAVIGATION HELPERS -->

@@ -86,17 +86,19 @@
         background: #94a3b8;
     }
 
-    /* Sidebar Safeguard */
-    aside.w-64 {
-        width: 16rem !important;
-        min-width: 16rem !important;
-        max-width: 16rem !important;
-        display: flex !important;
-        flex-direction: column !important;
-        flex-shrink: 0 !important;
-        position: relative !important;
-        z-index: 30 !important;
-        overflow-x: hidden !important;
+    /* Sidebar Safeguard (Desktop only; mobile uses off-canvas drawer) */
+    @media (min-width: 1024px) {
+        aside.w-64 {
+            width: 16rem !important;
+            min-width: 16rem !important;
+            max-width: 16rem !important;
+            display: flex !important;
+            flex-direction: column !important;
+            flex-shrink: 0 !important;
+            position: relative !important;
+            z-index: 30 !important;
+            overflow-x: hidden !important;
+        }
     }
     aside.w-64 svg.w-4\.5,
     aside.w-64 svg[class*="w-4.5"] {
