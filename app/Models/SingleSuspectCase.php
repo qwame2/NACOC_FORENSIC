@@ -25,6 +25,7 @@ class SingleSuspectCase extends Model
         'ghana_card',
         'passport_number',
         'flight_number',
+        'airline',
         'destination',
         'substance_expelled',
         'gender',

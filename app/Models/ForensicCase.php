@@ -1814,6 +1814,7 @@ class ForensicCase extends Model
             'ghana_card'           => $attributes['ghana_card'] ?? ($suspects[0]['ghana_card'] ?? null),
             'passport_number'      => $attributes['passport_number'] ?? ($suspects[0]['passport_number'] ?? null),
             'flight_number'        => $attributes['flight_number'] ?? ($suspects[0]['flight_number'] ?? null),
+            'airline'              => $attributes['airline'] ?? ($suspects[0]['airline'] ?? null),
             'destination'          => $attributes['destination'] ?? ($suspects[0]['destination'] ?? null),
             'substance_expelled'   => $attributes['substance_expelled'] ?? ($suspects[0]['substance_expelled'] ?? null),
             'gender'               => $attributes['gender'] ?? ($suspects[0]['gender'] ?? ($isSingleNoSuspect ? 'N/A' : 'Male')),

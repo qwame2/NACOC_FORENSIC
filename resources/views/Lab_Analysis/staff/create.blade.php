@@ -1844,8 +1844,8 @@
                                 </div>
                             </div>
 
-                            <!-- ROW 3: EXPELLING & TRANSIT DETAILS (PASSPORT, FLIGHT, DESTINATION, SUBSTANCE EXPELLED) -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+                            <!-- ROW 3: EXPELLING & TRANSIT DETAILS (PASSPORT, FLIGHT, AIRLINE, DESTINATION, SUBSTANCE EXPELLED) -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-5">
                                 <div class="min-w-0">
                                     <label for="newArrestedPassportNumber" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                         Passport Number
@@ -1867,6 +1867,18 @@
                                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                                         </span>
                                         <input type="text" id="newArrestedFlightNumber" name="flight_number" placeholder="e.g. BA 078 / KQ 507" class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                    </div>
+                                </div>
+
+                                <div class="min-w-0">
+                                    <label for="newArrestedAirline" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Airline
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h11M9 21V3m6 7l5-3v10l-5-3"/></svg>
+                                        </span>
+                                        <input type="text" id="newArrestedAirline" name="airline" placeholder="e.g. British Airways" class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                                     </div>
                                 </div>
 
@@ -7800,7 +7812,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mt-4">
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
                                 Passport Number
@@ -7812,6 +7824,12 @@
                                 Flight Number
                             </label>
                             <input type="text" data-field="flight_number" placeholder="e.g. BA 078" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Airline
+                            </label>
+                            <input type="text" data-field="airline" placeholder="e.g. British Airways" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
                         </div>
                         <div>
                             <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -7986,6 +8004,7 @@
                     ghana_card: s1Card,
                     passport_number: document.getElementById('newArrestedPassportNumber')?.value?.trim() || '',
                     flight_number: document.getElementById('newArrestedFlightNumber')?.value?.trim() || '',
+                    airline: document.getElementById('newArrestedAirline')?.value?.trim() || '',
                     destination: document.getElementById('newArrestedDestination')?.value?.trim() || '',
                     substance_expelled: document.getElementById('newArrestedSubstanceExpelled')?.value?.trim() || '',
                     gender: s1Gender,
@@ -8163,6 +8182,7 @@
                         ghana_card: sCard,
                         passport_number: getField('passport_number'),
                         flight_number: getField('flight_number'),
+                        airline: getField('airline'),
                         destination: getField('destination'),
                         substance_expelled: getField('substance_expelled'),
                         gender: sGender,
@@ -9304,6 +9324,7 @@
                         ghana_card: noSuspectMode ? null : card,
                         passport_number: noSuspectMode ? null : (document.getElementById('newArrestedPassportNumber')?.value?.trim() || null),
                         flight_number: noSuspectMode ? null : (document.getElementById('newArrestedFlightNumber')?.value?.trim() || null),
+                        airline: noSuspectMode ? null : (document.getElementById('newArrestedAirline')?.value?.trim() || null),
                         destination: noSuspectMode ? null : (document.getElementById('newArrestedDestination')?.value?.trim() || null),
                         substance_expelled: noSuspectMode ? null : (document.getElementById('newArrestedSubstanceExpelled')?.value?.trim() || null),
                         gender: noSuspectMode ? null : gender,

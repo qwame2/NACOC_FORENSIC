@@ -174,7 +174,12 @@
                                         </td>
                                         <td class="py-3.5 px-4 font-mono-code font-bold text-emerald-800 whitespace-nowrap">{{ $row['case_number'] }}</td>
                                         <td class="py-3.5 px-4 font-mono-code font-bold text-slate-900 whitespace-nowrap">{{ $row['passport_number'] }}</td>
-                                        <td class="py-3.5 px-4 font-mono-code font-bold text-sky-800 whitespace-nowrap">{{ $row['flight_number'] }}</td>
+                                        <td class="py-3.5 px-4 font-mono-code font-bold text-sky-800 whitespace-nowrap">
+                                            <div>{{ $row['flight_number'] }}</div>
+                                            @if(!empty($row['airline']) && $row['airline'] !== '—')
+                                                <div class="text-[10.5px] font-sans font-semibold text-slate-500">{{ $row['airline'] }}</div>
+                                            @endif
+                                        </td>
                                         <td class="py-3.5 px-4 font-semibold text-slate-800">{{ $row['destination'] }}</td>
                                         <td class="py-3.5 px-4">
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 font-bold text-[11px]">

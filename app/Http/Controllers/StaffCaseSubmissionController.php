@@ -256,6 +256,7 @@ class StaffCaseSubmissionController extends Controller
             $case->ghana_card = $payload['ghana_card'] ?? null;
             $case->passport_number = $payload['passport_number'] ?? null;
             $case->flight_number = $payload['flight_number'] ?? null;
+            $case->airline = $payload['airline'] ?? null;
             $case->destination = $payload['destination'] ?? null;
             $case->substance_expelled = $payload['substance_expelled'] ?? null;
             $case->location = $payload['location'] ?? ($payload['raid_location'] ?? null);
@@ -789,7 +790,7 @@ class StaffCaseSubmissionController extends Controller
 
         foreach ([
             'gender', 'dob', 'age', 'height', 'eye_color', 'nationality', 'pob', 'phone', 'address',
-            'passport_number', 'flight_number', 'destination', 'substance_expelled',
+            'passport_number', 'flight_number', 'airline', 'destination', 'substance_expelled',
             'marital_status', 'children_count',
             'spouse_name', 'spouse_phone', 'spouse_info',
             'partner_name', 'partner_phone', 'partner_info',

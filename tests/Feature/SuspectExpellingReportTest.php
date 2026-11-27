@@ -41,6 +41,7 @@ class SuspectExpellingReportTest extends TestCase
             ->assertSee('/Lab_Analysis/expelling-report')
             ->assertSee('Passport Number')
             ->assertSee('Flight Number')
+            ->assertSee('Airline')
             ->assertSee('Destination')
             ->assertSee('Substance Expelled');
 
@@ -50,6 +51,7 @@ class SuspectExpellingReportTest extends TestCase
             ->assertSee('/Lab_Analysis/staff/expelling-report')
             ->assertSee('Passport Number')
             ->assertSee('Flight Number')
+            ->assertSee('Airline')
             ->assertSee('Destination')
             ->assertSee('Substance Expelled');
     }
@@ -69,10 +71,12 @@ class SuspectExpellingReportTest extends TestCase
             'suspect_name' => 'Kwame Mensah',
             'passport_number' => 'G9988776',
             'flight_number' => 'BA 078',
+            'airline' => 'British Airways',
             'destination' => 'London Heathrow (LHR)',
             'substance_expelled' => '38 Pellets Cocaine',
             'raid_location' => 'Kotoka International Airport',
             'arrest_date' => '2026-11-27',
+            'arrest_time' => '14:30',
             'holding_facility' => 'NACOC Airport Holding Cell',
         ]);
 
@@ -87,6 +91,7 @@ class SuspectExpellingReportTest extends TestCase
             'suspect_name' => 'Kwame Mensah',
             'passport_number' => 'G9988776',
             'flight_number' => 'BA 078',
+            'airline' => 'British Airways',
             'destination' => 'London Heathrow (LHR)',
             'substance_expelled' => '38 Pellets Cocaine',
         ]);
@@ -95,6 +100,7 @@ class SuspectExpellingReportTest extends TestCase
             'suspect_name' => 'Kwame Mensah',
             'passport_number' => 'G9988776',
             'flight_number' => 'BA 078',
+            'airline' => 'British Airways',
             'destination' => 'London Heathrow (LHR)',
             'substance_expelled' => '38 Pellets Cocaine',
             'status' => 'Generated',
@@ -105,6 +111,7 @@ class SuspectExpellingReportTest extends TestCase
             ->assertSee('Kwame Mensah')
             ->assertSee('G9988776')
             ->assertSee('BA 078')
+            ->assertSee('British Airways')
             ->assertSee('London Heathrow (LHR)')
             ->assertSee('38 Pellets Cocaine');
 
@@ -118,14 +125,21 @@ class SuspectExpellingReportTest extends TestCase
             ->assertSee('Kwame Mensah')
             ->assertSee('G9988776')
             ->assertSee('BA 078')
+            ->assertSee('British Airways')
             ->assertSee('London Heathrow (LHR)')
             ->assertSee('38 Pellets Cocaine')
             ->assertSee('PELLETS')
             ->assertSee('SIGN. OF')
+            ->assertSee('Nationality:')
+            ->assertSee('Time of Arrest:')
+            ->assertSee('2:30 PM')
+            ->assertSee('Place of Arrest:')
+            ->assertSee('Arrest Officer(s):')
             ->assertSee('NAME OF SUPERVISING')
-            ->assertSee('Total No. Expelled:')
-            ->assertSee('Submitted by:')
-            ->assertSee('Received by:');
+            ->assertSee('SUBMITTED BY')
+            ->assertSee('APPROVED BY')
+            ->assertSee('AUTHORIZED BY')
+            ->assertSee('Rank/Designation');
 
         $noExpelResp = $this->actingAs($head)->postJson('/cases', [
             'title' => 'Regular Lab Case',
