@@ -305,6 +305,7 @@ document.addEventListener('DOMContentLoaded', function () {
             let list = [];
             try {
                 const res = await fetchWithTimeout(`${GEOCODE_ENDPOINT}?q=${encodeURIComponent(trimmed)}`, {
+                    cache: 'no-store',
                     credentials: 'same-origin',
                     headers: {
                         'Accept': 'application/json',

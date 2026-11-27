@@ -333,6 +333,14 @@ class DrugScreeningModuleTest extends TestCase
             'mugshot_front' => null,
         ]);
 
+        $suspectWithStoredPath = CaseSuspect::create([
+            'multiple_suspect_case_id' => $mCase->id,
+            'suspect_number' => 3,
+            'suspect_name' => 'Linda Storage Mugshot',
+            'role' => 'Associate Suspect',
+            'mugshot_front' => 'suspects/2026/11/NCC-2026-9315_mugshot_front_s0.jpg',
+        ]);
+
         DrugScreening::create([
             'suspect_id'     => $suspectWithImage->id,
             'purpose'        => 'Verification of Image Rendering',
@@ -347,6 +355,13 @@ class DrugScreeningModuleTest extends TestCase
             'result'         => 'Negative',
         ]);
 
+        DrugScreening::create([
+            'suspect_id'     => $suspectWithStoredPath->id,
+            'purpose'        => 'Verification of Public Storage Mugshot Path',
+            'screening_date' => '2026-10-21',
+            'result'         => 'Pending',
+        ]);
+
         $response = $this->actingAs($user)->get('/Lab_Analysis/drug-screening');
         $response->assertStatus(200);
 
@@ -359,7 +374,10 @@ class DrugScreeningModuleTest extends TestCase
         // 2. Data URI must be directly present as image src
         $this->assertStringContainsString('src="' . $dataUri . '"', $html);
 
-        // 3. Suspect without image must display their initials (AM)
+        // 3. Stored public-disk path (suspects/...) must resolve through /storage/suspects/...
+        $this->assertStringContainsString('/storage/suspects/2026/11/NCC-2026-9315_mugshot_front_s0.jpg', $html);
+
+        // 4. Suspect without image must display their initials (AM)
         $this->assertStringContainsString('AM', $html);
     }
 

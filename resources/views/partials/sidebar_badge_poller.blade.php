@@ -37,6 +37,8 @@
         try {
             const url = badgeEndpointBase + (currentUnit ? ('?unit=' + encodeURIComponent(currentUnit)) : '');
             const resp = await fetch(url, {
+                cache: 'no-store',
+                credentials: 'same-origin',
                 headers: {
                     'Accept': 'application/json',
                     'X-Requested-With': 'XMLHttpRequest'

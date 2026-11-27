@@ -108,7 +108,14 @@ class CasePhotoResolver
             return null;
         }
         $src = trim($src);
-        if ($src === '' || $src === 'null' || $src === 'undefined' || $src === '#' || str_ends_with($src, '#')) {
+        if (
+            $src === '' ||
+            $src === 'null' ||
+            $src === 'undefined' ||
+            $src === '#' ||
+            str_ends_with($src, '#') ||
+            str_starts_with($src, 'blob:')
+        ) {
             return null;
         }
         if (str_starts_with($src, 'data:image/') || str_starts_with($src, 'data:') || str_starts_with($src, 'http://') || str_starts_with($src, 'https://')) {

@@ -175,6 +175,7 @@ class DrugScreeningController extends Controller
                 (string) ($sRow->result ?? ''),
                 (string) ($sRow->substances_found ?? ''),
                 (int) ((bool) $sRow->on_medication),
+                (string) ($sRow->suspect?->mugshot_front_url ?? ''),
                 optional($sRow->updated_at)->timestamp,
             ];
         }

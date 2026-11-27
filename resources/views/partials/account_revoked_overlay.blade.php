@@ -85,7 +85,7 @@
 <script>
     (function () {
         const OVERLAY_ID = 'staffAccountRevokedOverlay';
-        const STATUS_ENDPOINT = '{{ url('/api/auth/account-status') }}';
+        const STATUS_ENDPOINT = @json(parse_url(url('/api/auth/account-status'), PHP_URL_PATH) ?: '/api/auth/account-status');
         let isCurrentlyRevoked = {{ $isInitiallyRevoked ? 'true' : 'false' }};
         let isCheckingAccountStatus = false;
 
@@ -148,6 +148,7 @@
                 const currentPath = window.location ? window.location.pathname : '';
                 const url = STATUS_ENDPOINT + (STATUS_ENDPOINT.indexOf('?') === -1 ? '?' : '&') + 'path=' + encodeURIComponent(currentPath);
                 const res = await fetch(url, {
+                    cache: 'no-store',
                     headers: {
                         'Accept': 'application/json',
                         'X-Requested-With': 'XMLHttpRequest'

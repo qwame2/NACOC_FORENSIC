@@ -40,25 +40,6 @@
             </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 bg-white">
-            @php
-                $normaliseMugshotUrl = function ($mug) {
-                    if (empty($mug) || !is_string($mug)) {
-                        return null;
-                    }
-                    $mug = trim($mug);
-                    if ($mug === '' || str_starts_with($mug, 'blob:')) {
-                        return null;
-                    }
-                    if (
-                        str_starts_with($mug, 'data:image') ||
-                        str_starts_with($mug, 'http://') ||
-                        str_starts_with($mug, 'https://')
-                    ) {
-                        return $mug;
-                    }
-                    return asset(ltrim($mug, '/'));
-                };
-            @endphp
             @forelse($screenings as $index => $screening)
                 @php
                     $isCivilian = $screening->isCivilian();
@@ -67,17 +48,17 @@
                     $personName = $screening->person_name;
                     $resultLower = strtolower(trim($screening->result));
 
-                    $rawMug = $suspect ? $suspect->mugshot_front : null;
-                    if (empty($rawMug) && $suspect && !empty($suspect->suspect_name)) {
-                        $scMatch = \App\Models\SingleSuspectCase::where('suspect_name', $suspect->suspect_name)
+                    $mugshotUrl = $suspect ? $suspect->mugshot_front_url : null;
+                    if (empty($mugshotUrl) && !$isCivilian && !empty($personName)) {
+                        $scMatch = \App\Models\SingleSuspectCase::where('suspect_name', $personName)
                             ->whereNotNull('mugshot_front')
                             ->where('mugshot_front', '!=', '')
+                            ->latest('id')
                             ->first();
                         if ($scMatch && !empty($scMatch->mugshot_front)) {
-                            $rawMug = $scMatch->mugshot_front;
+                            $mugshotUrl = \App\Services\CasePhotoResolver::resolveMugshotUrl($scMatch->mugshot_front);
                         }
                     }
-                    $mugshotUrl = $normaliseMugshotUrl($rawMug);
                     $initials = strtoupper(substr(trim($personName ?? 'SP'), 0, 2));
 
                     $rowModalPayload = [
