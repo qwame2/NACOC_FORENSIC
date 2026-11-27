@@ -100,6 +100,11 @@ class MultipleSuspectCase extends Model
         return $this->hasMany(SuspectNlrReport::class, 'multiple_suspect_case_id');
     }
 
+    public function expellingReports()
+    {
+        return $this->hasMany(SuspectExpellingReport::class, 'multiple_suspect_case_id');
+    }
+
     public function getSubmittingOfficerAttribute()
     {
         return $this->attributes['arresting_officer'] ?? ($this->attributes['submitting_officer'] ?? null);

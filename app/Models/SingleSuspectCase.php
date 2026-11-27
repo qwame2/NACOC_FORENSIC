@@ -23,6 +23,10 @@ class SingleSuspectCase extends Model
         'suspect_name',
         'suspect_alias',
         'ghana_card',
+        'passport_number',
+        'flight_number',
+        'destination',
+        'substance_expelled',
         'gender',
         'dob',
         'age',
@@ -126,6 +130,11 @@ class SingleSuspectCase extends Model
     public function nlrReports()
     {
         return $this->hasMany(SuspectNlrReport::class, 'single_suspect_case_id');
+    }
+
+    public function expellingReports()
+    {
+        return $this->hasMany(SuspectExpellingReport::class, 'single_suspect_case_id');
     }
 
     public function getSubmittingOfficerAttribute()

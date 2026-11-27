@@ -144,6 +144,10 @@ class CaseDocketService
             'associated_person'    => ['nullable', 'string', 'max:255'],
             'suspect_alias'        => ['nullable', 'string', 'max:255'],
             'ghana_card'           => ['nullable', 'string', 'max:255'],
+            'passport_number'      => ['nullable', 'string', 'max:100'],
+            'flight_number'        => ['nullable', 'string', 'max:100'],
+            'destination'          => ['nullable', 'string', 'max:255'],
+            'substance_expelled'   => ['nullable', 'string', 'max:255'],
             'gender'               => ['nullable', 'string', 'max:50'],
             'dob'                  => ['nullable', 'string', 'max:50'],
             'age'                  => ['nullable'],
@@ -425,10 +429,14 @@ class CaseDocketService
             }
             $allSuspects = [[
                 'suspect_number'   => 1,
-                'suspect_name'     => $suspectName,
-                'suspect_alias'    => $validated['suspect_alias'] ?? null,
-                'ghana_card'       => $validated['ghana_card'] ?? null,
-                'gender'           => $validated['gender'] ?? null,
+                'suspect_name'       => $suspectName,
+                'suspect_alias'      => $validated['suspect_alias'] ?? null,
+                'ghana_card'         => $validated['ghana_card'] ?? null,
+                'passport_number'    => $validated['passport_number'] ?? null,
+                'flight_number'      => $validated['flight_number'] ?? null,
+                'destination'        => $validated['destination'] ?? null,
+                'substance_expelled' => $validated['substance_expelled'] ?? null,
+                'gender'             => $validated['gender'] ?? null,
                 'dob'              => $validated['dob'] ?? null,
                 'age'              => $validated['age'] ?? null,
                 'height'           => $validated['height'] ?? null,
@@ -940,10 +948,14 @@ class CaseDocketService
             }
 
             return [
-                'suspect_name'     => $suspect['suspect_name'] ?? null,
-                'suspect_alias'    => $suspect['suspect_alias'] ?? null,
-                'ghana_card'       => $suspect['ghana_card'] ?? null,
-                'gender'           => $suspect['gender'] ?? null,
+                'suspect_name'       => $suspect['suspect_name'] ?? null,
+                'suspect_alias'      => $suspect['suspect_alias'] ?? null,
+                'ghana_card'         => $suspect['ghana_card'] ?? null,
+                'passport_number'    => $suspect['passport_number'] ?? ($validated['passport_number'] ?? null),
+                'flight_number'      => $suspect['flight_number'] ?? ($validated['flight_number'] ?? null),
+                'destination'        => $suspect['destination'] ?? ($validated['destination'] ?? null),
+                'substance_expelled' => $suspect['substance_expelled'] ?? ($validated['substance_expelled'] ?? null),
+                'gender'             => $suspect['gender'] ?? null,
                 'dob'              => $suspect['dob'] ?? null,
                 'age'              => isset($suspect['age']) && $suspect['age'] !== '' ? (int)$suspect['age'] : null,
                 'height'           => $suspect['height'] ?? null,
@@ -1088,6 +1100,10 @@ class CaseDocketService
                                     'associate_id'             => $assocIdVal,
                                     'suspect_alias'            => $spItem['suspect_alias'] ?? null,
                                     'ghana_card'               => $spItem['ghana_card'] ?? null,
+                                    'passport_number'          => $spItem['passport_number'] ?? ($sIdx === 0 ? ($validated['passport_number'] ?? null) : null),
+                                    'flight_number'            => $spItem['flight_number'] ?? ($sIdx === 0 ? ($validated['flight_number'] ?? null) : null),
+                                    'destination'              => $spItem['destination'] ?? ($sIdx === 0 ? ($validated['destination'] ?? null) : null),
+                                    'substance_expelled'       => $spItem['substance_expelled'] ?? ($sIdx === 0 ? ($validated['substance_expelled'] ?? null) : null),
                                     'gender'                   => $spItem['gender'] ?? null,
                                     'dob'                      => $spItem['dob'] ?? null,
                                     'age'                      => isset($spItem['age']) && $spItem['age'] !== '' ? (int)$spItem['age'] : null,
@@ -1564,6 +1580,108 @@ class CaseDocketService
             }
         }
 
+        $hasExpellingData = collect([
+            $validated['passport_number'] ?? null,
+            $validated['flight_number'] ?? null,
+            $validated['destination'] ?? null,
+            $validated['substance_expelled'] ?? null,
+        ])->filter(fn ($v) => trim((string) $v) !== '')->isNotEmpty();
+
+        if (!$hasExpellingData && !empty($allSuspects)) {
+            foreach ($allSuspects as $spRow) {
+                if (collect([
+                    $spRow['passport_number'] ?? null,
+                    $spRow['flight_number'] ?? null,
+                    $spRow['destination'] ?? null,
+                    $spRow['substance_expelled'] ?? null,
+                ])->filter(fn ($v) => trim((string) $v) !== '')->isNotEmpty()) {
+                    $hasExpellingData = true;
+                    break;
+                }
+            }
+        }
+
+        $expellingReport = null;
+        if ($hasExpellingData) {
+            $expellingUrl = route('lab.expelling_report.pdf', ['id' => $case->case_number]);
+            $underlyingRec = $case->underlyingRecord ?? null;
+            $isMultiRec = $underlyingRec instanceof MultipleSuspectCase;
+            $singleCaseIdVal = (!$isMultiRec && $underlyingRec instanceof SingleSuspectCase) ? $underlyingRec->id : null;
+            $multiCaseIdVal = $isMultiRec ? $underlyingRec->id : null;
+
+            $savedSuspects = $isMultiRec
+                ? CaseSuspect::where('multiple_suspect_case_id', $multiCaseIdVal)->get()
+                : ($singleCaseIdVal ? CaseSuspect::where('single_suspect_case_id', $singleCaseIdVal)->get() : collect());
+
+            $createdExpel = false;
+            foreach ($savedSuspects as $spModel) {
+                $spHasExpel = collect([
+                    $spModel->passport_number,
+                    $spModel->flight_number,
+                    $spModel->destination,
+                    $spModel->substance_expelled,
+                ])->filter(fn ($v) => trim((string) $v) !== '')->isNotEmpty();
+
+                if (!$spHasExpel) {
+                    continue;
+                }
+
+                \App\Models\SuspectExpellingReport::updateOrCreate(
+                    [
+                        'case_number'     => $case->case_number,
+                        'case_suspect_id' => $spModel->id,
+                    ],
+                    [
+                        'single_suspect_case_id'   => $singleCaseIdVal,
+                        'multiple_suspect_case_id' => $multiCaseIdVal,
+                        'generated_by'             => Auth::id(),
+                        'suspect_name'             => $spModel->suspect_name ?? ($case->suspect_name ?? 'Unknown Suspect'),
+                        'passport_number'          => $spModel->passport_number,
+                        'place_of_arrest'          => $spModel->raid_location ?? ($case->raid_location ?? ($case->location ?? null)),
+                        'date_of_arrest'           => $spModel->arrest_date ?? ($case->arrest_date ?? null),
+                        'arrest_officers'          => $case->arresting_officer ?? ($case->submitting_officer ?? null),
+                        'flight_number'            => $spModel->flight_number,
+                        'destination'              => $spModel->destination,
+                        'substance_expelled'       => $spModel->substance_expelled,
+                        'report_url'               => $expellingUrl . '?suspect_id=' . $spModel->id,
+                        'status'                   => 'Generated',
+                        'generated_at'             => now(),
+                    ]
+                );
+                $createdExpel = true;
+            }
+
+            if (!$createdExpel) {
+                \App\Models\SuspectExpellingReport::updateOrCreate(
+                    [
+                        'case_number'  => $case->case_number,
+                        'suspect_name' => $case->suspect_name ?? 'Unknown Suspect',
+                    ],
+                    [
+                        'single_suspect_case_id'   => $singleCaseIdVal,
+                        'multiple_suspect_case_id' => $multiCaseIdVal,
+                        'generated_by'             => Auth::id(),
+                        'passport_number'          => $validated['passport_number'] ?? ($underlyingRec?->passport_number ?? null),
+                        'place_of_arrest'          => $validated['raid_location'] ?? ($case->location ?? null),
+                        'date_of_arrest'           => $validated['arrest_date'] ?? ($case->arrest_date ?? null),
+                        'arrest_officers'          => $case->arresting_officer ?? ($case->submitting_officer ?? null),
+                        'flight_number'            => $validated['flight_number'] ?? ($underlyingRec?->flight_number ?? null),
+                        'destination'              => $validated['destination'] ?? ($underlyingRec?->destination ?? null),
+                        'substance_expelled'       => $validated['substance_expelled'] ?? ($underlyingRec?->substance_expelled ?? null),
+                        'report_url'               => $expellingUrl,
+                        'status'                   => 'Generated',
+                        'generated_at'             => now(),
+                    ]
+                );
+            }
+
+            $expellingReport = [
+                'url'         => $expellingUrl,
+                'case_number' => $case->case_number,
+                'filename'    => 'Suspect_Expelling_Report_' . ($case->case_number ?: $case->id) . '.pdf',
+            ];
+        }
+
         return [
             'success'            => true,
             'message'            => $noSuspect
@@ -1572,6 +1690,7 @@ class CaseDocketService
             'case'               => $case,
             'suspects_count'     => $noSuspect ? 0 : count($allSuspects),
             'preliminary_report' => $preliminaryReport,
+            'expelling_report'   => $expellingReport,
         ];
     }
 
@@ -1688,6 +1807,10 @@ class CaseDocketService
                                 'associate_id'        => $assocIdVal,
                                 'suspect_alias'       => $spItem['suspect_alias'] ?? null,
                                 'ghana_card'          => $spItem['ghana_card'] ?? null,
+                                'passport_number'     => $spItem['passport_number'] ?? null,
+                                'flight_number'       => $spItem['flight_number'] ?? null,
+                                'destination'         => $spItem['destination'] ?? null,
+                                'substance_expelled'  => $spItem['substance_expelled'] ?? null,
                                 'gender'              => $spItem['gender'] ?? null,
                                 'dob'                 => $spItem['dob'] ?? null,
                                 'age'                 => isset($spItem['age']) && $spItem['age'] !== '' ? (int) $spItem['age'] : null,
@@ -2828,6 +2951,10 @@ class CaseDocketService
                         'suspect_name'             => $single->suspect_name,
                         'suspect_alias'            => $single->suspect_alias,
                         'ghana_card'               => $single->ghana_card,
+                        'passport_number'          => $single->passport_number,
+                        'flight_number'            => $single->flight_number,
+                        'destination'              => $single->destination,
+                        'substance_expelled'       => $single->substance_expelled,
                         'gender'                   => $single->gender,
                         'dob'                      => $single->dob,
                         'age'                      => $single->age,
@@ -2879,6 +3006,11 @@ class CaseDocketService
                 ]);
 
                 SuspectNlrReport::where('single_suspect_case_id', $single->id)->update([
+                    'single_suspect_case_id'   => null,
+                    'multiple_suspect_case_id' => $multi->id,
+                ]);
+
+                \App\Models\SuspectExpellingReport::where('single_suspect_case_id', $single->id)->update([
                     'single_suspect_case_id'   => null,
                     'multiple_suspect_case_id' => $multi->id,
                 ]);
@@ -2935,6 +3067,10 @@ class CaseDocketService
                     'suspect_name'             => $suspectName,
                     'suspect_alias'            => $person['suspect_alias'] ?? null,
                     'ghana_card'               => $person['ghana_card'] ?? null,
+                    'passport_number'          => $person['passport_number'] ?? null,
+                    'flight_number'            => $person['flight_number'] ?? null,
+                    'destination'              => $person['destination'] ?? null,
+                    'substance_expelled'       => $person['substance_expelled'] ?? null,
                     'gender'                   => $person['gender'] ?? null,
                     'dob'                      => $person['dob'] ?? ($person['date_of_birth'] ?? null),
                     'age'                      => isset($person['age']) && $person['age'] !== '' ? (int)$person['age'] : null,

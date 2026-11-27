@@ -1844,6 +1844,57 @@
                                 </div>
                             </div>
 
+                            <!-- ROW 3: EXPELLING & TRANSIT DETAILS (PASSPORT, FLIGHT, DESTINATION, SUBSTANCE EXPELLED) -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-5">
+                                <div class="min-w-0">
+                                    <label for="newArrestedPassportNumber" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Passport Number
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0"/></svg>
+                                        </span>
+                                        <input type="text" id="newArrestedPassportNumber" name="passport_number" placeholder="e.g. G2458901" class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                    </div>
+                                </div>
+
+                                <div class="min-w-0">
+                                    <label for="newArrestedFlightNumber" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Flight Number
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                                        </span>
+                                        <input type="text" id="newArrestedFlightNumber" name="flight_number" placeholder="e.g. BA 078 / KQ 507" class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                    </div>
+                                </div>
+
+                                <div class="min-w-0">
+                                    <label for="newArrestedDestination" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Destination
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                                        </span>
+                                        <input type="text" id="newArrestedDestination" name="destination" placeholder="e.g. London Heathrow (LHR)" class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                    </div>
+                                </div>
+
+                                <div class="min-w-0">
+                                    <label for="newArrestedSubstanceExpelled" class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                        Substance Expelled
+                                    </label>
+                                    <div class="relative flex items-center group">
+                                        <span class="absolute left-3.5 text-slate-400 group-focus-within:text-black transition-colors pointer-events-none">
+                                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z"/></svg>
+                                        </span>
+                                        <input type="text" id="newArrestedSubstanceExpelled" name="substance_expelled" placeholder="e.g. 42 Pellets Cocaine" class="w-full min-w-0 pl-10 pr-3.5 py-3 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- ROW: BRIEF FACTS/ CHARGE DESCRIPTION UNDERNEATH -->
                             <div class="mt-5">
                                 <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
@@ -7748,6 +7799,33 @@
                             </div>
                         </div>
                     </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Passport Number
+                            </label>
+                            <input type="text" data-field="passport_number" placeholder="e.g. G2458901" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Flight Number
+                            </label>
+                            <input type="text" data-field="flight_number" placeholder="e.g. BA 078" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-mono-code font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Destination
+                            </label>
+                            <input type="text" data-field="destination" placeholder="e.g. London Heathrow" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                        </div>
+                        <div>
+                            <label class="block text-slate-800 font-extrabold text-[11px] tracking-wider uppercase mb-1.5">
+                                Substance Expelled
+                            </label>
+                            <input type="text" data-field="substance_expelled" placeholder="e.g. 42 Pellets Cocaine" class="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl font-bold text-slate-900 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 transition-all shadow-2xs placeholder:text-slate-400">
+                        </div>
+                    </div>
                 </div>
             `;
             container.appendChild(card);
@@ -7906,6 +7984,10 @@
                     suspect_name: s1Name,
                     suspect_alias: s1Alias,
                     ghana_card: s1Card,
+                    passport_number: document.getElementById('newArrestedPassportNumber')?.value?.trim() || '',
+                    flight_number: document.getElementById('newArrestedFlightNumber')?.value?.trim() || '',
+                    destination: document.getElementById('newArrestedDestination')?.value?.trim() || '',
+                    substance_expelled: document.getElementById('newArrestedSubstanceExpelled')?.value?.trim() || '',
                     gender: s1Gender,
                     dob: s1DOB,
                     age: s1Age,
@@ -8079,6 +8161,10 @@
                         suspect_name: sName,
                         suspect_alias: sAlias,
                         ghana_card: sCard,
+                        passport_number: getField('passport_number'),
+                        flight_number: getField('flight_number'),
+                        destination: getField('destination'),
+                        substance_expelled: getField('substance_expelled'),
                         gender: sGender,
                         dob: sDOB,
                         age: sAge,
@@ -9216,6 +9302,10 @@
                         suspect_name: resolvedSuspectName,
                         suspect_alias: noSuspectMode ? null : alias,
                         ghana_card: noSuspectMode ? null : card,
+                        passport_number: noSuspectMode ? null : (document.getElementById('newArrestedPassportNumber')?.value?.trim() || null),
+                        flight_number: noSuspectMode ? null : (document.getElementById('newArrestedFlightNumber')?.value?.trim() || null),
+                        destination: noSuspectMode ? null : (document.getElementById('newArrestedDestination')?.value?.trim() || null),
+                        substance_expelled: noSuspectMode ? null : (document.getElementById('newArrestedSubstanceExpelled')?.value?.trim() || null),
                         gender: noSuspectMode ? null : gender,
                         dob: noSuspectMode ? null : dob,
                         age: noSuspectMode ? null : age,
@@ -9470,6 +9560,7 @@
                         window.refreshUnassignedExhibitsSelector();
                     }
                     showSuccessPopover(finalRef, data && data.preliminary_report ? data.preliminary_report : null);
+                    setExpellingReportDownloadState(finalRef, data && data.expelling_report ? data.expelling_report : null);
                 })
                 .catch(err => {
                     setSubmittingState(false);
@@ -9676,6 +9767,30 @@
         }
 
         let popoverTimer = null;
+
+        function setExpellingReportDownloadState(ref, expellingReport = null) {
+            const modalCard = document.getElementById('successPopoverModalCard');
+            const expellingContainer = document.getElementById('expellingReportDownloadContainer');
+            const expellingFilenameEl = document.getElementById('expellingReportFilename');
+            const expellingOpenLink = document.getElementById('expellingReportOpenLink');
+
+            if (expellingContainer && expellingReport && expellingReport.url) {
+                if (expellingFilenameEl) {
+                    expellingFilenameEl.textContent = expellingReport.filename || ('Suspect_Expelling_Report_' + (ref || '') + '.pdf');
+                }
+                if (expellingOpenLink) {
+                    expellingOpenLink.setAttribute('href', String(expellingReport.url));
+                }
+                expellingContainer.classList.remove('hidden');
+                if (modalCard) {
+                    modalCard.classList.remove('max-w-md');
+                    modalCard.classList.add('max-w-lg');
+                }
+            } else if (expellingContainer) {
+                expellingContainer.classList.add('hidden');
+                if (expellingOpenLink) expellingOpenLink.setAttribute('href', '#');
+            }
+        }
 
         function showSuccessPopover(ref, preliminaryReport = null) {
             clearDocketFormDraft();
@@ -13789,6 +13904,23 @@
                                 d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                         </svg>
                         <span>Download Preliminary_Report (PDF)</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- SUSPECT EXPELLING REPORT CONTAINER (ACTIVATED WHEN EXPELLING FIELDS ARE FILLED) -->
+            <div id="expellingReportDownloadContainer"
+                class="hidden p-4 bg-slate-100 rounded-2xl border border-slate-300 space-y-2.5">
+                <div class="flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <div class="text-[10px] font-mono-code font-extrabold uppercase tracking-wider text-emerald-700">
+                            Suspect Expelling Report Generated
+                        </div>
+                        <div id="expellingReportFilename" class="text-xs font-bold text-slate-900 truncate font-mono-code"></div>
+                    </div>
+                    <a id="expellingReportOpenLink" href="#" target="_blank" rel="noopener"
+                        class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-extrabold rounded-xl shadow-sm transition-all inline-flex items-center gap-1.5 no-underline shrink-0">
+                        <span>Open / Print Expelling Report</span>
                     </a>
                 </div>
             </div>

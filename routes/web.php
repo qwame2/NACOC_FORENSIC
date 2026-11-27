@@ -756,6 +756,12 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/Lab_Analysis/report', [CaseReportController::class, 'labReportPage'])->name('lab.report');
     Route::get('/lab-analysis/report', [CaseReportController::class, 'labReportPage']);
 
+    // Suspect Expelling Report (Passport, Flight, Destination & Substance Expelled)
+    Route::get('/Lab_Analysis/expelling-report', [CaseReportController::class, 'labExpellingReport'])->name('lab.expelling_report');
+    Route::get('/Lab_Analysis/staff/expelling-report', [CaseReportController::class, 'labExpellingReport'])->name('lab.staff.expelling_report');
+    Route::get('/Lab_Analysis/expelling-report/{id}/pdf', [CaseReportController::class, 'labExpellingReportPdf'])->name('lab.expelling_report.pdf');
+    Route::get('/Lab_Analysis/staff/expelling-report/{id}/pdf', [CaseReportController::class, 'labExpellingReportPdf'])->name('lab.staff.expelling_report.pdf');
+
     // Generated PDF Situational Report & Dossier
     Route::get('/Lab_Analysis/lab_sitrep_pdf', [CaseReportController::class, 'labSitrepReport'])->name('lab.sitrep.pdf');
     Route::get('/lab-analysis/lab_sitrep_pdf', [CaseReportController::class, 'labSitrepReport']);

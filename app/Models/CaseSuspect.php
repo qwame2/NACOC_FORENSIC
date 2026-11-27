@@ -23,6 +23,10 @@ class CaseSuspect extends Model
         'suspect_name',
         'suspect_alias',
         'ghana_card',
+        'passport_number',
+        'flight_number',
+        'destination',
+        'substance_expelled',
         'gender',
         'dob',
         'age',
@@ -195,6 +199,11 @@ class CaseSuspect extends Model
     public function nlrReports()
     {
         return $this->hasMany(SuspectNlrReport::class, 'case_suspect_id');
+    }
+
+    public function expellingReports()
+    {
+        return $this->hasMany(SuspectExpellingReport::class, 'case_suspect_id');
     }
 
     public function drugScreenings()

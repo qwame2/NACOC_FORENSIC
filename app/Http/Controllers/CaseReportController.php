@@ -3,11 +3,13 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Concerns\CaseControllerHelpers;
+use App\Models\CaseSuspect;
 use App\Models\Exhibit;
 use App\Models\ForensicCase;
 use App\Models\LaboratoryExaminationResult;
 use App\Models\MultipleSuspectCase;
 use App\Models\SingleSuspectCase;
+use App\Models\SuspectExpellingReport;
 use App\Models\SuspectPreliminaryReport;
 use App\Services\CaseAnalyticsService;
 use App\Services\LaboratoryExamService;
@@ -58,6 +60,283 @@ class CaseReportController extends Controller
             : 'Lab_Analysis.report';
 
         return view($viewName, $data);
+    }
+
+    /**
+     * Display Suspect Expelling Report covering Passport Number, Flight Number, Destination, and Substance Expelled.
+     */
+    public function labExpellingReport(Request $request)
+    {
+        $isStaffExpellingReport = $request->is('*/staff/expelling-report*');
+        $search = trim((string) $request->input('search', ''));
+        $fromDate = trim((string) $request->input('from', ''));
+        $toDate = trim((string) $request->input('to', ''));
+
+        $records = collect();
+
+        $storedReports = SuspectExpellingReport::with(['suspect', 'singleCase', 'multipleCase'])
+            ->orderByDesc('generated_at')
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($storedReports as $rep) {
+            $parentCase = $rep->multipleCase ?? $rep->singleCase;
+            $caseNum = $rep->case_number ?: ($parentCase?->case_number ?? 'N/A');
+            $mugshot = $rep->suspect?->mugshot_front_url
+                ?? ($rep->singleCase?->mugshot_front ? \App\Services\CasePhotoResolver::resolveMugshotUrl($rep->singleCase->mugshot_front) : null);
+
+            $records->push([
+                'case_id'            => $parentCase?->id ?? $rep->id,
+                'case_number'        => $caseNum,
+                'suspect_name'       => $rep->suspect_name ?: 'Unknown Suspect',
+                'suspect_alias'      => $rep->suspect?->suspect_alias ?? ($rep->singleCase?->suspect_alias ?? null),
+                'ghana_card'         => $rep->suspect?->ghana_card ?? ($rep->singleCase?->ghana_card ?? null),
+                'nationality'        => $rep->suspect?->nationality ?? ($rep->singleCase?->nationality ?? null),
+                'passport_number'    => $rep->passport_number ?: '—',
+                'flight_number'      => $rep->flight_number ?: '—',
+                'destination'        => $rep->destination ?: '—',
+                'substance_expelled' => $rep->substance_expelled ?: '—',
+                'arrest_date'        => $rep->date_of_arrest ?: optional($rep->generated_at ?? $rep->created_at)->format('Y-m-d'),
+                'holding_facility'   => $rep->suspect?->holding_facility ?? ($rep->singleCase?->holding_facility ?? 'NACOC Custody'),
+                'mugshot_url'        => $mugshot,
+                'pdf_url'            => $isStaffExpellingReport
+                    ? route('lab.staff.expelling_report.pdf', array_filter(['id' => ($caseNum !== 'N/A' ? $caseNum : ($parentCase?->id ?? $rep->id)), 'suspect_id' => $rep->case_suspect_id]))
+                    : route('lab.expelling_report.pdf', array_filter(['id' => ($caseNum !== 'N/A' ? $caseNum : ($parentCase?->id ?? $rep->id)), 'suspect_id' => $rep->case_suspect_id])),
+                'review_url'         => $parentCase
+                    ? ($isStaffExpellingReport
+                        ? url('/Lab_Analysis/staff/cases/' . ($caseNum !== 'N/A' ? $caseNum : $parentCase->id) . '/review')
+                        : route('lab.cases.review', ['id' => $caseNum !== 'N/A' ? $caseNum : $parentCase->id]))
+                    : null,
+                'sort_ts'            => optional($rep->generated_at ?? $rep->created_at)->timestamp ?? 0,
+            ]);
+        }
+
+        $singleCases = SingleSuspectCase::query()
+            ->where(function ($q) {
+                $q->whereNotNull('passport_number')->where('passport_number', '!=', '')
+                  ->orWhere(fn ($sq) => $sq->whereNotNull('flight_number')->where('flight_number', '!=', ''))
+                  ->orWhere(fn ($sq) => $sq->whereNotNull('destination')->where('destination', '!=', ''))
+                  ->orWhere(fn ($sq) => $sq->whereNotNull('substance_expelled')->where('substance_expelled', '!=', ''));
+            })
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($singleCases as $sc) {
+            $caseNumSc = $sc->case_number ?? 'N/A';
+            $dupKeySc = strtolower($caseNumSc . '|' . trim((string) $sc->suspect_name));
+            if ($records->contains(fn ($r) => strtolower($r['case_number'] . '|' . trim((string) $r['suspect_name'])) === $dupKeySc)) {
+                continue;
+            }
+            $records->push([
+                'case_id'            => $sc->id,
+                'case_number'        => $sc->case_number ?? 'N/A',
+                'suspect_name'       => $sc->suspect_name ?? 'Unknown Suspect',
+                'suspect_alias'      => $sc->suspect_alias ?? null,
+                'ghana_card'         => $sc->ghana_card ?? null,
+                'nationality'        => $sc->nationality ?? null,
+                'passport_number'    => $sc->passport_number ?: '—',
+                'flight_number'      => $sc->flight_number ?: '—',
+                'destination'        => $sc->destination ?: '—',
+                'substance_expelled' => $sc->substance_expelled ?: '—',
+                'arrest_date'        => $sc->arrest_date ?: optional($sc->created_at)->format('Y-m-d'),
+                'holding_facility'   => $sc->holding_facility ?: 'NACOC Custody',
+                'mugshot_url'        => \App\Services\CasePhotoResolver::resolveMugshotUrl($sc->mugshot_front),
+                'pdf_url'            => $isStaffExpellingReport
+                    ? route('lab.staff.expelling_report.pdf', ['id' => $sc->case_number ?: $sc->id])
+                    : route('lab.expelling_report.pdf', ['id' => $sc->case_number ?: $sc->id]),
+                'review_url'         => $isStaffExpellingReport
+                    ? url('/Lab_Analysis/staff/cases/' . ($sc->case_number ?: $sc->id) . '/review')
+                    : route('lab.cases.review', ['id' => $sc->case_number ?: $sc->id]),
+                'sort_ts'            => optional($sc->created_at)->timestamp ?? 0,
+            ]);
+        }
+
+        $caseSuspects = CaseSuspect::with(['singleCase', 'multipleCase'])
+            ->where(function ($q) {
+                $q->whereNotNull('passport_number')->where('passport_number', '!=', '')
+                  ->orWhere(fn ($sq) => $sq->whereNotNull('flight_number')->where('flight_number', '!=', ''))
+                  ->orWhere(fn ($sq) => $sq->whereNotNull('destination')->where('destination', '!=', ''))
+                  ->orWhere(fn ($sq) => $sq->whereNotNull('substance_expelled')->where('substance_expelled', '!=', ''));
+            })
+            ->orderByDesc('id')
+            ->get();
+
+        foreach ($caseSuspects as $cs) {
+            $parentCase = $cs->multipleCase ?? $cs->singleCase;
+            $caseNum = $parentCase?->case_number ?? 'N/A';
+            $dupKey = strtolower($caseNum . '|' . trim((string) $cs->suspect_name));
+            if ($records->contains(fn ($r) => strtolower($r['case_number'] . '|' . trim((string) $r['suspect_name'])) === $dupKey)) {
+                continue;
+            }
+
+            $records->push([
+                'case_id'            => $parentCase?->id ?? $cs->id,
+                'case_number'        => $caseNum,
+                'suspect_name'       => $cs->suspect_name ?? 'Unknown Suspect',
+                'suspect_alias'      => $cs->suspect_alias ?? null,
+                'ghana_card'         => $cs->ghana_card ?? null,
+                'nationality'        => $cs->nationality ?? null,
+                'passport_number'    => $cs->passport_number ?: '—',
+                'flight_number'      => $cs->flight_number ?: '—',
+                'destination'        => $cs->destination ?: '—',
+                'substance_expelled' => $cs->substance_expelled ?: '—',
+                'arrest_date'        => $cs->arrest_date ?: optional($cs->created_at)->format('Y-m-d'),
+                'holding_facility'   => $cs->holding_facility ?: 'NACOC Custody',
+                'mugshot_url'        => $cs->mugshot_front_url,
+                'pdf_url'            => $isStaffExpellingReport
+                    ? route('lab.staff.expelling_report.pdf', ['id' => ($caseNum !== 'N/A' ? $caseNum : ($parentCase?->id ?? $cs->id)), 'suspect_id' => $cs->id])
+                    : route('lab.expelling_report.pdf', ['id' => ($caseNum !== 'N/A' ? $caseNum : ($parentCase?->id ?? $cs->id)), 'suspect_id' => $cs->id]),
+                'review_url'         => $parentCase
+                    ? ($isStaffExpellingReport
+                        ? url('/Lab_Analysis/staff/cases/' . ($caseNum !== 'N/A' ? $caseNum : $parentCase->id) . '/review')
+                        : route('lab.cases.review', ['id' => $caseNum !== 'N/A' ? $caseNum : $parentCase->id]))
+                    : null,
+                'sort_ts'            => optional($cs->created_at)->timestamp ?? 0,
+            ]);
+        }
+
+        $records = $records->sortByDesc('sort_ts')->values();
+
+        if ($search !== '') {
+            $needle = strtolower($search);
+            $records = $records->filter(function (array $row) use ($needle) {
+                $haystack = strtolower(implode(' ', [
+                    $row['case_number'],
+                    $row['suspect_name'],
+                    $row['suspect_alias'] ?? '',
+                    $row['passport_number'],
+                    $row['flight_number'],
+                    $row['destination'],
+                    $row['substance_expelled'],
+                ]));
+                return str_contains($haystack, $needle);
+            })->values();
+        }
+
+        if ($fromDate !== '') {
+            $records = $records->filter(fn (array $r) => !empty($r['arrest_date']) && $r['arrest_date'] >= $fromDate)->values();
+        }
+        if ($toDate !== '') {
+            $records = $records->filter(fn (array $r) => !empty($r['arrest_date']) && $r['arrest_date'] <= $toDate)->values();
+        }
+
+        $stats = [
+            'total'        => $records->count(),
+            'passports'    => $records->filter(fn ($r) => $r['passport_number'] !== '—')->count(),
+            'flights'      => $records->filter(fn ($r) => $r['flight_number'] !== '—')->count(),
+            'destinations' => $records->pluck('destination')->filter(fn ($d) => $d !== '—')->unique()->count(),
+        ];
+
+        return view('Lab_Analysis.expelling_report', compact(
+            'records',
+            'stats',
+            'isStaffExpellingReport',
+            'search',
+            'fromDate',
+            'toDate'
+        ));
+    }
+
+    /**
+     * Render printable Suspect Expelling Report form for a specific case or suspect.
+     */
+    public function labExpellingReportPdf(Request $request, $id)
+    {
+        $suspectId = $request->query('suspect_id');
+        $suspectModel = $suspectId ? CaseSuspect::with(['singleCase', 'multipleCase'])->find($suspectId) : null;
+
+        $case = $this->findCase($id);
+        if (!$case && is_numeric($id)) {
+            $single = SingleSuspectCase::find((int) $id);
+            if ($single) {
+                $case = ForensicCase::wrapRecord($single);
+            } else {
+                $multi = MultipleSuspectCase::find((int) $id);
+                if ($multi) {
+                    $case = ForensicCase::wrapRecord($multi);
+                }
+            }
+        }
+        if (!$case && $suspectModel) {
+            $parent = $suspectModel->multipleCase ?? $suspectModel->singleCase;
+            if ($parent) {
+                $case = ForensicCase::wrapRecord($parent);
+            }
+        }
+
+        if (!$case && !$suspectModel) {
+            abort(404, 'Case or suspect expelling record not found.');
+        }
+
+        $underlying = $case?->underlyingRecord ?? null;
+        if (!$suspectModel && $underlying instanceof MultipleSuspectCase) {
+            $suspectModel = $underlying->suspects()
+                ->where(function ($q) {
+                    $q->whereNotNull('passport_number')->where('passport_number', '!=', '')
+                      ->orWhere(fn ($sq) => $sq->whereNotNull('flight_number')->where('flight_number', '!=', ''))
+                      ->orWhere(fn ($sq) => $sq->whereNotNull('destination')->where('destination', '!=', ''))
+                      ->orWhere(fn ($sq) => $sq->whereNotNull('substance_expelled')->where('substance_expelled', '!=', ''));
+                })
+                ->first() ?? $underlying->suspects()->first();
+        } elseif (!$suspectModel && $underlying instanceof SingleSuspectCase) {
+            $suspectModel = $underlying->suspect()->first();
+        }
+
+        $docketData = ($case && is_array($case->docket_data))
+            ? $case->docket_data
+            : (json_decode((string) ($case->docket_data ?? '[]'), true) ?: []);
+        $docketSuspect0 = $docketData['suspects'][0] ?? [];
+
+        $expellingData = [
+            'case_number'        => $case->case_number ?? ($underlying?->case_number ?? ($suspectModel?->case_number ?? '')),
+            'suspect_name'       => $suspectModel?->suspect_name ?? ($underlying?->suspect_name ?? ($case->suspect_name ?? ($docketSuspect0['suspect_name'] ?? ''))),
+            'passport_number'    => $suspectModel?->passport_number ?? ($underlying?->passport_number ?? ($case->passport_number ?? ($docketSuspect0['passport_number'] ?? ''))),
+            'place_of_arrest'    => $suspectModel?->raid_location ?? ($underlying?->raid_location ?? ($case->raid_location ?? ($case->location ?? ($docketSuspect0['raid_location'] ?? '')))),
+            'date_of_arrest'     => $suspectModel?->arrest_date ?? ($underlying?->arrest_date ?? ($case->arrest_date ?? ($docketSuspect0['arrest_date'] ?? ''))),
+            'arrest_officers'    => $underlying?->arresting_officer ?? ($case->arresting_officer ?? ($case->submitting_officer ?? ($docketData['arresting_officer'] ?? ''))),
+            'flight_number'      => $suspectModel?->flight_number ?? ($underlying?->flight_number ?? ($case->flight_number ?? ($docketSuspect0['flight_number'] ?? ''))),
+            'airline'            => $docketSuspect0['airline'] ?? ($docketData['airline'] ?? ''),
+            'destination'        => $suspectModel?->destination ?? ($underlying?->destination ?? ($case->destination ?? ($docketSuspect0['destination'] ?? ''))),
+            'substance_expelled' => $suspectModel?->substance_expelled ?? ($underlying?->substance_expelled ?? ($case->substance_expelled ?? ($docketSuspect0['substance_expelled'] ?? ''))),
+        ];
+
+        $hasAnyExpelling = collect([
+            $expellingData['passport_number'],
+            $expellingData['flight_number'],
+            $expellingData['destination'],
+            $expellingData['substance_expelled'],
+        ])->filter(fn ($v) => trim((string) $v) !== '')->isNotEmpty();
+
+        if ($hasAnyExpelling && !empty($expellingData['suspect_name'])) {
+            $singleCaseIdVal = ($underlying instanceof SingleSuspectCase) ? $underlying->id : ($suspectModel?->single_suspect_case_id ?? null);
+            $multiCaseIdVal = ($underlying instanceof MultipleSuspectCase) ? $underlying->id : ($suspectModel?->multiple_suspect_case_id ?? null);
+
+            SuspectExpellingReport::updateOrCreate(
+                $suspectModel
+                    ? ['case_number' => $expellingData['case_number'], 'case_suspect_id' => $suspectModel->id]
+                    : ['case_number' => $expellingData['case_number'], 'suspect_name' => $expellingData['suspect_name']],
+                [
+                    'case_suspect_id'          => $suspectModel?->id,
+                    'single_suspect_case_id'   => $singleCaseIdVal,
+                    'multiple_suspect_case_id' => $multiCaseIdVal,
+                    'generated_by'             => auth()->id(),
+                    'suspect_name'             => $expellingData['suspect_name'],
+                    'passport_number'          => $expellingData['passport_number'] ?: null,
+                    'place_of_arrest'          => $expellingData['place_of_arrest'] ?: null,
+                    'date_of_arrest'           => $expellingData['date_of_arrest'] ?: null,
+                    'arrest_officers'          => $expellingData['arrest_officers'] ?: null,
+                    'flight_number'            => $expellingData['flight_number'] ?: null,
+                    'airline'                  => $expellingData['airline'] ?: null,
+                    'destination'              => $expellingData['destination'] ?: null,
+                    'substance_expelled'       => $expellingData['substance_expelled'] ?: null,
+                    'report_url'               => $request->fullUrl(),
+                    'status'                   => 'Generated',
+                    'generated_at'             => now(),
+                ]
+            );
+        }
+
+        return view('Lab_Analysis.expelling_report_pdf', compact('expellingData', 'case', 'suspectModel'));
     }
 
     /**

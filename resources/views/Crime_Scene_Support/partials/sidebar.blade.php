@@ -256,6 +256,14 @@
                     </svg>
                     <span class="text-xs">Drug Screening</span>
                 </a>
+
+                <!-- SUSPECT EXPELLING REPORT (LAB ANALYSIS UNIT ONLY) -->
+                <a href="{{ url('/Lab_Analysis/expelling-report') }}" class="flex items-center px-3 py-2.5 rounded-xl transition-all {{ request()->is('*expelling-report*') ? 'text-white bg-emerald-600 shadow-md shadow-emerald-600/30 font-bold' : 'text-slate-700 hover:text-slate-900 hover:bg-slate-200/70 font-semibold' }}">
+                    <svg class="w-4.5 h-4.5 mr-3 {{ request()->is('*expelling-report*') ? 'text-white' : 'text-emerald-600' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+                    </svg>
+                    <span class="text-xs">Suspect Expelling Report</span>
+                </a>
                 @endif
 
                 @if($isDigitalContext)

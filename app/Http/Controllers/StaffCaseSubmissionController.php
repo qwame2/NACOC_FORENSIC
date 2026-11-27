@@ -254,6 +254,10 @@ class StaffCaseSubmissionController extends Controller
             $case->priority = ForensicCase::normalizePriority($payload['priority'] ?? $submission->priority, 'LOW');
             $case->suspect_name = $submission->suspect_name ?? ($payload['suspect_name'] ?? null);
             $case->ghana_card = $payload['ghana_card'] ?? null;
+            $case->passport_number = $payload['passport_number'] ?? null;
+            $case->flight_number = $payload['flight_number'] ?? null;
+            $case->destination = $payload['destination'] ?? null;
+            $case->substance_expelled = $payload['substance_expelled'] ?? null;
             $case->location = $payload['location'] ?? ($payload['raid_location'] ?? null);
             $case->description = $payload['description'] ?? ($payload['offense_description'] ?? null);
             $case->arresting_officer = $payload['arresting_officer'] ?? null;
@@ -785,6 +789,7 @@ class StaffCaseSubmissionController extends Controller
 
         foreach ([
             'gender', 'dob', 'age', 'height', 'eye_color', 'nationality', 'pob', 'phone', 'address',
+            'passport_number', 'flight_number', 'destination', 'substance_expelled',
             'marital_status', 'children_count',
             'spouse_name', 'spouse_phone', 'spouse_info',
             'partner_name', 'partner_phone', 'partner_info',
