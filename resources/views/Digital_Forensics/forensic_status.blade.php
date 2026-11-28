@@ -2536,23 +2536,90 @@
                 : 'CURRENT/NEW CASES';
             formData.set('case_section_label', caseSectionLabel);
 
-            // Explicitly sync all accumulated files from the DataTransfer pools
+            const queuedCourtFiles = Array.from(courtOrderDataTransfer.files || []);
+            const queuedWitnessFiles = Array.from(reportWitnessDataTransfer.files || []);
+            const hasQueuedFiles = queuedCourtFiles.length > 0 || queuedWitnessFiles.length > 0;
+
+            // Send metadata first (without large file blobs) so the status save never hits HTTP 413
             formData.delete('court_order_files[]');
             formData.delete('court_order_file[]');
-            Array.from(courtOrderDataTransfer.files).forEach(file => {
-                formData.append('court_order_files[]', file);
-            });
-
+            formData.delete('court_order_files');
+            formData.delete('court_order_file');
             formData.delete('report_witness_statement_files[]');
             formData.delete('report_witness_statement_file[]');
-            Array.from(reportWitnessDataTransfer.files).forEach(file => {
-                formData.append('report_witness_statement_files[]', file);
-            });
+            formData.delete('report_witness_statement_files');
+            formData.delete('report_witness_statement_file');
 
             if (btn) {
                 btn.disabled = true;
                 btn.innerHTML = '<span class="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent mr-1"></span> Saving...';
             }
+
+            const compressImageIfLarge = (file) => {
+                if (!file || !/^image\/(jpeg|jpg|png|webp)$/i.test(file.type || '') || file.size <= 750 * 1024) {
+                    return Promise.resolve(file);
+                }
+                return new Promise(resolve => {
+                    const img = new Image();
+                    const url = URL.createObjectURL(file);
+                    img.onload = () => {
+                        URL.revokeObjectURL(url);
+                        const maxDim = 1600;
+                        let w = img.width, h = img.height;
+                        if (w > maxDim || h > maxDim) {
+                            const ratio = Math.min(maxDim / w, maxDim / h);
+                            w = Math.round(w * ratio);
+                            h = Math.round(h * ratio);
+                        }
+                        const canvas = document.createElement('canvas');
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        canvas.toBlob(blob => {
+                            if (blob && blob.size < file.size) {
+                                const newName = file.name.replace(/\.[^.]+$/, '') + '.jpg';
+                                resolve(new File([blob], newName, { type: 'image/jpeg' }));
+                            } else {
+                                resolve(file);
+                            }
+                        }, 'image/jpeg', 0.82);
+                    };
+                    img.onerror = () => {
+                        URL.revokeObjectURL(url);
+                        resolve(file);
+                    };
+                    img.src = url;
+                });
+            };
+
+            const uploadSingleAttachment = async (reportId, fileType, rawFile) => {
+                const preparedFile = await compressImageIfLarge(rawFile);
+                const fd = new FormData();
+                fd.append('report_id', String(reportId));
+                fd.append('file_type', fileType);
+                fd.append('file', preparedFile, preparedFile.name);
+                const upRes = await fetch('/Digital_Forensics/forensic-status/upload-file', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                        'Accept': 'application/json'
+                    },
+                    body: fd
+                });
+                if (upRes.status === 413) {
+                    throw new Error('File "' + rawFile.name + '" exceeds the server upload size limit (HTTP 413). Status was saved, but this file could not be uploaded.');
+                }
+                const upText = await upRes.text();
+                let upJson = null;
+                try { upJson = upText ? JSON.parse(upText) : {}; } catch (e) {
+                    throw new Error('File upload failed for "' + rawFile.name + '" (HTTP ' + upRes.status + ').');
+                }
+                if (!upRes.ok || (upJson && upJson.success === false)) {
+                    throw new Error((upJson && upJson.message) || ('File upload failed for "' + rawFile.name + '" (HTTP ' + upRes.status + ').'));
+                }
+                return upJson;
+            };
 
             fetch('/Digital_Forensics/forensic-status', {
                 method: 'POST',
@@ -2563,6 +2630,9 @@
                 body: formData
             })
             .then(async res => {
+                if (res.status === 413) {
+                    throw new Error('Request payload too large (HTTP 413).');
+                }
                 const rawText = await res.text();
                 let data = null;
                 try {
@@ -2575,7 +2645,26 @@
                 }
                 return data;
             })
-            .then(data => {
+            .then(async data => {
+                const repData = data.report || data.data;
+                if (!repData || (!repData.dpf_code && !repData.case_number && !repData.id)) {
+                    throw new Error('Saved response did not return a valid DPF report reference.');
+                }
+
+                if (hasQueuedFiles && repData.id) {
+                    if (btn) {
+                        btn.innerHTML = '<span class="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent mr-1"></span> Uploading files...';
+                    }
+                    for (const f of queuedCourtFiles) {
+                        const up = await uploadSingleAttachment(repData.id, 'court_order', f);
+                        if (up && up.court_order_files) data.court_order_files = up.court_order_files;
+                    }
+                    for (const f of queuedWitnessFiles) {
+                        const up = await uploadSingleAttachment(repData.id, 'report_witness', f);
+                        if (up && up.report_witness_statement_files) data.report_witness_statement_files = up.report_witness_statement_files;
+                    }
+                }
+
                 if (btn) {
                     btn.disabled = false;
                     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> <span>Status Saved!</span>';
@@ -2635,11 +2724,6 @@
                     if (rwFileInput) rwFileInput.value = '';
                     renderFileList('witness');
                     renderSavedReportWitnessFiles(formattedNewRwFiles);
-                }
-
-                const repData = data.report || data.data;
-                if (!repData || (!repData.dpf_code && !repData.case_number && !repData.id)) {
-                    throw new Error('Saved response did not return a valid DPF report reference.');
                 }
 
                 updateDirectoryTableWithNewReport(repData);

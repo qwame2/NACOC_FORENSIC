@@ -2318,6 +2318,56 @@ Route::middleware(['auth'])->group(function () {
         ]);
     });
 
+    Route::post('/Digital_Forensics/forensic-status/upload-file', function (\Illuminate\Http\Request $request) {
+        $validated = $request->validate([
+            'report_id'   => 'required|integer|exists:dpf_report,id',
+            'file_type'   => 'required|in:court_order,report_witness',
+            'file'        => 'required|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:20480',
+        ]);
+
+        $report = \App\Models\DpfReport::findOrFail((int) $validated['report_id']);
+        $file = $request->file('file');
+        if (!$file || !$file->isValid()) {
+            return response()->json(['success' => false, 'message' => 'Invalid file upload.'], 422);
+        }
+
+        $isTesting = app()->environment('testing');
+        $destinationPath = public_path('uploads/forensic_documents');
+        if (!$isTesting && !is_dir($destinationPath)) {
+            @mkdir($destinationPath, 0775, true);
+        }
+
+        $prefix = $validated['file_type'] === 'court_order' ? '_court_order_' : '_report_witness_';
+        $filename = time() . '_' . uniqid() . $prefix . preg_replace('/[^a-zA-Z0-9._-]/', '_', $file->getClientOriginalName());
+        if (!$isTesting) {
+            $file->move($destinationPath, $filename);
+        }
+        $relPath = 'uploads/forensic_documents/' . $filename;
+
+        $reportData = is_array($report->report_data) ? $report->report_data : (json_decode((string) ($report->report_data ?? '[]'), true) ?: []);
+        if ($validated['file_type'] === 'court_order') {
+            $existing = $report->court_order_files ?? [];
+            $updated = array_values(array_unique(array_merge($existing, [$relPath])));
+            $report->court_order_file = json_encode($updated);
+            $reportData['court_order_files'] = $updated;
+        } else {
+            $existing = $report->report_witness_statement_files ?? [];
+            $updated = array_values(array_unique(array_merge($existing, [$relPath])));
+            $report->report_witness_statement_file = json_encode($updated);
+            $reportData['report_witness_statement_files'] = $updated;
+        }
+        $report->report_data = $reportData;
+        $report->save();
+
+        return response()->json([
+            'success' => true,
+            'file_type' => $validated['file_type'],
+            'path' => $relPath,
+            'court_order_files' => $report->court_order_files ?? [],
+            'report_witness_statement_files' => $report->report_witness_statement_files ?? [],
+        ]);
+    });
+
     Route::post('/digital-forensics/forensic-status', function (\Illuminate\Http\Request $request) {
         return redirect()->to('/Digital_Forensics/forensic-status');
     });
