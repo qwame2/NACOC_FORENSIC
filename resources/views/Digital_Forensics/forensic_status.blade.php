@@ -1221,7 +1221,7 @@
                                                         <p id="courtOrderFileNameDisplay" class="text-[11px] font-bold text-slate-700 group-hover:text-emerald-800 truncate max-w-[160px]">
                                                             Choose Court Order File(s)
                                                         </p>
-                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; Multiple supported</p>
+                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; 1MB or Less &bull; Multiple supported</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -1370,7 +1370,7 @@
                                                         <p id="reportWitnessFileNameDisplay" class="text-[11px] font-bold text-slate-700 group-hover:text-emerald-800 truncate max-w-[160px]">
                                                             Choose Statement / Report File(s)
                                                         </p>
-                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; Multiple supported</p>
+                                                        <p class="text-[9px] text-slate-400 font-mono-code">PDF, DOCX, JPG, PNG &bull; 1MB or Less &bull; Multiple supported</p>
                                                     </div>
                                                 </div>
                                             </div>
