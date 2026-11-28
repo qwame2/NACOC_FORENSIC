@@ -172,21 +172,21 @@
             padding-right: 60px;
         }
         .doc-org {
-            font-size: 20px;
+            font-size: 22px;
             font-weight: 700;
             letter-spacing: 0.03em;
             color: #000000;
             line-height: 1.25;
         }
         .doc-dept {
-            font-size: 16.5px;
+            font-size: 21px;
             font-weight: 700;
             letter-spacing: 0.04em;
             color: #000000;
             margin-top: 2px;
         }
         .doc-unit {
-            font-size: 15.5px;
+            font-size: 20px;
             font-weight: 700;
             letter-spacing: 0.05em;
             color: #000000;
@@ -194,7 +194,7 @@
         }
         .report-title-wrap {
             margin-top: 22px;
-            margin-bottom: 16px;
+            margin-bottom: 28px;
             text-align: center;
         }
         .report-title {
@@ -391,7 +391,7 @@
                     <span class="field-line">{{ $placeOfArrestVal }}</span>
                 </div>
                 <div class="field-group-compact">
-                    <span class="field-label">Arrest Officer(s):</span>
+                    <span class="field-label">Arresting Officer(s):</span>
                     <span class="field-line">{{ $arrestOfficersVal }}</span>
                 </div>
             </div>
@@ -438,7 +438,7 @@
                         <th style="width: 11%;">DATE</th>
                         <th style="width: 10%;">TIME</th>
                         <th style="width: 13%;">NO. OF<br>PELLETS<br>EXPELLED</th>
-                        <th style="width: 14%;">SIGN. OF<br>SUSPECT</th>
+                        <th style="width: 14%;">SIGNATURE OF<br>SUSPECT</th>
                         <th style="width: 18%;">NAME OF SUPERVISING<br>OFFICER</th>
                         <th style="width: 17%;">SIGNATURE OF<br>SUPERVISING<br>OFFICER</th>
                         <th style="width: 17%;">REMARKS OF<br>SUPERVISING<br>OFFICER</th>

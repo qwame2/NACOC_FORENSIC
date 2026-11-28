@@ -345,6 +345,31 @@ class CaseReportController extends Controller
     }
 
     /**
+     * Render a blank printable/PDF Suspect Expelling Report form.
+     */
+    public function labExpellingReportBlankPdf()
+    {
+        $expellingData = [
+            'case_number'        => '',
+            'suspect_name'       => '',
+            'nationality'        => '',
+            'passport_number'    => '',
+            'place_of_arrest'    => '',
+            'date_of_arrest'     => '',
+            'time_of_arrest'     => '',
+            'arrest_officers'    => '',
+            'flight_number'      => '',
+            'airline'            => '',
+            'destination'        => '',
+            'substance_expelled' => '',
+        ];
+        $case = null;
+        $suspectModel = null;
+
+        return view('Lab_Analysis.expelling_report_pdf', compact('expellingData', 'case', 'suspectModel'));
+    }
+
+    /**
      * Display Laboratory Situation Report (SITREP) view and printable PDF dossier.
      * Fix Issue 7b & 20: Delegated to LabSitrepReportService without fabricated data.
      */

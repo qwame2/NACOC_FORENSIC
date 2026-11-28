@@ -108,12 +108,21 @@ class SuspectExpellingReportTest extends TestCase
 
         $reportResp = $this->actingAs($head)->get('/Lab_Analysis/expelling-report');
         $reportResp->assertStatus(200)
+            ->assertSee('Blank Form (PDF)')
+            ->assertSee('/Lab_Analysis/expelling-report/blank-pdf')
             ->assertSee('Kwame Mensah')
             ->assertSee('G9988776')
             ->assertSee('BA 078')
             ->assertSee('British Airways')
             ->assertSee('London Heathrow (LHR)')
             ->assertSee('38 Pellets Cocaine');
+
+        $blankResp = $this->actingAs($head)->get('/Lab_Analysis/expelling-report/blank-pdf');
+        $blankResp->assertStatus(200)
+            ->assertSee('SUSPECT EXPELLING REPORT')
+            ->assertSee('Name of Suspect:')
+            ->assertSee('SIGNATURE OF')
+            ->assertDontSee('Case Reference:');
 
         $pdfResp = $this->actingAs($head)->get($expellingUrl);
         $pdfResp->assertStatus(200)
@@ -129,12 +138,12 @@ class SuspectExpellingReportTest extends TestCase
             ->assertSee('London Heathrow (LHR)')
             ->assertSee('38 Pellets Cocaine')
             ->assertSee('PELLETS')
-            ->assertSee('SIGN. OF')
+            ->assertSee('SIGNATURE OF')
             ->assertSee('Nationality:')
             ->assertSee('Time of Arrest:')
             ->assertSee('2:30 PM')
             ->assertSee('Place of Arrest:')
-            ->assertSee('Arrest Officer(s):')
+            ->assertSee('Arresting Officer(s):')
             ->assertSee('NAME OF SUPERVISING')
             ->assertSee('SUBMITTED BY')
             ->assertSee('APPROVED BY')

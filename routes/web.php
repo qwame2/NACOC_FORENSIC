@@ -759,6 +759,8 @@ Route::middleware(['auth'])->group(function () {
     // Suspect Expelling Report (Passport, Flight, Destination & Substance Expelled)
     Route::get('/Lab_Analysis/expelling-report', [CaseReportController::class, 'labExpellingReport'])->name('lab.expelling_report');
     Route::get('/Lab_Analysis/staff/expelling-report', [CaseReportController::class, 'labExpellingReport'])->name('lab.staff.expelling_report');
+    Route::get('/Lab_Analysis/expelling-report/blank-pdf', [CaseReportController::class, 'labExpellingReportBlankPdf'])->name('lab.expelling_report.blank_pdf');
+    Route::get('/Lab_Analysis/staff/expelling-report/blank-pdf', [CaseReportController::class, 'labExpellingReportBlankPdf'])->name('lab.staff.expelling_report.blank_pdf');
     Route::get('/Lab_Analysis/expelling-report/{id}/pdf', [CaseReportController::class, 'labExpellingReportPdf'])->name('lab.expelling_report.pdf');
     Route::get('/Lab_Analysis/staff/expelling-report/{id}/pdf', [CaseReportController::class, 'labExpellingReportPdf'])->name('lab.staff.expelling_report.pdf');
 

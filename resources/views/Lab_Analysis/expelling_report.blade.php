@@ -4,6 +4,7 @@
     $isLabAnalysis = true;
     $sidebarUnit = 'Lab Analysis';
     $baseActionUrl = $isStaffExpellingReport ? url('/Lab_Analysis/staff/expelling-report') : url('/Lab_Analysis/expelling-report');
+    $blankExpellingUrl = $isStaffExpellingReport ? url('/Lab_Analysis/staff/expelling-report/blank-pdf') : url('/Lab_Analysis/expelling-report/blank-pdf');
     $createCaseUrl = $isStaffExpellingReport ? url('/Lab_Analysis/staff/create') : url('/Lab_Analysis/create');
 @endphp
 <!DOCTYPE html>
@@ -58,6 +59,10 @@
                 </div>
 
                 <div class="flex items-center gap-2.5 shrink-0" id="printActionButtons">
+                    <a href="{{ $blankExpellingUrl }}" target="_blank" rel="noopener" class="bg-white hover:bg-slate-100 text-emerald-700 border border-emerald-300 px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5 transition-colors no-underline">
+                        <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+                        <span>Blank Form (PDF)</span>
+                    </a>
                     <button type="button" onclick="window.print()" class="rep-btn-green px-3.5 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-1.5">
                         <i data-lucide="printer" class="w-3.5 h-3.5"></i>
                         <span>Print Report</span>
