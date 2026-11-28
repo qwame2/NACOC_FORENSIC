@@ -1601,29 +1601,31 @@ Route::middleware(['auth'])->group(function () {
         // 1. If an ID / Case Ref is specified, first check for an existing saved DpfReport
         if (!empty($id)) {
             $cleanId = trim($id);
-            $report = \App\Models\DpfReport::where(function($q) use ($cleanId) {
+            $lookupCaseId = str_contains($cleanId, '|') ? trim(explode('|', $cleanId)[0]) : $cleanId;
+            $report = \App\Models\DpfReport::where(function($q) use ($cleanId, $lookupCaseId) {
                 $q->where('dpf_code', $cleanId)
                   ->orWhere('case_number', $cleanId)
-                  ->orWhereRaw('LOWER(case_number) = ?', [strtolower($cleanId)])
+                  ->orWhere('case_number', $lookupCaseId)
+                  ->orWhereRaw('LOWER(case_number) = ?', [strtolower($lookupCaseId)])
                   ->orWhereRaw('LOWER(dpf_code) = ?', [strtolower($cleanId)])
                   ->orWhere('id', $cleanId);
             })->latest('id')->first();
 
             // 2. Also locate the specific case matching the requested $id
-            $case = \App\Models\ForensicCase::allCases()->first(function($c) use ($cleanId) {
+            $case = \App\Models\ForensicCase::allCases()->first(function($c) use ($lookupCaseId) {
                 $cNo = strtolower(trim($c->case_number ?? ''));
                 $labNo = strtolower(trim($c->laboratory_number ?? ''));
                 $cId = (string)($c->id ?? '');
-                $target = strtolower($cleanId);
+                $target = strtolower($lookupCaseId);
                 return $cNo === $target || $labNo === $target || $cId === $target;
             });
 
             if (!$case) {
-                $case = \App\Models\SingleSuspectCase::where('case_number', $cleanId)
-                    ->orWhereRaw('LOWER(case_number) = ?', [strtolower($cleanId)])
+                $case = \App\Models\SingleSuspectCase::where('case_number', $lookupCaseId)
+                    ->orWhereRaw('LOWER(case_number) = ?', [strtolower($lookupCaseId)])
                     ->first()
-                    ?? \App\Models\MultipleSuspectCase::where('case_number', $cleanId)
-                    ->orWhereRaw('LOWER(case_number) = ?', [strtolower($cleanId)])
+                    ?? \App\Models\MultipleSuspectCase::where('case_number', $lookupCaseId)
+                    ->orWhereRaw('LOWER(case_number) = ?', [strtolower($lookupCaseId)])
                     ->first();
             }
         }
@@ -1919,21 +1921,27 @@ Route::middleware(['auth'])->group(function () {
             'report_witness_statement_file.*' => 'nullable|file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
         ]);
 
-        $rawCNo = $validated['case_number'];
-        $cNo = str_contains($rawCNo, '|') ? explode('|', $rawCNo)[0] : $rawCNo;
-        $suspectIdFromVal = str_contains($rawCNo, '|') ? explode('|', $rawCNo)[1] : ($request->input('suspect_id') ?: null);
+        $rawCNo = trim((string) $validated['case_number']);
+        $cNo = str_contains($rawCNo, '|') ? trim(explode('|', $rawCNo)[0]) : $rawCNo;
+        $rawSuspectId = str_contains($rawCNo, '|') ? trim(explode('|', $rawCNo)[1]) : trim((string) ($request->input('suspect_id') ?? ''));
+        $suspectIdFromVal = (is_numeric($rawSuspectId) && (int) $rawSuspectId > 0 && \App\Models\CaseSuspect::where('id', (int) $rawSuspectId)->exists())
+            ? (int) $rawSuspectId
+            : null;
         $singleCase = \App\Models\SingleSuspectCase::where('case_number', $cNo)->first();
         $multiCase = \App\Models\MultipleSuspectCase::where('case_number', $cNo)->first();
 
         $isTesting = app()->environment('testing');
         $destinationPath = public_path('uploads/forensic_documents');
-        if (!$isTesting && !file_exists($destinationPath)) {
-            mkdir($destinationPath, 0777, true);
-        }
+        $ensureUploadDir = function () use ($isTesting, $destinationPath) {
+            if (!$isTesting && !is_dir($destinationPath)) {
+                @mkdir($destinationPath, 0775, true);
+            }
+        };
 
         $courtOrderFilePaths = [];
         $coFiles = $request->file('court_order_files') ?? $request->file('court_order_file');
         if ($coFiles) {
+            $ensureUploadDir();
             if (!is_array($coFiles)) {
                 $coFiles = [$coFiles];
             }
@@ -1951,6 +1959,7 @@ Route::middleware(['auth'])->group(function () {
         $reportWitnessFilePaths = [];
         $rwFiles = $request->file('report_witness_statement_files') ?? $request->file('report_witness_statement_file');
         if ($rwFiles) {
+            $ensureUploadDir();
             if (!is_array($rwFiles)) {
                 $rwFiles = [$rwFiles];
             }
@@ -2094,7 +2103,11 @@ Route::middleware(['auth'])->group(function () {
 
         $dpfCode = ($existingReport && !empty($existingReport->dpf_code))
             ? $existingReport->dpf_code
-            : ('DF-STATUS-' . date('Y-md') . '-' . random_int(100, 999));
+            : ('DF-STATUS-' . date('Ymd') . '-' . random_int(100, 999));
+
+        $invDateVal = !empty(trim((string) ($validated['investigation_date'] ?? '')))
+            ? trim((string) $validated['investigation_date'])
+            : ($existingReport && $existingReport->investigation_date ? $existingReport->investigation_date->format('Y-m-d') : date('Y-m-d'));
 
         $reportAttributes = [
             'dpf_code' => $dpfCode,
@@ -2105,7 +2118,7 @@ Route::middleware(['auth'])->group(function () {
             'suspect_id' => $suspectIdFromVal ?? ($existingReport->suspect_id ?? null),
             'user_id' => auth()->id() ?? ($existingReport->user_id ?? null),
             'location_post' => $validated['location_post'] ?? ($existingReport->location_post ?? null),
-            'investigation_date' => $validated['investigation_date'] ?? ($existingReport->investigation_date ?? date('Y-m-d')),
+            'investigation_date' => $invDateVal,
             'devices_retrieved' => $validated['devices_retrieved'] ?? ($existingReport->devices_retrieved ?? null),
             'quantity' => $validated['quantity'] ?? ($existingReport->quantity ?? '1'),
             'brief_case_description' => $validated['brief_case_description'] ?? ($existingReport->brief_case_description ?? null),

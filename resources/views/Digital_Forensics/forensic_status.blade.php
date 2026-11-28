@@ -2554,7 +2554,7 @@
                 btn.innerHTML = '<span class="inline-block animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent mr-1"></span> Saving...';
             }
 
-            fetch('{{ url("/Digital_Forensics/forensic-status") }}', {
+            fetch('/Digital_Forensics/forensic-status', {
                 method: 'POST',
                 headers: {
                     'X-CSRF-TOKEN': '{{ csrf_token() }}',
@@ -2562,7 +2562,19 @@
                 },
                 body: formData
             })
-            .then(res => res.json())
+            .then(async res => {
+                const rawText = await res.text();
+                let data = null;
+                try {
+                    data = rawText ? JSON.parse(rawText) : {};
+                } catch (parseErr) {
+                    throw new Error('Server returned non-JSON response (HTTP ' + res.status + ').');
+                }
+                if (!res.ok || (data && data.success === false)) {
+                    throw new Error((data && (data.message || data.error)) || ('Request failed with HTTP ' + res.status));
+                }
+                return data;
+            })
             .then(data => {
                 if (btn) {
                     btn.disabled = false;
@@ -2625,23 +2637,10 @@
                     renderSavedReportWitnessFiles(formattedNewRwFiles);
                 }
 
-                const repData = data.data || data.report || {
-                    case_number: formData.get('case_number'),
-                    location_post: formData.get('location_post'),
-                    investigation_date: formData.get('investigation_date'),
-                    devices_retrieved: formData.get('devices_retrieved'),
-                    quantity: formData.get('quantity'),
-                    brief_case_description: formData.get('brief_case_description'),
-                    court_order_requested: formData.get('court_order_requested'),
-                    court_order_granted: formData.get('court_order_granted'),
-                    extraction_analysis_conducted: combinedExt,
-                    extraction_analysis_message: combinedExt,
-                    report_witness_statement_sent: combinedRw,
-                    report_witness_statement_message: combinedRw,
-                    intel_shared: formData.get('intel_shared'),
-                    remark: formData.get('remark'),
-                    dpf_code: 'DF-STATUS-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(Math.random()*900 + 100)
-                };
+                const repData = data.report || data.data;
+                if (!repData || (!repData.dpf_code && !repData.case_number && !repData.id)) {
+                    throw new Error('Saved response did not return a valid DPF report reference.');
+                }
 
                 updateDirectoryTableWithNewReport(repData);
                 openReportPreviewModal(repData);
@@ -2651,34 +2650,16 @@
                     btn.disabled = false;
                     btn.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg> <span>Save &amp; Log Investigation Status</span>';
                 }
-
-                const fallbackData = {
-                    case_number: formData.get('case_number'),
-                    location_post: formData.get('location_post'),
-                    investigation_date: formData.get('investigation_date'),
-                    devices_retrieved: formData.get('devices_retrieved'),
-                    quantity: formData.get('quantity'),
-                    brief_case_description: formData.get('brief_case_description'),
-                    court_order_requested: formData.get('court_order_requested'),
-                    court_order_granted: formData.get('court_order_granted'),
-                    case_section_label: caseSectionLabel,
-                    extraction_analysis_conducted: combinedExt,
-                    extraction_analysis_message: combinedExt,
-                    report_witness_statement_sent: combinedRw,
-                    report_witness_statement_message: combinedRw,
-                    intel_shared: formData.get('intel_shared'),
-                    remark: formData.get('remark'),
-                    dpf_code: 'DF-STATUS-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.floor(Math.random()*900 + 100)
-                };
-                updateDirectoryTableWithNewReport(fallbackData);
-                openReportPreviewModal(fallbackData);
+                console.error('Failed to save forensic status:', err);
+                alert('Failed to save Forensic Extraction & Warrant status: ' + (err && err.message ? err.message : 'Server error. Please try again.'));
             });
         }
 
         function openReportPreviewModal(r) {
             if (!r) return;
             const ref = r.dpf_code || r.case_number || r.id || '';
-            window.location.href = '{{ url("/Digital_Forensics/dpf-report-pdf") }}/' + encodeURIComponent(ref);
+            if (!ref) return;
+            window.location.href = '/Digital_Forensics/dpf-report-pdf/' + encodeURIComponent(ref);
         }
 
         function closeReportPreviewModal() {
