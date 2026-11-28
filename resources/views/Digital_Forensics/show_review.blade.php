@@ -6652,6 +6652,61 @@ function setSeizureBlocksCount(val) {
         }
 
         function filterDrugList(el) {
+            const root = el ? el.closest('.seizure-block') : (document.querySelector('.seizure-block') || document);
+            const rawVal = root.querySelector('#drugSearchInput')?.value || '';
+            const hidden = root.querySelector('#newSeizureNameDrug');
+            if (hidden) hidden.value = rawVal;
+            const textInput = root.querySelector('#newSeizureName');
+            if (textInput) textInput.value = rawVal;
+            if (typeof filterDrugListByQuery === 'function') filterDrugListByQuery(rawVal.toLowerCase(), root);
+        }
+
+        function updateCommodityField(category, rootEl) {
+            const root = rootEl || document.querySelector('.seizure-block') || document;
+            const textWrapper = root.querySelector('#commodityTextWrapper');
+            const drugWrapper = root.querySelector('#drugSelectWrapper');
+            const weaponWrapper = root.querySelector('#weaponSelectWrapper');
+            const currencyWrapper = root.querySelector('#currencySelectWrapper');
+            const ammoWrapper = root.querySelector('#ammoSelectWrapper');
+            const deviceWrapper = root.querySelector('#deviceSelectWrapper');
+            const deviceFieldsWrapper = root.querySelector('#deviceFieldsWrapper');
+            const vehicleFieldsWrapper = root.querySelector('#vehicleFieldsWrapper');
+            const weaponFieldsWrapper = root.querySelector('#weaponFieldsWrapper');
+            const ammoFieldsWrapper = root.querySelector('#ammoFieldsWrapper');
+            const otherDescriptionWrapper = root.querySelector('#otherExhibitDescriptionWrapper') || root.querySelector('.other-exhibit-description-wrapper');
+            const otherDescriptionInput = root.querySelector('#newOtherExhibitDescription') || root.querySelector('.other-exhibit-description-input');
+            const textInput = root.querySelector('#newSeizureName');
+            const quantityLabel = root.querySelector('#quantityLabel');
+
+            if (textWrapper) textWrapper.classList.add('hidden');
+            if (drugWrapper) drugWrapper.classList.add('hidden');
+            if (weaponWrapper) weaponWrapper.classList.add('hidden');
+            if (currencyWrapper) currencyWrapper.classList.add('hidden');
+            if (ammoWrapper) ammoWrapper.classList.add('hidden');
+            if (deviceWrapper) deviceWrapper.classList.add('hidden');
+            if (deviceFieldsWrapper) deviceFieldsWrapper.classList.add('hidden');
+            if (vehicleFieldsWrapper) vehicleFieldsWrapper.classList.add('hidden');
+            if (weaponFieldsWrapper) weaponFieldsWrapper.classList.add('hidden');
+            if (ammoFieldsWrapper) ammoFieldsWrapper.classList.add('hidden');
+            if (otherDescriptionWrapper) otherDescriptionWrapper.classList.add('hidden');
+            if (otherDescriptionInput) otherDescriptionInput.removeAttribute('required');
+
+            const catNorm = typeof category === 'string' ? category.toLowerCase().trim() : '';
+
+            if (category === 'Drugs') {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity';
+                if (drugWrapper) drugWrapper.classList.remove('hidden');
+            } else if (category === 'Weapons' || category === 'Weapon' || catNorm === 'weapons' || catNorm === 'weapon' || catNorm === 'firearms' || catNorm === 'firearm') {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity';
+                if (weaponWrapper) weaponWrapper.classList.remove('hidden');
+                if (weaponFieldsWrapper) weaponFieldsWrapper.classList.remove('hidden');
+            } else if (category === 'Vehicles' || category === 'Vehicle' || catNorm === 'vehicles' || catNorm === 'vehicle') {
+                if (quantityLabel) quantityLabel.innerText = 'Quantity / Units';
+                if (textWrapper) textWrapper.classList.remove('hidden');
+                if (vehicleFieldsWrapper) vehicleFieldsWrapper.classList.remove('hidden');
+                if (textInput) textInput.placeholder = 'e.g. Toyota Hilux (Unregistered)';
+            } else if (category === 'Money') {
+                if (quantityLabel) quantityLabel.innerText = 'Amount';
                 if (currencyWrapper) currencyWrapper.classList.remove('hidden');
             } else if (category === 'Ammunition' || catNorm === 'ammunition' || catNorm === 'ammo') {
                 if (quantityLabel) quantityLabel.innerText = 'Quantity / Rounds';

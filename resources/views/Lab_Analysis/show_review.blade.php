@@ -6807,6 +6807,142 @@ function setSeizureBlocksCount(val) {
 
                 if (typeof selectExhibitCategory === 'function') {
                     try {
+                        selectExhibitCategory(cat, { target: block });
+                    } catch(e) {}
+                }
+            }
+
+            const name = data.seizure_name || data.commodity_name || data.name || data.seizure_name_drug || '';
+            const catLower = (cat || '').toLowerCase();
+
+            if (catLower.includes('drug') || catLower === 'narcotics') {
+                const drugHidden = block.querySelector('#newSeizureNameDrug');
+                const drugSearch = block.querySelector('#drugSearchInput');
+                const drugSelect = block.querySelector('#drugSelect');
+                if (drugHidden) drugHidden.value = name;
+                if (drugSearch) drugSearch.value = name;
+                if (drugSelect) drugSelect.value = name;
+            } else if (catLower.includes('weapon') || catLower.includes('firearm')) {
+                const wpnHidden = block.querySelector('#newSeizureNameWeapon');
+                const wpnSearch = block.querySelector('#weaponSearchInput');
+                const wpnSelect = block.querySelector('#weaponSelect');
+                if (wpnHidden) wpnHidden.value = name;
+                if (wpnSearch) wpnSearch.value = name;
+                if (wpnSelect) wpnSelect.value = name;
+            } else if (catLower.includes('money') || catLower.includes('currency')) {
+                const currHidden = block.querySelector('#newSeizureNameCurrency');
+                const currSearch = block.querySelector('#currencySearchInput');
+                if (currHidden) currHidden.value = name;
+                if (currSearch) currSearch.value = name;
+            } else if (catLower.includes('ammo')) {
+                const ammoHidden = block.querySelector('#newSeizureNameAmmo');
+                const ammoSearch = block.querySelector('#ammoSearchInput');
+                if (ammoHidden) ammoHidden.value = name;
+                if (ammoSearch) ammoSearch.value = name;
+            } else if (catLower.includes('device') || catLower.includes('electronic')) {
+                const devHidden = block.querySelector('#newSeizureNameDevice');
+                const devSearch = block.querySelector('#deviceSearchInput');
+                if (devHidden) devHidden.value = name;
+                if (devSearch) devSearch.value = name;
+            } else {
+                const genInput = block.querySelector('#newSeizureName');
+                if (genInput) genInput.value = name;
+            }
+
+            const setVal = (sel, v) => {
+                if (v !== undefined && v !== null && v !== '') {
+                    const el = block.querySelector(sel);
+                    if (el) el.value = v;
+                }
+            };
+
+            setVal('#newSeizureQuantity', data.quantity);
+            setVal('#newSeizureContents', data.contents);
+            setVal('.seizure-contents-input', data.contents);
+            setVal('#newSeizureWeight', data.weight);
+            setVal('#newSeizureUnit', data.unit);
+            setVal('#unitSearchInput', data.unit);
+            setVal('#newSeizurePackaging', data.packaging);
+            setVal('#pkgSearchInput', data.packaging);
+            setVal('#newSeizureValue', data.value || data.estimated_street_value);
+            setVal('#newSeizureConcealment', data.concealment_method || data.concealment);
+            setVal('#newSeizureDate', data.seizure_date || data.date);
+            setVal('#newSeizureTime', data.seizure_time || data.time);
+            setVal('#newSeizureLocation', data.seizure_location || data.location);
+            setVal('#newSeizureReason', data.seizure_reason || data.reason);
+            setVal('#newSeizureSourceOfExhibits', data.source_of_exhibits || data.source);
+            setVal('#newSeizureInvestigatingOfficer', data.investigating_officer || data.investigation_officer);
+            setVal('#newSeizureSourceRequestingUnit', data.source_requesting_unit || data.requesting_unit);
+            setVal('#newSeizureRemark', data.exhibit_remark || data.remark || data.remarks);
+
+            const officer = data.seizing_officer || data.seizure_officer || data.officer_name || '';
+            if (officer) {
+                setVal('#newSeizureOfficer', officer);
+                setVal('.officerSearchInput', officer);
+            }
+
+            setVal('#newDevModel', data.model || data.dev_model);
+            setVal('#newDevSerialNo', data.serial_number || data.dev_serial_no);
+            setVal('#newDevImei1', data.imei1 || data.dev_imei1);
+            setVal('#newDevImei2', data.imei2 || data.dev_imei2);
+            setVal('#newDevMacAddress', data.mac_address || data.dev_mac_address);
+            setVal('#newDevStorage', data.storage_capacity || data.dev_storage);
+            setVal('#newDevColour', data.colour || data.dev_colour);
+            setVal('#newDevMarks', data.identifying_marks || data.dev_marks);
+
+            setVal('#wpnModel', data.model || data.weapon_model || data.wpn_model);
+            setVal('#wpnSerialNo', data.serial_number || data.weapon_serial_no || data.wpn_serial_no);
+            setVal('#wpnCalibre', data.caliber || data.wpn_calibre);
+            setVal('#wpnColour', data.colour || data.wpn_colour);
+            setVal('#wpnSize', data.size || data.wpn_size);
+            setVal('#wpnMarks', data.identifying_marks || data.wpn_marks);
+            setVal('#wpnLocationFound', data.location_found || data.wpn_location_found);
+            setVal('#wpnLoadedStatus', data.loaded_status || data.wpn_loaded_status);
+            setVal('#wpnCondition', data.condition || data.wpn_condition);
+
+            setVal('#vehMake', data.make || data.veh_make);
+            setVal('#vehModel', data.model || data.veh_model);
+            setVal('#vehType', data.type || data.veh_type);
+            setVal('#vehTypeSearchInput', data.type || data.veh_type);
+            setVal('#vehYear', data.year || data.veh_year);
+            setVal('#vehColour', data.colour || data.veh_colour);
+            setVal('#vehRegNo', data.registration_number || data.veh_reg_no);
+            setVal('#vehVIN', data.vin || data.veh_vin);
+            setVal('#vehEngineNo', data.engine_number || data.veh_engine_no);
+            setVal('#vehCountryReg', data.country_registration || data.veh_country_reg);
+            setVal('#vehOwner', data.owner || data.veh_owner);
+            setVal('#vehDriver', data.driver || data.veh_driver);
+            setVal('#vehOwnerContact', data.owner_contact || data.veh_owner_contact);
+            setVal('#vehDocsAvailable', data.documents_available || data.veh_docs_available);
+            setVal('#vehDocRef', data.document_reference || data.veh_doc_ref);
+            setVal('#vehCondition', data.condition || data.veh_condition);
+            setVal('#vehFuel', data.fuel_level || data.veh_fuel);
+            setVal('#vehKeysRecv', data.keys_received || data.veh_keys_recv);
+            setVal('#vehKeyCount', data.key_count || data.veh_key_count);
+            setVal('#vehDamage', data.damages_visible || data.veh_damage);
+            setVal('#vehMods', data.modifications || data.veh_mods);
+            setVal('#vehFeatures', data.features || data.veh_features);
+
+            setVal('#ammoCartridgeAppearance', data.cartridge_appearance || data.ammo_cartridge_appearance);
+            setVal('#ammoProjectileType', data.projectile_type || data.ammo_projectile_type);
+            setVal('#ammoCaseMaterial', data.case_material || data.ammo_case_material);
+            setVal('#ammoColourMarkings', data.colour_markings || data.ammo_colour_markings);
+            setVal('#ammoCondition', data.condition || data.ammo_condition);
+            setVal('#ammoOtherCondition', data.other_condition || data.ammo_other_condition);
+            setVal('#ammoPackagingType', data.packaging_type || data.ammo_packaging_type);
+            setVal('#ammoSealCondition', data.seal_condition || data.ammo_seal_condition);
+            setVal('#ammoPackageReferenceNumber', data.package_reference_number || data.ammo_package_reference_number);
+            setVal('#ammoConditionWhenReceived', data.condition_when_received || data.ammo_condition_when_received);
+
+            const otherDesc = data.other_exhibit_description || data.other_description || '';
+            if (otherDesc) {
+                setVal('#newOtherExhibitDescription', otherDesc);
+                setVal('.other-exhibit-description-input', otherDesc);
+                const otherWrap = block.querySelector('#otherExhibitDescriptionWrapper, .other-exhibit-description-wrapper');
+                if (otherWrap) otherWrap.classList.remove('hidden');
+            }
+
+            if (typeof syncSection4ExhibitsToLabSection === 'function') {
                 syncSection4ExhibitsToLabSection();
             }
             if (typeof evaluateLabExaminationVisibility === 'function') {
