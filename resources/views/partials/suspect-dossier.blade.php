@@ -410,6 +410,18 @@
                                             @endphp
 
                                             @if ($isLabAnalysisCase)
+                                            {{-- 0. Source of Exhibits --}}
+                                            @php
+                                                $aSourceOfExhibits = $aEx['source_of_exhibits'] ?? ($aEx['source'] ?? null);
+                                            @endphp
+                                            <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Source of Exhibits</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5">
+                                                    {{ !empty($aSourceOfExhibits) ? $aSourceOfExhibits : 'N/A' }}
+                                                </div>
+                                            </div>
+
                                             {{-- 1. Source/Requesting Unit --}}
                                             @php
                                                 $aSourceReqUnit = $aEx['source_requesting_unit'] ?? ($aEx['requesting_unit'] ?? ($aEx['source_unit'] ?? ($aEx['source_of_exhibits'] ?? ($aEx['source'] ?? ($case->source_requesting_unit ?? ($case->requesting_unit ?? ($case->unit_name ?? null)))))));
@@ -496,6 +508,18 @@
                                                     Investigating Officer</div>
                                                 <div class="font-bold text-slate-900 text-xs mt-0.5">
                                                     {{ !empty($aInvOfficer) ? $aInvOfficer : 'N/A' }}
+                                                </div>
+                                            </div>
+                                            @else
+                                            {{-- Location Seized (Digital Forensics, Crime Scene Support, Evidence Management) --}}
+                                            @php
+                                                $aLocSeized = $aEx['seizure_location'] ?? ($aEx['location_seized'] ?? ($aEx['location'] ?? ($case->raid_location ?? null)));
+                                            @endphp
+                                            <div class="p-3 rounded-xl bg-white border border-amber-200 shadow-2xs">
+                                                <div class="text-[10px] font-mono-code font-bold text-amber-800 uppercase">
+                                                    Location Seized</div>
+                                                <div class="font-bold text-slate-900 text-xs mt-0.5">
+                                                    {{ !empty($aLocSeized) ? $aLocSeized : 'N/A' }}
                                                 </div>
                                             </div>
                                             @endif

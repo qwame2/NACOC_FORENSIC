@@ -164,6 +164,18 @@
                 @endphp
 
                 @if ($isLabAnalysisCase)
+                {{-- 0. Source of Exhibits --}}
+                @php
+                    $exSourceOfExhibits = $pEx['source_of_exhibits'] ?? ($pEx['source'] ?? null);
+                @endphp
+                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Source of Exhibits</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5">
+                        {{ !empty($exSourceOfExhibits) ? $exSourceOfExhibits : 'N/A' }}
+                    </div>
+                </div>
+
                 {{-- 1. Source/Requesting Unit --}}
                 @php
                     $sourceReqUnit = $pEx['source_requesting_unit'] ?? ($pEx['requesting_unit'] ?? ($pEx['source_unit'] ?? ($pEx['source_of_exhibits'] ?? ($pEx['source'] ?? ($case->source_requesting_unit ?? ($case->requesting_unit ?? ($case->unit_name ?? null)))))));
@@ -250,6 +262,18 @@
                         Investigating Officer</div>
                     <div class="font-bold text-slate-900 text-xs mt-0.5">
                         {{ !empty($invOfficer) ? $invOfficer : 'N/A' }}
+                    </div>
+                </div>
+                @else
+                {{-- Location Seized (Digital Forensics, Crime Scene Support, Evidence Management) --}}
+                @php
+                    $exLocSeized = $pEx['seizure_location'] ?? ($pEx['location_seized'] ?? ($pEx['location'] ?? ($case->raid_location ?? null)));
+                @endphp
+                <div class="p-3 rounded-xl bg-white border border-slate-200 shadow-2xs">
+                    <div class="text-[10px] font-mono-code font-bold text-slate-500 uppercase">
+                        Location Seized</div>
+                    <div class="font-bold text-slate-900 text-xs mt-0.5">
+                        {{ !empty($exLocSeized) ? $exLocSeized : 'N/A' }}
                     </div>
                 </div>
                 @endif
