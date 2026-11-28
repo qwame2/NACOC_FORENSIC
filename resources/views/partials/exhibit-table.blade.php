@@ -12,6 +12,12 @@
 ])
                 @if (!empty($exhibits) && count($exhibits) > 0)
                     @php
+                        $isLabAnalysisCase = isset($case) && (
+                            str_contains(strtolower((string) ($case->unit_name ?? '')), 'lab')
+                            || (is_object($case) && method_exists($case, 'isDrugCase') && $case->isDrugCase())
+                        );
+                    @endphp
+                    @php
                         // Resolve mugshot mapping for suspect(s) by name
                         $suspectListForMugshot = !empty($suspects) ? $suspects : ($suspectsList ?? []);
                         if (empty($suspectListForMugshot) && !empty($case)) {
@@ -125,7 +131,7 @@
                                         <th class="py-2.5 px-4 font-bold">Suspect / Owner</th>
                                         <th class="py-2.5 px-4 font-bold">Category</th>
                                         <th class="py-2.5 px-4 font-bold">Exhibit Description</th>
-                                        <th class="py-2.5 px-4 font-bold">Source of Exhibits</th>
+                                        <th class="py-2.5 px-4 font-bold">{{ $isLabAnalysisCase ? 'Source of Exhibits' : 'Location Seized' }}</th>
                                         <th class="py-2.5 px-4 font-bold">Quantity</th>
                                         <th class="py-2.5 px-4 font-bold">Weight / Unit</th>
                                         <th class="py-2.5 px-4 font-bold">Packaging</th>
@@ -286,12 +292,16 @@
                                                 @endif
                                             </td>
                                             <td class="py-2.5 px-4 font-mono-code text-slate-700">
-                                                <div>{{ $szItem['source_of_exhibits'] ?? ($szItem['source'] ?? 'N/A') }}</div>
-                                                @if (!empty($szItem['source_requesting_unit']))
-                                                    <div class="text-[10px] text-slate-500 font-sans mt-0.5"><span class="font-bold">Unit:</span> {{ $szItem['source_requesting_unit'] }}</div>
-                                                @endif
-                                                @if (!empty($szItem['investigating_officer']))
-                                                    <div class="text-[10px] text-slate-500 font-sans mt-0.5"><span class="font-bold">IO:</span> {{ $szItem['investigating_officer'] }}</div>
+                                                @if ($isLabAnalysisCase)
+                                                    <div>{{ $szItem['source_of_exhibits'] ?? ($szItem['source'] ?? 'N/A') }}</div>
+                                                    @if (!empty($szItem['source_requesting_unit']))
+                                                        <div class="text-[10px] text-slate-500 font-sans mt-0.5"><span class="font-bold">Unit:</span> {{ $szItem['source_requesting_unit'] }}</div>
+                                                    @endif
+                                                    @if (!empty($szItem['investigating_officer']))
+                                                        <div class="text-[10px] text-slate-500 font-sans mt-0.5"><span class="font-bold">IO:</span> {{ $szItem['investigating_officer'] }}</div>
+                                                    @endif
+                                                @else
+                                                    <div>{{ $szItem['seizure_location'] ?? ($szItem['location_seized'] ?? ($szItem['location'] ?? ($case->raid_location ?? 'N/A'))) }}</div>
                                                 @endif
                                             </td>
                                             <td class="py-2.5 px-4 font-mono-code">

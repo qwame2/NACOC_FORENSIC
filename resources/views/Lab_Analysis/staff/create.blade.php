@@ -13863,11 +13863,7 @@
                     </svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between mb-1">
-                        <span
-                            class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wider">
-                            STATUS: MULTI-UNIT PROCESSING (1/4 COMPLETED)
-                        </span>
+                    <div class="flex items-center justify-end mb-1">
                         <button onclick="closeSuccessPopover()"
                             class="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -8528,16 +8528,13 @@
                     </svg>
                 </div>
                 <div class="flex-1 min-w-0">
-                    <div class="flex items-center justify-between mb-1">
-                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-mono-code font-bold bg-amber-100 text-amber-800 border border-amber-200 uppercase tracking-wider">
-                            STATUS: MULTI-UNIT PROCESSING (1/4 COMPLETED)
-                        </span>
+                    <div class="flex items-center justify-end mb-1">
                         <button onclick="closeSuccessPopover()" class="text-slate-400 hover:text-slate-600 transition-colors p-1 cursor-pointer">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
                         </button>
                     </div>
                     <h3 class="text-base font-extrabold text-slate-900 leading-snug">
-                        Crime Scene Data Saved Successfully!
+                        Case Saved Successfully!
                     </h3>
                     <p class="text-xs text-slate-600 mt-1.5 leading-relaxed font-medium">
                         Official Suspect Arrested Docket <span id="popoverCaseRef" class="font-extrabold font-mono-code text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">NCC-{{ date('Y') }}-XXXX</span> has been saved. The other 3 forensic units can now access, build on, and submit their findings before final HOF approval.

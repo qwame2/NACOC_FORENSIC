@@ -156,6 +156,14 @@
                         {{ $cleanValP }}</div>
                 </div>
 
+                @php
+                    $isLabAnalysisCase = isset($case) && (
+                        str_contains(strtolower((string) ($case->unit_name ?? '')), 'lab')
+                        || (is_object($case) && method_exists($case, 'isDrugCase') && $case->isDrugCase())
+                    );
+                @endphp
+
+                @if ($isLabAnalysisCase)
                 {{-- 1. Source/Requesting Unit --}}
                 @php
                     $sourceReqUnit = $pEx['source_requesting_unit'] ?? ($pEx['requesting_unit'] ?? ($pEx['source_unit'] ?? ($pEx['source_of_exhibits'] ?? ($pEx['source'] ?? ($case->source_requesting_unit ?? ($case->requesting_unit ?? ($case->unit_name ?? null)))))));
@@ -244,6 +252,7 @@
                         {{ !empty($invOfficer) ? $invOfficer : 'N/A' }}
                     </div>
                 </div>
+                @endif
 
                 {{-- 3. Reason for Seizure --}}
                 @php
@@ -493,8 +502,15 @@
                         $vOfficer = $pEx['seizure_officer'] ?? ($pEx['officer'] ?? 'N/A');
                         $vOfficer = is_string($vOfficer) ? $vOfficer : 'N/A';
                         $vDate = !empty($pEx['seizure_date']) && is_string($pEx['seizure_date']) ? $pEx['seizure_date'] : null;
-                        $vTime = !empty($pEx['seizure_time']) && is_string($pEx['seizure_time']) ? "@ {$pEx['seizure_time']}" : '';
-                        $vDateTime = !empty($vDate) ? "{$vDate} {$vTime}" : 'N/A';
+                        $vTime = '';
+                        if (!empty($pEx['seizure_time']) && is_string($pEx['seizure_time'])) {
+                            try {
+                                $vTime = '@ ' . \Carbon\Carbon::parse($pEx['seizure_time'])->format('g:i A');
+                            } catch (\Throwable $e) {
+                                $vTime = "@ {$pEx['seizure_time']}";
+                            }
+                        }
+                        $vDateTime = !empty($vDate) ? trim("{$vDate} {$vTime}") : 'N/A';
                         $vReason = $pEx['seizure_reason'] ?? 'N/A';
                         $vReason = is_string($vReason) ? $vReason : 'N/A';
                         $vPhotos = $extractAllPhotosHelper($pEx);

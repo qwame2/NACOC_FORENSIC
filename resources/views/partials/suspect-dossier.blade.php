@@ -203,10 +203,18 @@
                                             }
                                         }
                                         $hasValidTime = $rawArrestTime !== '' && !in_array(strtoupper($rawArrestTime), ['N/A', 'NA', '-', 'NULL', 'UNSPECIFIED'], true);
+                                        $formattedArrestTime = $rawArrestTime;
+                                        if ($hasValidTime) {
+                                            try {
+                                                $formattedArrestTime = \Carbon\Carbon::parse($rawArrestTime)->format('g:i A');
+                                            } catch (\Throwable $e) {
+                                                $formattedArrestTime = $rawArrestTime;
+                                            }
+                                        }
                                     @endphp
                                     <div class="font-bold text-slate-800 text-sm mt-0.5">
                                         {{ $formattedArrestDate ?: 'N/A' }}
-                                        {{ $hasValidTime ? "@ {$rawArrestTime}" : '' }}
+                                        {{ $hasValidTime ? "@ {$formattedArrestTime}" : '' }}
                                     </div>
                                 </div>
                             </div>
@@ -394,6 +402,14 @@
                                                 </div>
                                             @endif
 
+                                            @php
+                                                $isLabAnalysisCase = isset($case) && (
+                                                    str_contains(strtolower((string) ($case->unit_name ?? '')), 'lab')
+                                                    || (is_object($case) && method_exists($case, 'isDrugCase') && $case->isDrugCase())
+                                                );
+                                            @endphp
+
+                                            @if ($isLabAnalysisCase)
                                             {{-- 1. Source/Requesting Unit --}}
                                             @php
                                                 $aSourceReqUnit = $aEx['source_requesting_unit'] ?? ($aEx['requesting_unit'] ?? ($aEx['source_unit'] ?? ($aEx['source_of_exhibits'] ?? ($aEx['source'] ?? ($case->source_requesting_unit ?? ($case->requesting_unit ?? ($case->unit_name ?? null)))))));
@@ -482,6 +498,7 @@
                                                     {{ !empty($aInvOfficer) ? $aInvOfficer : 'N/A' }}
                                                 </div>
                                             </div>
+                                            @endif
 
                                             {{-- 3. Reason for Seizure --}}
                                             @php
